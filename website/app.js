@@ -7888,26 +7888,18 @@
   /* ================= DSE coverage line: kecamatan and desa covered by each DSE, shown under the DSE name in every table (lowercase) ================= */
   var _dseCov = null;
   function dseCoverMap() {
-    var T = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null;
-    if (!T) return null;
-    if (_dseCov && _dseCov.src === T) return _dseCov.map;
-    var by = {};
-    (T.outlets || []).forEach(function (o) {
-      var n = String(o.dse_name == null ? '' : o.dse_name).replace(/\.0$/, '').trim().toUpperCase();
-      if (!n || n === '0' || n.indexOf('UNASSIGNED') === 0) return;
-      var e = by[n] || (by[n] = { k: {}, d: {} });
-      var k = String(o.kecamatan || '').trim().toLowerCase(), d = String(o.desa || '').trim().toLowerCase();
-      if (k && k !== 'nan') e.k[k] = (e.k[k] || 0) + 1;
-      if (d && d !== 'nan') e.d[d] = (e.d[d] || 0) + 1;
-    });
+    // Coverage is built offline from the lat / long of each DSE's outlets (scripts/build_dse_coverage.py -> window.DSE_COVERAGE)
+    var C = (typeof window !== 'undefined' && window.DSE_COVERAGE) ? window.DSE_COVERAGE : null;
+    if (!C) return null;
+    if (_dseCov && _dseCov.src === C) return _dseCov.map;
     var map = {};
-    Object.keys(by).forEach(function (n) {
-      var top = function (c, lim) { var all = Object.keys(c).sort(function (a, b) { return c[b] - c[a] || (a < b ? -1 : 1); }); return { show: all.slice(0, lim), more: Math.max(0, all.length - lim), all: all }; };
-      var K = top(by[n].k, 4), D = top(by[n].d, 6);
-      var line = 'kec: ' + (K.show.join(', ') || '-') + (K.more ? ' +' + K.more : '') + ' · desa: ' + (D.show.join(', ') || '-') + (D.more ? ' +' + D.more : '');
-      map[n] = { line: line, title: 'kecamatan: ' + K.all.join(', ') + ' | desa: ' + D.all.join(', ') };
+    Object.keys(C.dses || {}).forEach(function (n) {
+      var e = C.dses[n], K = e.k.map(function (x) { return x[0]; }), D = e.d.map(function (x) { return x[0]; });
+      var kk = K.slice(0, 4), dd = D.slice(0, 6);
+      map[n] = { line: 'kec: ' + (kk.join(', ') || '-') + (K.length > 4 ? ' +' + (K.length - 4) : '') + ' · desa: ' + (dd.join(', ') || '-') + (D.length > 6 ? ' +' + (D.length - 6) : ''),
+        title: 'berdasarkan lat/long ' + e.nc + ' dari ' + e.n + ' outlet yang dia cover | kecamatan: ' + K.join(', ') + ' | desa: ' + D.join(', ') };
     });
-    _dseCov = { src: T, map: map };
+    _dseCov = { src: C, map: map };
     return map;
   }
   function dseCoverEnhance(root) {
