@@ -194,13 +194,17 @@ def main():
         print('no changes since the last export')
     size = sum(os.path.getsize(os.path.join(b, n)) for b, _, ns in os.walk(OUT) if '.git' not in b for n in ns)
     big = sorted(((os.path.getsize(os.path.join(b, n)), os.path.relpath(os.path.join(b, n), OUT)) for b, _, ns in os.walk(OUT) if '.git' not in b for n in ns), reverse=True)[:3]
-    print(f'OK: {copied} files copied, {masked_files} files had personal data masked, {size/1e6:.0f} MB, fresh git repo in {OUT}')
+    state = 'new commit created' if (changed or not keep_repo) else 'no changes since the last export'
+    print(f'OK: {copied} files exported, {masked_files} with personal data masked, {size/1e6:.0f} MB; {state}')
     print('largest files:', ', '.join(f'{r} ({s/1e6:.1f} MB)' for s, r in big), '(GitHub blocks files over 100 MB)')
-    print('\nFirst publication only (manual, from dist-public/, never from the project root):')
-    print('  1. create an EMPTY public repository on GitHub under the shatya-fram account (no README)')
-    print('  2. git remote add origin https://github.com/shatya-fram/<repository-name>.git')
-    print('  3. git push -u origin main   (sign in with your own account or a personal access token; GitHub no longer accepts account passwords for git)')
-    print('  4. repository Settings > Pages > Source: GitHub Actions')
+    if not keep_repo:
+        print('\nFirst publication (manual, from dist-public/, never from the project root):')
+        print('  gh repo create shatya-fram/<repository-name> --public --source=. --remote=origin --push')
+        print('  gh api -X POST repos/shatya-fram/<repository-name>/pages -f build_type=workflow')
+    elif changed:
+        print('\nTo publish:  git -C dist-public push origin main')
+    else:
+        print('Nothing to publish.')
 
 
 if __name__ == '__main__':
