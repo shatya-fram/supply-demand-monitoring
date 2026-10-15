@@ -7,3 +7,6 @@ __pycache__/
 
 # Offline HTML bundles (32 MB each, rebuilt with scripts/build_offline_html.py)
 dist/
+
+# Sanitized public export (scripts/prepare_public_release.py)
+dist-public/

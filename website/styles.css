@@ -677,3 +677,13 @@ body { font-size: 16px; }
 
 .opd-lg-t { display: flex; justify-content: space-between; width: 100%; border: 0; background: transparent; cursor: pointer; padding: 0; color: #111; }
 .opd-legend.opd-collapsed .opd-lg-body { display: none; } .opd-legend.opd-collapsed { max-width: 190px; }
+
+/* Temporarily disabled menu items: visible but not clickable */
+.nav button.nav-off, .nav button:disabled { opacity: 0.38; cursor: not-allowed; }
+.nav button.nav-off:hover, .nav button:disabled:hover { background: none; }
+.nav-section-title.nav-off { opacity: 0.38; }
+
+/* Green tab boxes in Ringkasan Performance */
+.sub-nav button.rk-green { background: #dcfce7; border-color: #166534; color: #14532d; }
+.sub-nav button.rk-green:hover { background: #bbf7d0; }
+.sub-nav button.rk-green.active { background: #166534; color: #fff; }

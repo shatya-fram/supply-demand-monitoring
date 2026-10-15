@@ -212,7 +212,7 @@
 
   /* ---------- state and aggregation ---------- */
   var state = {
-    view: 'brief',
+    view: 'mb_ringkasan',
     branch: '',
     hoa: '',
     kec: '',
@@ -7253,13 +7253,14 @@
     if (doc === 'pjp') return prDocBar(doc) + prPjp(B);
     return prDocBar(doc) + viewPrintOpp();
   }
+  var RK_GREEN = ['dse', 'pjp', 'jual', 'uar', 'endbal', 'grossadd', 'print'];   // tabs shown with a green box (owner, 15 Oct 2026)
   var RK_TABS = [['dse', '👷 DSE Productivity'], ['pjp', '🚶 Ringkasan PJP'], ['jual', '📦 Penjualan Outlet'], ['uar', '👥 UAR'], ['endbal', '🏦 ENDBAL Saldo'], ['demand', '🛒 Demand Customer'], ['opp', '🎯 Opportunity'], ['program', '🏅 Program'], ['grossadd', '🆕 Gross Add'], ['print', '🖨️ Print Instructions']];
   function viewMbRingkasan() {
     var vf = mbVisitsFeed(), sf = sellinFeed();
     var tab = state.rkTab || 'dse';
     if (tab === 'peta') { tab = state.rkTab = 'opp'; state.opdSec = 'peta'; }   // the Heat Map Teritori now lives inside Opportunity
     var nav = '<div class="sub-nav" role="tablist">' + RK_TABS.map(function (t) {
-      return '<button type="button" role="tab" class="sub-nav-btn' + (tab === t[0] ? ' active' : '') + '" data-rk-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + '</button>';
+      return '<button type="button" role="tab" class="sub-nav-btn' + (RK_GREEN.indexOf(t[0]) >= 0 ? ' rk-green' : '') + (tab === t[0] ? ' active' : '') + '" data-rk-tab="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + '</button>';
     }).join('') + '</div>';
     if (tab === 'dse') return nav + viewDseProductivity();
     if (tab === 'uar') return nav + viewUar();
@@ -7995,6 +7996,7 @@
     var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-pj-mxbrand], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-tsort')) { tsHandle(t); return; }
+    if (t.disabled || t.getAttribute('aria-disabled') === 'true') return;   // temporarily disabled menu items
     if (t.hasAttribute('data-view')) { state.view = t.getAttribute('data-view'); state.sel = null; }
     else if (t.hasAttribute('data-period')) { state.period = t.getAttribute('data-period'); }
     else if (t.hasAttribute('data-svd')) { state.svd = t.getAttribute('data-svd'); }
