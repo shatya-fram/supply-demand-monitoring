@@ -203,6 +203,8 @@ state.dkSortCol = 'final'; state.dkSortDir = 'desc';
 for (const gb of ['none', 'mc']) { state.dkGroupBy = gb; state.dkFilters = [{ k: 'osaAmt', op: 'ge', a: 1e6 }, { k: 'sp', op: 'bt', a: 10, b: 5000 }, { k: 'ec', op: 'le', a: 0.9 }, { k: 'name', op: 'ct', s: 'a' }]; state.dkSearch = 'mc'; check('dse-productivity/filters/' + gb, VIEWS.mb_ringkasan); }
 state.dkFilters = [{ k: 'final', op: 'ge', a: 1e12 }]; check('dse-productivity/filters/empty', VIEWS.mb_ringkasan);
 state.dkFilters = []; state.dkSearch = ''; state.dkAll = null; state.dkTog = {}; state.dkGroupBy = 'area_mc';
+for (const basis of ['outlet', 'site']) for (const tb of ['ringkasan', 'dse', 'outlet', 'harian', 'slab', 'roaming']) for (const br of ['all', 'IM3', '3ID']) { state.view = 'mb_ringkasan'; state.rkTab = 'grossadd'; state.gaBasis = basis; state.gaTab = tb; state.gaBrand = br; check('ga2/' + basis + '/' + tb + '/' + br, VIEWS.mb_ringkasan); }
+{ const mc0 = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0]; state.kec = mc0; state.gaBasis = 'site'; state.gaTab = 'ringkasan'; state.gaBrand = 'all'; check('ga2/site/mc', VIEWS.mb_ringkasan); state.gaTab = 'slab'; check('ga2/site/slab/mc', VIEWS.mb_ringkasan); state.kec = ''; state.gaBasis = 'outlet'; state.gaTab = 'ringkasan'; }
 for (const eb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) { state.view = 'mb_ringkasan'; state.rkTab = 'endbal'; state.ebTab = eb; check('mb_ringkasan/endbal/' + eb, VIEWS.mb_ringkasan); }
 state.ebTab = 'ringkasan'; state.rkTab = 'dse';
 { const kd = (global.DSE_KPI_FEED && global.DSE_KPI_FEED.dses.find(r => r.n && r.n !== '0')); if (kd) { state.dse = String(kd.n).toUpperCase(); state.branch = kd.br; state.hoa = kd.hoa; state.kec = kd.mc;

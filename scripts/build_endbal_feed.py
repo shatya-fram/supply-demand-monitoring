@@ -52,6 +52,15 @@ def read_rows():
                 if len(r) == len(hdr):
                     rows.append(dict(zip(hdr, r))); n += 1
         files.append({'file': os.path.relpath(p, ROOT), 'rows': n})
+    # Every export is a full snapshot of one day: summing several days would double every balance, so only the latest snapshot is used.
+    latest = max((r['Date'] for r in rows), default=None)
+    if latest:
+        skipped = sorted({r['Date'] for r in rows if r['Date'] != latest})
+        rows = [r for r in rows if r['Date'] == latest]
+        for f in files:
+            f['snapshot'] = latest
+        if skipped:
+            print(f"  ENDBAL: using snapshot {latest} only; older snapshot(s) ignored: {', '.join(skipped)}")
     return rows, files
 
 

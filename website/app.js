@@ -4683,7 +4683,10 @@
     if (state.poAdhoc === false && o.tier === 'A') return false;
     return true;
   }
-  function poOutlets(F) { return (F.outlets || []).filter(function (o) { return poInScope(o, F); }); }
+  /* SAL (Saldo Mobo, MOBO_SALMO) is a separate category outside the total demand: outlets that only have SALMO stay out of the demand tables */
+  function poHasDemand(o) { return !!(o.c.RLD || o.c.VCI || o.c.CVM || o.c.PKT || o.c.SPI); }
+  function poOutlets(F) { return (F.outlets || []).filter(function (o) { return poInScope(o, F) && poHasDemand(o); }); }
+  function poSalOutlets(F) { return (F.outlets || []).filter(function (o) { return o.c.SAL && poInScope(o, F); }); }
   function poVal(o, cat) {
     if (cat === 'all') return PO_VALUE_CATS.reduce(function (s, c) { return s + (o.c[c] ? o.c[c][1] : 0); }, 0);
     var x = o.c[cat]; if (!x) return 0; return cat === 'SPI' ? x[0] : x[1];
@@ -4809,6 +4812,13 @@
     var dseRow = function (label, a, isVal, share, code) { return '<tr><td class="cur"><b>' + label + '</b></td><td class="num cur"><b>' + (isVal ? pjRp(a.v) : '—') + '</b></td><td class="num">' + fmtCount(a.q) + '</td><td class="num">' + fmtCount(a.u) + '</td><td class="num">' + (share == null ? '·' : share.toFixed(1) + '%') + '</td><td class="num">' + (isVal ? pjRp(a.v / n) : fmtCount(Math.round(a.q / n)) + ' pcs') + '</td><td class="num">' + (isVal ? pjRp(a.v / n * mdays) : fmtCount(Math.round(a.q / n * mdays)) + ' pcs') + '</td><td class="num">' + (a.u ? (isVal ? pjRp(a.v / a.u) : (a.q / a.u).toFixed(1) + ' pcs') : '—') + '</td>' + ldCells(code) + '</tr>'; };
     var trs = PO_CATS.map(function (c) { var a = A[c[0]]; return dseRow(c[0] === 'SPI' ? 'SP Injection <span class="note">(di luar total demand)</span>' : c[1], { v: a.v || 0, q: a.q, u: a.u }, c[0] !== 'SPI' || a.v > 0, c[0] !== 'SPI' && A.tot.v ? a.v / A.tot.v * 100 : null, c[0]); }).join('') +
       '<tr style="font-weight:800; background:var(--ij-wash, #f6f4f1);"><td class="cur">Total demand (Reload + Voucher + CVM + Paket Data)</td><td class="num">' + pjRp(A.tot.v) + '</td><td class="num">' + fmtCount(A.RLD.q + A.VCI.q + A.CVM.q + A.PKT.q) + '</td><td class="num">' + fmtCount(A.tot.u) + '</td><td class="num">100%</td><td class="num">' + pjRp(A.tot.v / n) + '</td><td class="num">' + pjRp(A.tot.v / n * mdays) + '</td><td class="num">' + (A.tot.u ? pjRp(A.tot.v / A.tot.u) : '—') + '</td>' + ldCells('tot') + '</tr>';
+    var SL = poSalOutlets(F);
+    if (SL.length) {
+      var sTot = 0, sU = 0, sD = 0, sP = 0;
+      SL.forEach(function (o) { var x = o.c.SAL; sTot += x[1]; if (x[1] > 0) sU++; (x[4] || []).forEach(function (e) { if (LD.W.day && e[0] === LD.W.day) sD += e[1]; if (LD.W.prevDay && e[0] === LD.W.prevDay) sP += e[1]; }); });
+      trs += '<tr style="border-top:2px solid var(--ij-ink);"><td class="cur"><b>Saldo Mobo (SALMO)</b> <span class="note">(saldo ditransaksikan outlet ke pelanggan, di luar total demand · hanya Oktober)</span></td><td class="num cur"><b>' + pjRp(sTot) + '</b></td><td class="num">—</td><td class="num">' + fmtCount(sU) + '</td><td class="num">·</td><td class="num">' + pjRp(sTot / n) + '</td><td class="num">' + pjRp(sTot / n * mdays) + '</td><td class="num">' + (sU ? pjRp(sTot / sU) : '—') + '</td>' +
+        '<td class="num cur" style="border-left:2px solid var(--ij-ink);"><b>' + (sD ? pjRp(sD) : '·') + '</b></td><td class="num">' + (sD && sP ? pjGrowth(sD, sP) : '·') + '</td></tr>';
+    }
     var GS = poGaScope();
     if (GS) {
       var gD = gaDaily(GS.list, GS.brand), gc = GS.G.cut, gl = null, gp = null, dd0;
@@ -4819,7 +4829,7 @@
     }
     var sc = card('Scorecard demand · MTD 1–' + n + ' Okt 2026 · ' + esc(scopeText()) + (state.poDse ? ' · DSE ' + esc(state.poDse) : ''),
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Komoditas') + th('Nilai MTD', 1) + th('Hits (unit)', 1) + th('UAR (outlet aktif)', 1) + th('% nilai', 1) + th('Rata-rata / hari', 1) + th('Run-rate Okt', 1) + th('Rata-rata / UAR', 1) + th('Hari kerja terakhir · ' + LD.W.label, 1) + th('vs ' + LD.W.prevShort, 1) + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
-      '<p class="note">Baris Gross Add dari Daily_RGUGA_OUTLET (cut ' + (GS ? GS.G.cut : '—') + ' Okt, MTD vs LMTD September ada di menu Gross Add); UAR pada baris itu = SSO. Sumber DAILY_DATA_MOBO (sell-out outlet ke konsumen). Hanya MTD: file tidak punya sheet bulan lalu, sehingga tidak ada growth. UAR = outlet dengan nilai > 0. SP Injection sudah dipindahkan ke Penjualan ke Outlet (Sell-In) dan tidak ditampilkan di sini. Paket Data = sheet MTD_RECARGE (penjualan paket data Freedom Internet, Happy 3ID dan sejenisnya), bukan isi ulang pulsa. Run-rate = rata-rata harian × ' + mdays + ' hari. Hari kerja terakhir = hari terakhir di file selain Minggu (' + LD.W.label + '), dibandingkan dengan hari kerja sebelumnya (' + LD.W.prevLabel + ').</p>');
+      '<p class="note">Baris Gross Add dari Daily_RGUGA_OUTLET (cut ' + (GS ? GS.G.cut : '—') + ' Okt, MTD vs LMTD September ada di menu Gross Add); UAR pada baris itu = SSO. Sumber DAILY_DATA_MOBO (sell-out outlet ke konsumen). Hanya MTD: file tidak punya sheet bulan lalu, sehingga tidak ada growth. Baris Saldo Mobo (SALMO) dari DAILY_DATA_MOBO_SALMO: saldo yang ditransaksikan outlet ke pelanggan; belum dikonfirmasi apakah sudah mencakup Reload / Voucher / Paket Data, sehingga tidak dijumlahkan ke total dan hari terakhirnya masih parsial. UAR = outlet dengan nilai > 0. SP Injection sudah dipindahkan ke Penjualan ke Outlet (Sell-In) dan tidak ditampilkan di sini. Paket Data = sheet MTD_RECARGE (penjualan paket data Freedom Internet, Happy 3ID dan sejenisnya), bukan isi ulang pulsa. Run-rate = rata-rata harian × ' + mdays + ' hari. Hari kerja terakhir = hari terakhir di file selain Minggu (' + LD.W.label + '), dibandingkan dengan hari kerja sebelumnya (' + LD.W.prevLabel + ').</p>');
     var sd = poSupplyDaily(F, rows), dd = days.map(function () { return 0; });
     rows.forEach(function (o) { poDaily(o, 'all', n).forEach(function (v, i) { dd[i] += v; }); });
     var catD = {}; PO_VALUE_CATS.forEach(function (c) { catD[c] = days.map(function () { return 0; }); rows.forEach(function (o) { poDaily(o, c, n).forEach(function (v, i) { catD[c][i] += v; }); }); });
@@ -5652,38 +5662,52 @@
   }
   function gaBar(tab) {
     var site = gaBasis() === 'site';
-    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Lokasi aktivasi (site) · kinerja HoA / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
-      (site ? '' : sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all') +
-      sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet master']], state.gaCover || 'all')) + '</div>';
+    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Site NBS (lokasi) · kinerja HoA / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
+      sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all') +
+      sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet master']], state.gaCover || 'all') + '</div>';
   }
   function gaTabNav() {
-    return '<div class="sub-nav" role="tablist">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>' + gaBar(state.gaTab || 'ringkasan');
+    return gaBar(state.gaTab || 'ringkasan') + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
-  function gaCards(A, brand) {
-    var G = gaPrep(), cut = G.cut, g = gaGrow(A.q, A.p), gs = gaGrow(A.u, A.up), per = A.u ? A.q / A.u : 0, perp = A.up ? A.p / A.up : 0, rr = A.q / cut * 31;
-    var co = gaScoped() ? null : gaCover(brand, 'Oct'), cs = gaScoped() ? null : gaCover(brand, 'Sep');
-    var bo = gaCtl('bio', 'Oct', brand), bs = gaCtl('bio', 'Sep', brand), bioG = null, bq1 = 0, bq0 = 0, bdn = 0;
-    if (bo && bs) { Object.keys(bo).forEach(function (d) { bq1 += bo[d]; bq0 += bs[d] || 0; bdn++; }); bioG = bq0 ? (bq1 / bq0 - 1) * 100 : null; }
-    var bioTxt = bioG == null ? '' : ' · GA BIOMETRIC resmi (region) 1–' + bdn + ' Okt vs Sep: ' + (bioG >= 0 ? '+' : '') + bioG.toFixed(1) + '%';
-    var cov = co ? (co.r * 100).toFixed(0) + '% Okt 1–' + co.days : '—';
-    var covNote = co ? 'GA outlet ÷ GA BIOMETRIC (region): Okt 1–' + co.days + ' ' + (co.r * 100).toFixed(1) + '%' + (cs ? ' · Sep ' + (cs.r * 100).toFixed(1) + '%' : '') + (cs && cs.r < 0.9 ? ' · September kurang terpetakan ke outlet, growth bulan lalu tidak apple-to-apple' : '') : 'kontrol hanya berlaku di level region tanpa filter teritori, segmen dan cakupan';
+  function gaSg(n) { return (n >= 0 ? '+' : '−') + fmtCount(Math.abs(n)); }
+  function gaGapTd(n, cls) { return '<td class="num ' + (cls || '') + '"><b style="color:' + (n >= 0 ? '#166534' : '#991b1b') + ';">' + gaSg(n) + '</b></td>'; }
+  /* run-rate harian: MTD, LMTD (sama jumlah hari), Last FM (30 hari) dan proyeksi akhir Okt (31 hari) */
+  function gaRate(a) { var cut = gaPrep().cut; return { m: a.q / cut, l: a.p / cut, f: a.f / 30, proj: a.q / cut * 31, w: cut > 7 ? a.w2 / (cut - 7) : a.q / cut }; }
+  function gaCards(A, brand, extra) {
+    var G = gaPrep(), cut = G.cut, g = gaGrow(A.q, A.p), gs = gaGrow(A.u, A.up), per = A.u ? A.q / A.u : 0, perp = A.up ? A.p / A.up : 0, R = gaRate(A);
+    var gr = R.l ? (R.m / R.l - 1) * 100 : null, projG = A.f ? (R.proj / A.f - 1) * 100 : null, pct = function (v) { return v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; };
     return '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Gross add MTD (1–' + cut + ' Okt)', fmtCount(A.q) + ' pcs', (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%') + ' vs LMTD ' + fmtCount(A.p) + ' pcs (1–' + cut + ' Sep)', g != null && g >= 0 ? 'up' : 'down', 'RGUGA per outlet; September penuh ' + fmtCount(A.f) + ' pcs' + bioTxt) +
-      kpi('SSO MTD', fmtCount(A.u), (gs == null ? '—' : (gs >= 0 ? '+' : '') + gs.toFixed(1) + '%') + ' vs LMTD ' + fmtCount(A.up), gs != null && gs >= 0 ? 'up' : 'down', pctOf(A.um, A.n) + '% dari ' + fmtCount(A.n) + ' outlet master · SSO = outlet dengan ≥ 1 GA') +
-      kpi('SSO baru · hilang', fmtCount(A.nw) + ' · ' + fmtCount(A.lp), 'baru: GA Okt tanpa GA di LMTD · hilang: kebalikannya', A.nw >= A.lp ? 'up' : 'down', 'selisih bersih ' + (A.nw - A.lp >= 0 ? '+' : '') + fmtCount(A.nw - A.lp) + ' outlet') +
-      kpi('GA per SSO', per ? per.toFixed(1) + ' pcs' : '—', perp ? perp.toFixed(1) + ' pcs di LMTD' : '—', per >= perp ? 'up' : 'down', 'GA MTD ÷ SSO MTD') +
-      kpi('Rata-rata harian · run-rate', fmtCount(Math.round(A.q / cut)) + ' pcs/hari', 'run-rate akhir Okt ' + fmtCount(Math.round(rr)) + ' pcs vs Sep ' + fmtCount(A.f) + ' pcs', rr >= A.f ? 'up' : 'down', 'SSO harian rata-rata ' + fmtCount(Math.round(A.ad / cut))) +
-      kpi('Cakupan GA BIOMETRIC', cov, 'kontrol resmi level region', co && co.r >= 0.95 && co.r <= 1.05 ? 'up' : 'down', covNote) +
-      kpi('GA di luar master outlet', fmtCount(A.qg) + ' pcs', pctOf(A.qg, A.q) + '% dari GA MTD · ' + fmtCount(A.ng) + ' outlet', 'down', 'outlet ada di RGUGA tetapi tidak di master teritori; tetap ikut total MC / Area') + '</div>';
+      kpi('GA MTD (1–' + cut + ' Okt)', fmtCount(A.q) + ' pcs', pct(g) + ' vs LMTD ' + fmtCount(A.p) + ' pcs (1–' + cut + ' Sep)', g != null && g >= 0 ? 'up' : 'down', 'GA di luar master outlet ' + fmtCount(A.qg) + ' pcs (' + pctOf(A.qg, A.q) + '%) tetap ikut total') +
+      kpi('GA Last Full Month (Sep 1–30)', fmtCount(A.f) + ' pcs', 'MTD = ' + pctOf(A.q, A.f) + '% dari Sep penuh · waktu berjalan ' + (cut / 31 * 100).toFixed(1) + '% (hari ' + cut + '/31)', A.q / (A.f || 1) >= cut / 31 ? 'up' : 'down', 'September penuh dari Daily_RGUGA per outlet') +
+      kpi('Gap MTD vs Last FM', gaSg(A.q - A.f) + ' pcs', 'LMTD vs Sep penuh ' + gaSg(A.p - A.f) + ' pcs', A.q >= A.f ? 'up' : 'down', 'GA yang masih harus dikejar untuk menyamai September: ' + fmtCount(Math.max(0, A.f - A.q)) + ' pcs') +
+      kpi('Run-rate harian MTD vs LMTD', fmtCount(Math.round(R.m)) + ' pcs/hari', pct(gr) + ' vs LMTD ' + fmtCount(Math.round(R.l)) + '/hari', gr != null && gr >= 0 ? 'up' : 'down', 'Sep penuh ' + fmtCount(Math.round(R.f)) + '/hari · hari ke-8–' + cut + ': ' + fmtCount(Math.round(R.w)) + '/hari') + '</div>' +
+      '<div class="kpis" style="margin-top:10px;">' +
+      kpi('Proyeksi akhir Oktober', fmtCount(Math.round(R.proj)) + ' pcs', pct(projG) + ' vs Sep penuh ' + fmtCount(A.f), R.proj >= A.f ? 'up' : 'down', 'run-rate MTD × 31 hari · gap ' + gaSg(Math.round(R.proj - A.f)) + ' pcs') +
+      kpi('SSO MTD', fmtCount(A.u), pct(gs) + ' vs LMTD ' + fmtCount(A.up), gs != null && gs >= 0 ? 'up' : 'down', pctOf(A.um, A.n) + '% dari ' + fmtCount(A.n) + ' outlet master · SSO = outlet dengan ≥ 1 GA') +
+      kpi('SSO Last Full Month (Sep)', fmtCount(A.uf), 'gap MTD vs Sep penuh ' + gaSg(A.u - A.uf) + ' outlet', A.u >= A.uf ? 'up' : 'down', 'SSO MTD = ' + pctOf(A.u, A.uf) + '% dari SSO September penuh') +
+      kpi('GA per SSO · SSO baru / hilang', per ? per.toFixed(1) + ' pcs' : '—', (perp ? perp.toFixed(1) + ' pcs di LMTD · ' : '') + fmtCount(A.nw) + ' baru / ' + fmtCount(A.lp) + ' hilang', per >= perp ? 'up' : 'down', 'baru: GA Okt tanpa GA di LMTD; hilang: kebalikannya') + (extra || '') + '</div>';
   }
   function gaHeadCells() {
-    return th('Outlet master', 1) + th('GA MTD (pcs)', 1) + th('GA LMTD (pcs)', 1) + th('Growth GA', 1) + th('GA Sep penuh', 1) + th('SSO MTD (semua outlet)', 1) + th('% SSO', 1) + th('SSO LMTD', 1) + th('Δ SSO', 1) + th('Growth SSO', 1) + th('SSO PJP', 1) + th('% SSO PJP', 1) + th('GA / SSO', 1) + th('SSO baru', 1) + th('SSO hilang', 1) + th('GA di luar master', 1);
+    return th('Outlet master', 1) + th('GA MTD (pcs)', 1) + th('GA LMTD (pcs)', 1) + th('Growth GA', 1) + th('GA Last FM (Sep)', 1) + th('Gap MTD vs FM', 1) + th('Run-rate / hari MTD', 1) + th('Run-rate / hari LMTD', 1) + th('Δ run-rate', 1) + th('Proyeksi Okt', 1) +
+      th('SSO MTD (semua outlet)', 1) + th('% SSO', 1) + th('SSO LMTD', 1) + th('Growth SSO', 1) + th('SSO Last FM', 1) + th('Gap SSO vs FM', 1) + th('SSO PJP', 1) + th('% SSO PJP', 1) + th('GA / SSO', 1) + th('SSO baru', 1) + th('SSO hilang', 1) + th('GA di luar master', 1);
   }
+  var GA_NCOLS = 22;
   function gaCells(a) {
-    var g = gaGrow(a.q, a.p), gs = gaGrow(a.u, a.up);
-    return '<td class="num">' + fmtCount(a.n) + '</td><td class="num cur"><b>' + fmtCount(a.q) + '</b></td><td class="num">' + fmtCount(a.p) + '</td><td class="num">' + uarGTag(g) + '</td><td class="num">' + fmtCount(a.f) + '</td>' +
-      '<td class="num cur"><b>' + fmtCount(a.u) + '</b></td><td class="num">' + (a.n ? pctOf(a.um, a.n) + '%' : '·') + '</td><td class="num">' + fmtCount(a.up) + '</td><td class="num">' + (a.u - a.up >= 0 ? '+' : '') + fmtCount(a.u - a.up) + '</td><td class="num">' + uarGTag(gs) + '</td><td class="num">' + fmtCount(a.upj) + '</td><td class="num">' + (a.npj ? pctOf(a.upj, a.npj) + '%' : '·') + '</td>' +
+    var g = gaGrow(a.q, a.p), gs = gaGrow(a.u, a.up), R = gaRate(a), gr = R.l ? (R.m / R.l - 1) * 100 : null;
+    return '<td class="num">' + fmtCount(a.n) + '</td><td class="num cur"><b>' + fmtCount(a.q) + '</b></td><td class="num">' + fmtCount(a.p) + '</td><td class="num">' + uarGTag(g) + '</td><td class="num">' + fmtCount(a.f) + '</td>' + gaGapTd(a.q - a.f) +
+      '<td class="num cur"><b>' + fmtCount(Math.round(R.m)) + '</b></td><td class="num">' + fmtCount(Math.round(R.l)) + '</td><td class="num">' + uarGTag(gr) + '</td><td class="num">' + fmtCount(Math.round(R.proj)) + '</td>' +
+      '<td class="num cur"><b>' + fmtCount(a.u) + '</b></td><td class="num">' + (a.n ? pctOf(a.um, a.n) + '%' : '·') + '</td><td class="num">' + fmtCount(a.up) + '</td><td class="num">' + uarGTag(gs) + '</td><td class="num">' + fmtCount(a.uf) + '</td>' + gaGapTd(a.u - a.uf) +
+      '<td class="num">' + fmtCount(a.upj) + '</td><td class="num">' + (a.npj ? pctOf(a.upj, a.npj) + '%' : '·') + '</td>' +
       '<td class="num">' + (a.u ? (a.q / a.u).toFixed(1) : '—') + '</td><td class="num">' + fmtCount(a.nw) + '</td><td class="num">' + fmtCount(a.lp) + '</td><td class="num">' + (a.qg ? fmtCount(a.qg) : '·') + '</td>';
+  }
+  /* Overall Inner Jakarta (tanpa filter teritori): IM3, 3ID dan IOH, dipakai di bawah scorecard kedua basis */
+  function gaOverall() {
+    var G = gaPrep(), rows = [['IM3', 'IM3'], ['3ID', '3ID'], ['all', 'IOH (IM3 + 3ID)']].map(function (b) {
+      var l = G.list.filter(function (o) { return b[0] === 'all' || o.ids[b[0]]; }), a = gaAgg(l, b[0]), bold = b[0] === 'all';
+      return '<tr' + (bold ? ' style="background:var(--ij-wash); font-weight:800;"' : '') + '><td class="cur"><b>' + b[1] + '</b></td>' + gaCells(a) + '</tr>';
+    }).join('');
+    return card('Overall Growth Inner Jakarta · GA dan SSO per brand (semua outlet, tanpa filter teritori)', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('Brand') + gaHeadCells() + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="note">MTD = 1–' + G.cut + ' Okt, LMTD = 1–' + G.cut + ' Sep, Last FM = September penuh (30 hari). Gap = MTD − Last FM (negatif = masih di bawah September; hijau = sudah melewati). Run-rate harian = GA ÷ ' + G.cut + ' hari; proyeksi Okt = run-rate MTD × 31. SSO = outlet dengan ≥ 1 GA; Gap SSO = SSO MTD − SSO September penuh. Sumber: Daily_RGUGA_OUTLET per outlet (September terbit ulang 15 Okt 2026).</p>');
   }
   var GA_SRC = [['PJP', 'PJP'], ['NON', 'Non-PJP'], ['KAM', 'KAM (key account)'], ['', 'Belum terklasifikasi']];
   // GA and SSO by source of outlet (FINAL OUTLET in RGUGA): PJP = outlets on the beat plan, NON = outlets outside it, KAM = key accounts
@@ -5710,8 +5734,8 @@
     var T = uarTerrRows(C, rowFn);
     var head = '<tr>' + th(T.mode === 'dse' ? 'DSE' : 'Region / Area / MC') + th('DSO / ket.') + gaHeadCells() + '</tr>';
     var an = G.ctl && G.ctl.bio ? '' : '';
-    return gaCards(A, brand) + gaSourceCard(brand) + card('SSO dan gross add per teritori · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
-      '<p class="note">SSO (SIM Selling Outlet) = outlet dengan ≥ 1 gross add pada periode; % SSO = SSO outlet master ÷ outlet master. MTD = 1–' + G.cut + ' Okt, LMTD = 1–' + G.cut + ' Sep (September penuh 30 hari). Sumber: Daily_RGUGA_OUTLET (GA per outlet per hari); kontrol resmi GA BIOMETRIC ada di tab Harian. ' +
+    return gaCards(A, brand) + gaOverall() + gaSourceCard(brand) + card('SSO dan gross add per teritori · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
+      '<p class="note">SSO (SIM Selling Outlet) = outlet dengan ≥ 1 gross add pada periode; % SSO = SSO outlet master ÷ outlet master. MTD = 1–' + G.cut + ' Okt, LMTD = 1–' + G.cut + ' Sep (September penuh 30 hari). Sumber: Daily_RGUGA_OUTLET (GA per outlet per hari); Last FM = September penuh; Gap = MTD − Last FM. ' +
       'Outlet yang tidak ada di master teritori tetap dihitung di MC / Area asal workbook (kolom "GA di luar master"). Brand IOH menjumlahkan GA IM3 + 3ID; SSO IOH menghitung outlet fisik satu kali.</p>');
   }
   function gaDse(list, brand) {
@@ -5721,7 +5745,7 @@
     var dsoOf = {}, hoaOf = {}; Object.keys(G.mi).forEach(function (m) { dsoOf[m] = G.mi[m].dso; if (!hoaOf[G.mi[m].br]) hoaOf[G.mi[m].br] = G.mi[m].hoa; });
     var row = function (x) { return '<tr><td class="cur" style="padding-left:40px;"><b>' + esc(uarDse({ dse: x.dse })) + '</b></td>' + gaCells(x.a) + '</tr>'; };
     var sub = function (it) { return gaCells(gaAgg([].concat.apply([], it.map(function (x) { return x.list; })), brand)); };
-    var body = grpBody('gadse', { items: items, area: function (x) { return x.br; }, mc: function (x) { return x.mc; }, dso: function (m) { return dsoOf[m] || '—'; }, hoa: function (a) { return hoaOf[a] || '—'; }, val: function (x) { return x.a.q; }, span: 1, cols: 17, sub: sub, row: row, unit: 'DSE', cap: 200, search: !!q });
+    var body = grpBody('gadse', { items: items, area: function (x) { return x.br; }, mc: function (x) { return x.mc; }, dso: function (m) { return dsoOf[m] || '—'; }, hoa: function (a) { return hoaOf[a] || '—'; }, val: function (x) { return x.a.q; }, span: 1, cols: GA_NCOLS + 1, sub: sub, row: row, unit: 'DSE', cap: 200, search: !!q });
     var bar = '<div class="map-toolbar" style="margin:10px 0 8px;"><div class="map-toolbar-group"><input type="text" id="gaSearchInput" aria-label="Cari DSE atau MC" placeholder="🔍 Cari DSE, MC..." value="' + esc(state.gaSearch || '') + '" class="map-select" style="min-width:240px;"></div>' + grpBar('gadse') + '</div>';
     return gaCards(gaAgg(list, brand), brand) + card('SSO dan gross add per DSE · ' + esc(scopeText()) + ' (' + fmtCount(items.length) + ' DSE)', bar + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th('Area › MC › DSE') + gaHeadCells() + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); DSE = DSE master outlet (outlet di luar master memakai kode DSE di RGUGA bila dikenali, selain itu "UNASSIGNED"). Satu DSE bisa muncul di lebih dari satu MC bila outlet binaannya tersebar.</p>');
@@ -5802,11 +5826,11 @@
       card('September penuh (30 hari) · referensi', '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Tanggal') + th('GA Sep (pcs)', 1) + th('SSO Sep', 1) + th('GA / SSO', 1) + th('GA BIOMETRIC Sep', 1) + th('Selisih outlet vs BIOMETRIC', 1) + th('#Outlet active GA (KPI)', 1) + '</tr></thead><tbody>' + rowsS + totS + '</tbody></table></div>' +
         '<p class="note">Selisih besar di September (terutama 3ID) berarti GA BIOMETRIC mencatat lebih banyak GA daripada yang bisa dipetakan ke outlet di RGUGA; karena itu pertumbuhan 3ID Okt vs Sep level outlet bukan growth riil.</p>');
   }
-  function gaSlab(list, brand) {
-    var G = gaPrep(), S = GA_SLABS, ncol = S.length, C = { list: list, mi: G.mi };
+  function gaSlab(list, brand, siteMode) {
+    var G = gaPrep(), S = GA_SLABS, ncol = S.length, C = { list: siteMode ? gaSiteItems(list) : list, mi: G.mi };
     function counts(l) { var c = [], p = [], i; for (i = 0; i < ncol; i++) { c.push(0); p.push(0); } l.forEach(function (o) { var s = gaStat(o, brand); c[gaSlabIdx(s.cur)]++; p[gaSlabIdx(s.prev)]++; }); return { c: c, p: p, n: l.length }; }
     function rowFn(label, ket, l, style) {
-      var x = counts(l), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
+      var x = counts(siteMode ? gaFlat(l) : l), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
       var cells = S.map(function (sl, i) {
         var d = x.c[i] - x.p[i], good = i >= 3 ? d > 0 : (i === 0 ? d < 0 : null), clr = ink ? '#fff' : (d === 0 || good == null ? 'var(--ij-muted)' : (good ? '#166534' : '#991b1b'));
         return '<td class="num" style="' + (i === 0 ? DK_BL : '') + '"><b>' + fmtCount(x.c[i]) + '</b><div style="font-size:12px;">' + pctOf(x.c[i], x.n) + '%</div></td><td class="num" style="color:' + (ink ? '#fff' : 'var(--ij-muted)') + ';">' + fmtCount(x.p[i]) + '<div style="font-size:12px; color:' + clr + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</div></td>';
@@ -5814,14 +5838,14 @@
       return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(x.n) + '</td>' + cells + '</tr>';
     }
     var T = uarTerrRows(C, rowFn), all = counts(list), good = all.c[3] + all.c[4], goodP = all.p[3] + all.p[4];
-    var h1 = '<tr>' + dkStickyTh('Region / Area / MC', 2) + '<th rowspan="2" style="vertical-align:bottom;">DSO / ket.</th><th rowspan="2" class="num" style="vertical-align:bottom;">Outlet</th>' + S.map(function (sl, i) { var c = DK_COL[UAR_SLAB_KIND[i]]; return '<th colspan="2" style="text-align:center; background:' + c[0] + '; color:' + c[1] + ';' + DK_BL + '">' + sl[2] + '</th>'; }).join('') + '</tr>';
+    var h1 = '<tr>' + dkStickyTh(siteMode ? 'Region / Area / MC / Site NBS' : 'Region / Area / MC', 2) + '<th rowspan="2" style="vertical-align:bottom;">DSO / ket.</th><th rowspan="2" class="num" style="vertical-align:bottom;">Outlet</th>' + S.map(function (sl, i) { var c = DK_COL[UAR_SLAB_KIND[i]]; return '<th colspan="2" style="text-align:center; background:' + c[0] + '; color:' + c[1] + ';' + DK_BL + '">' + sl[2] + '</th>'; }).join('') + '</tr>';
     var h2 = '<tr>' + S.map(function () { return '<th class="num" style="' + DK_BL + '">MTD</th><th class="num">LMTD</th>'; }).join('') + '</tr>';
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('Outlet slab atas (' + S[3][2] + ' dan ' + S[4][2] + ' GA)', fmtCount(good), (good - goodP >= 0 ? '+' : '') + fmtCount(good - goodP) + ' vs LMTD', good >= goodP ? 'up' : 'down', fmtCount(goodP) + ' di LMTD') +
       kpi('Outlet tanpa GA (' + S[0][2] + ')', fmtCount(all.c[0]), (all.c[0] - all.p[0] >= 0 ? '+' : '') + fmtCount(all.c[0] - all.p[0]) + ' vs LMTD', all.c[0] <= all.p[0] ? 'up' : 'down', pctOf(all.c[0], all.n) + '% dari outlet di cakupan') +
       kpi('SSO (≥ 1 GA)', fmtCount(all.n - all.c[0]), (all.p[0] - all.c[0] >= 0 ? '+' : '−') + fmtCount(Math.abs(all.p[0] - all.c[0])) + ' vs LMTD', all.c[0] <= all.p[0] ? 'up' : 'down', fmtCount(all.n - all.p[0]) + ' di LMTD') + '</div>';
     return cards + card('Slab SSO · MTD 1–' + G.cut + ' Okt vs LMTD 1–' + G.cut + ' Sep · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + h1 + h2 + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
-      '<p class="note">Tiap slab: jumlah outlet dengan GA per outlet pada MTD (tebal, dengan % outlet) dan LMTD (abu-abu, dengan selisih). Hijau = bergerak ke slab lebih baik, merah = memburuk. Slab: 0 · 1–2 · 3–4 · 5–9 · ≥ 10 GA, selaras dengan tier UAR 3 / 5 / 10 di program UAR Improvement.</p>');
+      '<p class="note">Tiap slab: jumlah outlet dengan GA per outlet pada MTD (tebal, dengan % outlet) dan LMTD (abu-abu, dengan selisih). Hijau = bergerak ke slab lebih baik, merah = memburuk. Slab: 0 · 1–2 · 3–4 · 5–9 · ≥ 10 GA, selaras dengan tier UAR 3 / 5 / 10 di program UAR Improvement.' + (siteMode ? ' Basis site: baris = site NBS, isi = jumlah outlet di site itu per slab; Slab 0 = outlet di site tanpa GA.' : '') + '</p>');
   }
   /* ---- two bases: SELL-IN OUTLET (tagging: which outlet recorded the MSISDN, basis of DSE incentives) and ACTIVATING SITE (location where the GA happened, basis of HoA / Region / DSO) ---- */
   function gaBasis() { return state.gaBasis || 'outlet'; }
@@ -5861,7 +5885,7 @@
   function gaSiteNote(tab) {
     return '<div class="card" style="margin-top:10px; border-left:6px solid var(--ij-accent);"><h2 class="sect">Tab ini memakai basis Outlet sell-in</h2><p class="note">Basis <b>Lokasi aktivasi (site)</b> mengukur kinerja HoA, Region dan DSO dari tempat GA terjadi; lokasi tidak punya DSE maupun outlet, sehingga ' + (tab === 'slab' ? 'slab SSO' : (tab === 'dse' ? 'tabel per DSE' : 'daftar outlet')) + ' dan insentif DSE dihitung dari <b>tagging outlet</b>. <button type="button" class="btn" data-ga-basis="outlet">Pindah ke basis Outlet sell-in</button></p></div>';
   }
-  function gaSite(list, brand) {
+  function gaSiteM2S(list, brand) {
     var G = gaPrep(), rows = gaLocRows(), M = G.src.metadata, L = M.location || {};
     if (!rows) return card('GA per lokasi aktivasi', '<p class="note">Lokasi aktivasi per kecamatan belum tersedia: taruh <code>M2S KECAMATAN - YYYYMM.xlsb</code> di <code>raw/GA/</code> dan jalankan <code>python3 scripts/build_ga_feed.py</code>. Untuk Oktober, per-site belum ada di file apa pun; yang tersedia hanya total region (GA BIOMETRIC).</p>');
     var tagMc = gaTagMc(brand), items = rows.map(function (r) { return { mc: r.mc, dse: r.kec, r: r }; }), kecMode = !!state.kec, cutL = L.tag_cut || 26;
@@ -5879,12 +5903,38 @@
       kpi('GA di lokasi aktivasi · September', fmtCount(tot.loc) + ' pcs', 'SSO lokasi ' + fmtCount(tot.sso) + ' · MTD file M2S (setara GA BIOMETRIC ± 1–26 Sep untuk IM3)', 'up', 'basis lokasi: GA yang terjadi di site / kecamatan teritori ini, siapa pun outletnya') +
       kpi('GA tagging outlet · 1–' + cutL + ' Sep', fmtCount(tot.tag) + ' pcs', 'outlet di teritori ini mencatat GA yang sama jendelanya', 'up', 'basis tagging (dasar insentif DSE)') +
       kpi('Selisih lokasi − tagging', (tot.loc - tot.tag >= 0 ? '+' : '−') + fmtCount(Math.abs(tot.loc - tot.tag)) + ' pcs', tot.tag ? (tot.loc / tot.tag * 100).toFixed(0) + '% lokasi ÷ tagging' : '—', tot.loc >= tot.tag ? 'up' : 'down', brand === '3ID' || brand === 'all' ? '3ID: file lokasi memakai definisi RGUGA_TRADE yang lebih besar dari GA BIOMETRIC; selisih 3ID belum tentu aliran riil' : 'positif = GA aktif di sini tetapi dikreditkan ke outlet lain') +
-      kpi('Oktober (level region)', rf.oct.days ? fmtCount(rf.oct.loc) + ' vs ' + fmtCount(rf.oct.tag) : '—', rf.oct.days ? 'lokasi (BIOMETRIC) vs tagging outlet IJ, 1–' + rf.oct.days + ' Okt' : '', rf.oct.loc >= rf.oct.tag ? 'up' : 'down', 'Oktober per site / MC belum ada di file mana pun; hanya total region') + '</div>';
+'' + '</div>';
     var head = '<tr>' + th(T.mode === 'dse' ? 'Kecamatan' : 'Region / Area / MC') + th('DSO / ket.') + th('GA lokasi Sep (MTD)', 1) + th('SSO lokasi', 1) + th('GA tagging 1–' + cutL + ' Sep', 1) + th('Selisih', 1) + th('Lokasi ÷ tagging', 1) + th('Arah') + th('GA tagging Sep penuh', 1) + '</tr>';
     var dseNote = state.dse ? '<p class="note"><b>Filter DSE tidak berlaku di basis lokasi</b> (lokasi aktivasi tidak punya DSE); tabel memakai teritori Branch / HoA / MC saja.</p>' : '';
     return cards + card('GA per lokasi aktivasi (site) · ' + esc(scopeText()), dseNote + uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
       '<p class="note">Lokasi = kecamatan site tempat GA terjadi (file M2S KECAMATAN, September saja, jumlah GA trad / SSO per kecamatan), dipetakan ke MC dan Area lewat MC dominan outlet di kecamatan itu (121 kecamatan, masing-masing hanya di satu MC). Tagging = GA yang dicatat outlet di MC itu (RGUGA). "Masuk" = GA aktif di lokasi ini lebih banyak daripada yang dicatat outlet lokasi ini (sebagian dikreditkan ke outlet lain); "Keluar" = kebalikannya. Level kecamatan: tagging hanya untuk outlet yang punya kecamatan di workbook (sebagian outlet 3ID September tidak punya). ' +
       (unscoped ? 'Total Inner Jakarta September: GA BIOMETRIC ' + (rf.sep ? fmtCount(rf.sep.loc) : '—') + ' vs tagging outlet IJ ' + (rf.sep ? fmtCount(rf.sep.tag) : '—') + '.' : '') + '</p>');
+  }
+  /* ---- basis Site NBS: GA outlet digulung per site (site NBS tempat outlet berada) → MC → Area; dasar kinerja HoA / DSO ---- */
+  function gaSiteItems(list) {
+    var g = {}, out = [];
+    list.forEach(function (o) {
+      var site = o.t === 'M' && o.site && o.site !== 'PENDING-NBS' ? o.site : (o.t === 'M' ? 'PENDING-NBS' : '(di luar master)'), k = o.mc + '||' + site, x = g[k];
+      if (!x) { x = g[k] = { mc: o.mc, br: o.br, dse: site, site: site, list: [] }; out.push(x); }
+      x.list.push(o);
+    });
+    return out;
+  }
+  function gaFlat(items) { var r = []; items.forEach(function (x) { r = r.concat(x.list); }); return r; }
+  function gaSiteView(list, brand) {
+    var G = gaPrep(), items = gaSiteItems(list), A = gaAgg(list, brand), C = { list: items, mi: G.mi };
+    function siteStat(l) { var act = 0, tot = 0; l.forEach(function (x) { if (x.site === '(di luar master)' || x.site === 'PENDING-NBS') return; tot++; if (gaAgg(x.list, brand).q > 0) act++; }); return { act: act, tot: tot }; }
+    function rowFn(label, ket, l, style) {
+      var a = gaAgg(gaFlat(l), brand), ss = siteStat(l), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + (ss.tot ? fmtCount(ss.act) + ' / ' + fmtCount(ss.tot) : '·') + '</td><td class="num">' + (ss.tot ? fmtCount(ss.tot - ss.act) : '·') + '</td>' + gaCells(a) + '</tr>';
+    }
+    var T = uarTerrRows(C, rowFn), all = siteStat(items), prevAct = 0;
+    items.forEach(function (x) { if (x.site !== '(di luar master)' && x.site !== 'PENDING-NBS' && gaAgg(x.list, brand).p > 0) prevAct++; });
+    var cards = gaCards(A, brand, kpi('Site NBS aktif GA (MTD)', fmtCount(all.act) + ' / ' + fmtCount(all.tot), fmtCount(all.tot - all.act) + ' site tanpa GA MTD · LMTD ' + fmtCount(prevAct) + ' site aktif', all.act >= prevAct ? 'up' : 'down', 'site = site NBS tempat outlet berada (' + (all.tot ? pctOf(all.act, all.tot) : '0') + '% aktif)'));
+    var head = '<tr>' + th(T.mode === 'dse' ? 'Site NBS' : 'Region / Area / MC') + th('DSO / ket.') + th('Site aktif / total', 1) + th('Site tanpa GA', 1) + gaHeadCells() + '</tr>';
+    return cards + gaOverall() + card('GA dan SSO per site NBS · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
+      '<p class="note">Basis site: GA outlet (Daily_RGUGA) dijumlahkan per site NBS tempat outlet berada, lalu naik ke MC, Area, DSO dan HoA. Ini GA yang dicatat outlet di site tersebut, bukan lokasi aktivasi sebenarnya; lokasi aktivasi hanya ada untuk September (file M2S per kecamatan, tab Distribusi &amp; Roaming), Oktober per site belum ada di file mana pun. Outlet di luar master tidak punya site NBS: dikelompokkan "(di luar master)" per MC dan tetap ikut total MC dan Area. Pilih satu MC di header untuk melihat daftar site; Gap = MTD − Last FM.</p>') +
+      '<h3 style="font:800 14px var(--ij-font); text-transform:uppercase; margin:22px 0 0;">Referensi · lokasi aktivasi sebenarnya (M2S per kecamatan, September saja)</h3>' + gaSiteM2S(list, brand);
   }
   function gaRoaming(list, brand) {
     var G = gaPrep(), rows = gaLocRows(), M = G.src.metadata, rf = gaRegionFlow(brand), cutL = (M.location || {}).tag_cut || 26, tagMc = gaTagMc(brand), mi = G.mi;
@@ -5917,9 +5967,8 @@
     var tab = state.gaTab || 'ringkasan', list = gaScopeList(), brand = gaBrand();
     var body;
     if (tab === 'roaming') body = gaRoaming(list, brand);
-    else if (gaBasis() === 'site' && (tab === 'dse' || tab === 'outlet' || tab === 'slab')) body = gaSiteNote(tab);
-    else if (gaBasis() === 'site' && tab === 'ringkasan') body = gaSite(list, brand);
-    else body = tab === 'dse' ? gaDse(list, brand) : (tab === 'outlet' ? gaOutlet(list, brand) : (tab === 'harian' ? gaHarian(list, brand) : (tab === 'slab' ? gaSlab(list, brand) : gaRingkasan(list, brand))));
+    else if (gaBasis() === 'site' && tab === 'ringkasan') body = gaSiteView(list, brand);
+    else body = tab === 'dse' ? gaDse(list, brand) : (tab === 'outlet' ? gaOutlet(list, brand) : (tab === 'harian' ? gaHarian(list, brand) : (tab === 'slab' ? gaSlab(list, brand, gaBasis() === 'site') : gaRingkasan(list, brand))));
     return gaTabNav() + body;
   }
 
@@ -7102,8 +7151,10 @@
     if (B._pr) return B;
     var pj = {}; B.P.outlets.forEach(function (o) { if (o.tier === 'M') pj[o.k] = o; });
     var dd = {}; if (B.D) B.D.outlets.forEach(function (o) { var d = 0; Object.keys(o.c || {}).forEach(function (c) { if (c !== 'SPI' && o.c[c][3] > d) d = o.c[c][3]; }); dd[o.k] = d; });
+    var ds = {}; if (B.D) B.D.outlets.forEach(function (o) { if (o.c && o.c.SAL) ds[o.k] = o.c.SAL[1]; });
     B.rows.forEach(function (r) {
       var c = (pj[r.k] || {}).c || {}, sp = c.SP || [], sa = c.SALMO || [];
+      r.demSal = ds[r.k] || 0;
       r.fmSAL = r.sepSAL; r.lmSAL = sa[3] || 0; r.mtSAL = sa[1] || 0;
       r.fmSP = r.sepSPq; r.lmSP = sp[2] || 0; r.mtSP = sp[0] || 0;
       r.demD = dd[r.k] || 0;
@@ -7137,32 +7188,32 @@
   function prPopulation(B) {
     prEnrich(B);
     var all = B.rows.filter(opdIn).sort(function (a, b) { return (a.br < b.br ? -1 : a.br > b.br ? 1 : 0) || (a.mc < b.mc ? -1 : a.mc > b.mc ? 1 : 0) || (a.dse < b.dse ? -1 : a.dse > b.dse ? 1 : 0) || (a.n < b.n ? -1 : 1); });
-    var list = all.slice(0, PR_POP_MAX), tot = { fmS: 0, lmS: 0, mtS: 0, dem: 0, fmP: 0, lmP: 0, mtP: 0 };
+    var list = all.slice(0, PR_POP_MAX), tot = { fmS: 0, lmS: 0, mtS: 0, dem: 0, demSal: 0, fmP: 0, lmP: 0, mtP: 0 };
     var body = '', mc = null, sub = null;
-    function flush() { if (!sub) return; body += '<tr style="background:#eee; font-weight:800;"><td colspan="5">Subtotal ' + esc(sub.mc) + ' · ' + fmtCount(sub.n) + ' outlet</td><td class="num">' + pjRp(sub.fmS) + '</td><td class="num">' + pjRp(sub.lmS) + '</td><td class="num">' + pjRp(sub.mtS) + '</td><td class="num">' + prGap(sub.fmS - sub.mtS, true) + '</td><td class="num">' + pjRp(sub.dem) + '</td><td class="num">' + fmtCount(sub.fmP) + '</td><td class="num">' + fmtCount(sub.lmP) + '</td><td class="num">' + fmtCount(sub.mtP) + '</td><td class="num">' + prGap(sub.fmP - sub.mtP) + '</td></tr>'; }
+    function flush() { if (!sub) return; body += '<tr style="background:#eee; font-weight:800;"><td colspan="5">Subtotal ' + esc(sub.mc) + ' · ' + fmtCount(sub.n) + ' outlet</td><td class="num">' + pjRp(sub.fmS) + '</td><td class="num">' + pjRp(sub.lmS) + '</td><td class="num">' + pjRp(sub.mtS) + '</td><td class="num">' + prGap(sub.fmS - sub.mtS, true) + '</td><td class="num">' + pjRp(sub.dem) + '</td><td class="num">' + pjRp(sub.demSal) + '</td><td class="num">' + fmtCount(sub.fmP) + '</td><td class="num">' + fmtCount(sub.lmP) + '</td><td class="num">' + fmtCount(sub.mtP) + '</td><td class="num">' + prGap(sub.fmP - sub.mtP) + '</td></tr>'; }
     list.forEach(function (r) {
-      if (r.mc !== mc) { flush(); mc = r.mc; sub = { mc: r.mc, n: 0, fmS: 0, lmS: 0, mtS: 0, dem: 0, fmP: 0, lmP: 0, mtP: 0 }; body += '<tr style="background:#111; color:#fff; font-weight:800;"><td colspan="14">' + esc(r.br) + ' › ' + esc(r.mc) + ' · DSO ' + esc(r.dso || '—') + '</td></tr>'; }
-      sub.n++; sub.fmS += r.fmSAL; sub.lmS += r.lmSAL; sub.mtS += r.mtSAL; sub.dem += r.dem; sub.fmP += r.fmSP; sub.lmP += r.lmSP; sub.mtP += r.mtSP;
-      tot.fmS += r.fmSAL; tot.lmS += r.lmSAL; tot.mtS += r.mtSAL; tot.dem += r.dem; tot.fmP += r.fmSP; tot.lmP += r.lmSP; tot.mtP += r.mtSP;
+      if (r.mc !== mc) { flush(); mc = r.mc; sub = { mc: r.mc, n: 0, fmS: 0, lmS: 0, mtS: 0, dem: 0, demSal: 0, fmP: 0, lmP: 0, mtP: 0 }; body += '<tr style="background:#111; color:#fff; font-weight:800;"><td colspan="15">' + esc(r.br) + ' › ' + esc(r.mc) + ' · DSO ' + esc(r.dso || '—') + '</td></tr>'; }
+      sub.n++; sub.fmS += r.fmSAL; sub.lmS += r.lmSAL; sub.mtS += r.mtSAL; sub.dem += r.dem; sub.demSal += r.demSal; sub.fmP += r.fmSP; sub.lmP += r.lmSP; sub.mtP += r.mtSP;
+      tot.fmS += r.fmSAL; tot.lmS += r.lmSAL; tot.mtS += r.mtSAL; tot.dem += r.dem; tot.demSal += r.demSal; tot.fmP += r.fmSP; tot.lmP += r.lmSP; tot.mtP += r.mtSP;
       body += '<tr><td class="cur"><b>' + esc(r.n) + '</b></td><td><code>' + esc(r.id) + '</code></td><td class="num">' + (r.lat ? Number(r.lat).toFixed(5) : '—') + '</td><td class="num">' + (r.lon ? Number(r.lon).toFixed(5) : '—') + '</td><td>' + esc(r.dse) + '</td>' +
         prBrTd(r, 'SAL', 'fm') + prBrTd(r, 'SAL', 'lm') + prBrTd(r, 'SAL', 'mt') + '<td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td><td class="num">' + prMoney(r.dem) + '</td>' +
         prBrTd(r, 'SP', 'fm') + prBrTd(r, 'SP', 'lm') + prBrTd(r, 'SP', 'mt') + '<td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td></tr>';
     });
     flush();
-    var foot = '<tr style="background:#111; color:#fff; font-weight:800;"><td colspan="5">TOTAL ' + fmtCount(list.length) + ' outlet</td><td class="num">' + pjRp(tot.fmS) + '</td><td class="num">' + pjRp(tot.lmS) + '</td><td class="num">' + pjRp(tot.mtS) + '</td><td class="num">' + pjRp(Math.max(0, tot.fmS - tot.mtS)) + '</td><td class="num">' + pjRp(tot.dem) + '</td><td class="num">' + fmtCount(tot.fmP) + '</td><td class="num">' + fmtCount(tot.lmP) + '</td><td class="num">' + fmtCount(tot.mtP) + '</td><td class="num">' + fmtCount(Math.max(0, tot.fmP - tot.mtP)) + '</td></tr>';
+    var foot = '<tr style="background:#111; color:#fff; font-weight:800;"><td colspan="5">TOTAL ' + fmtCount(list.length) + ' outlet</td><td class="num">' + pjRp(tot.fmS) + '</td><td class="num">' + pjRp(tot.lmS) + '</td><td class="num">' + pjRp(tot.mtS) + '</td><td class="num">' + pjRp(Math.max(0, tot.fmS - tot.mtS)) + '</td><td class="num">' + pjRp(tot.dem) + '</td><td class="num">' + pjRp(tot.demSal) + '</td><td class="num">' + fmtCount(tot.fmP) + '</td><td class="num">' + fmtCount(tot.lmP) + '</td><td class="num">' + fmtCount(tot.mtP) + '</td><td class="num">' + fmtCount(Math.max(0, tot.fmP - tot.mtP)) + '</td></tr>';
     var bar = '<div class="map-toolbar"><div class="map-toolbar-group"><button type="button" class="btn" data-act="print-ps" style="padding:8px 16px; font-weight:800;">🖨️ Cetak populasi outlet</button><button type="button" class="btn" data-act="pr-csv" style="padding:8px 16px;">⬇️ Unduh CSV (' + fmtCount(all.length) + ' outlet)</button>' +
       '<span class="note">' + fmtCount(all.length) + ' outlet master di lingkup (' + esc(scopeText()) + ')' + (all.length > PR_POP_MAX ? ' · lembar cetak dibatasi ' + fmtCount(PR_POP_MAX) + ' baris, persempit ke Area / MC; CSV memuat semuanya' : '') + '</span></div></div>';
     var sheet = '<style>@page { size: A4 landscape; margin: 8mm; } .ps-page td.num { white-space: nowrap; } .ps-page { -webkit-print-color-adjust: exact; print-color-adjust: exact; }</style><section class="ps-page" style="background:#fff; border:2px solid var(--ij-ink); padding:14px 16px; margin-top:12px;">' + prHead('All Population Outlet', esc(scopeText()) + ' · ' + fmtCount(all.length) + ' outlet master', B) +
-      '<table class="tbl" data-nosort="1" style="font-size:11px; margin-top:8px;"><thead><tr><th rowspan="2">Outlet</th><th rowspan="2">Outlet ID</th><th class="num" rowspan="2">Lat</th><th class="num" rowspan="2">Long</th><th rowspan="2">DSE</th><th class="num" colspan="4" style="text-align:center;">SALMO</th><th class="num" rowspan="2">Trade Demand<br>MTD</th><th class="num" colspan="4" style="text-align:center;">SP Sell-In (pcs)</th></tr>' +
-      '<tr><th class="num">Last FM</th><th class="num">LMTD</th><th class="num">MTD</th><th class="num">Gap to FM</th><th class="num">Last FM</th><th class="num">LMTD</th><th class="num">MTD</th><th class="num">Gap to FM</th></tr></thead><tbody>' + (body || '<tr><td colspan="14" class="note">Tidak ada outlet pada filter ini.</td></tr>') + foot + '</tbody></table>' + PR_NOTE + '</section>';
+      '<table class="tbl" data-nosort="1" style="font-size:11px; margin-top:8px;"><thead><tr><th rowspan="2">Outlet</th><th rowspan="2">Outlet ID</th><th class="num" rowspan="2">Lat</th><th class="num" rowspan="2">Long</th><th rowspan="2">DSE</th><th class="num" colspan="4" style="text-align:center;">SALMO</th><th class="num" rowspan="2">Trade Demand<br>MTD</th><th class="num" rowspan="2">Demand SALMO<br>MTD</th><th class="num" colspan="4" style="text-align:center;">SP Sell-In (pcs)</th></tr>' +
+      '<tr><th class="num">Last FM</th><th class="num">LMTD</th><th class="num">MTD</th><th class="num">Gap to FM</th><th class="num">Last FM</th><th class="num">LMTD</th><th class="num">MTD</th><th class="num">Gap to FM</th></tr></thead><tbody>' + (body || '<tr><td colspan="15" class="note">Tidak ada outlet pada filter ini.</td></tr>') + foot + '</tbody></table>' + PR_NOTE + '</section>';
     return bar + sheet;
   }
   function prCsv(B) {
     prEnrich(B);
     function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
-    var lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Lat', 'Long', 'SALMO Last FM', 'SALMO LMTD', 'SALMO MTD', 'SALMO Gap to FM', 'Trade Demand MTD', 'SP Last FM', 'SP LMTD', 'SP MTD', 'SP Gap to FM', 'SALMO Last FM IM3', 'SALMO LMTD IM3', 'SALMO MTD IM3', 'SALMO Last FM 3ID', 'SALMO LMTD 3ID', 'SALMO MTD 3ID', 'SP Last FM IM3', 'SP LMTD IM3', 'SP MTD IM3', 'SP Last FM 3ID', 'SP LMTD 3ID', 'SP MTD 3ID'].map(q).join(',')];
+    var lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Lat', 'Long', 'SALMO Last FM', 'SALMO LMTD', 'SALMO MTD', 'SALMO Gap to FM', 'Trade Demand MTD', 'Demand SALMO MTD', 'SP Last FM', 'SP LMTD', 'SP MTD', 'SP Gap to FM', 'SALMO Last FM IM3', 'SALMO LMTD IM3', 'SALMO MTD IM3', 'SALMO Last FM 3ID', 'SALMO LMTD 3ID', 'SALMO MTD 3ID', 'SP Last FM IM3', 'SP LMTD IM3', 'SP MTD IM3', 'SP Last FM 3ID', 'SP LMTD 3ID', 'SP MTD 3ID'].map(q).join(',')];
     var bv = function (r, br, cat, w) { var d = PR_BI[cat]; return (((r.bs || {})[br] || {})[d[0]] || [])[d[1][w]] || 0; };
-    B.rows.filter(opdIn).forEach(function (r) { lines.push([r.br, r.mc, r.dso, r.dse, r.site, r.id, r.n, r.lat, r.lon, r.fmSAL, r.lmSAL, r.mtSAL, r.gapSAL, r.dem, r.fmSP, r.lmSP, r.mtSP, r.gapSP,
+    B.rows.filter(opdIn).forEach(function (r) { lines.push([r.br, r.mc, r.dso, r.dse, r.site, r.id, r.n, r.lat, r.lon, r.fmSAL, r.lmSAL, r.mtSAL, r.gapSAL, r.dem, r.demSal, r.fmSP, r.lmSP, r.mtSP, r.gapSP,
       bv(r, 'IM3', 'SAL', 'fm'), bv(r, 'IM3', 'SAL', 'lm'), bv(r, 'IM3', 'SAL', 'mt'), bv(r, '3ID', 'SAL', 'fm'), bv(r, '3ID', 'SAL', 'lm'), bv(r, '3ID', 'SAL', 'mt'),
       bv(r, 'IM3', 'SP', 'fm'), bv(r, 'IM3', 'SP', 'lm'), bv(r, 'IM3', 'SP', 'mt'), bv(r, '3ID', 'SP', 'fm'), bv(r, '3ID', 'SP', 'lm'), bv(r, '3ID', 'SP', 'mt')].map(q).join(',')); });
     var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
@@ -7219,7 +7270,7 @@
       var head = '<td class="num">' + (i + 1) + (x.rank ? '<br><b style="font-size:10px;">' + x.fl.tier + x.rank + '</b>' : '') + '</td><td class="cur"><b>' + esc(o.n || '(tanpa nama)') + '</b></td><td>' + (o.i && o.j ? '<i class="br-dot ioh" title="IOH: IM3 + 3ID"></i>' : '') + (o.i ? '<i class="br-dot im3"></i>' : '') + '<code>' + esc(o.i || '—') + '</code>' + (o.j ? '<br><i class="br-dot id3"></i><code>' + esc(o.j) + '</code>' : '') + '</td><td>F' + o.f + '<br><span class="note">' + days + '</span></td>';
       var tail = '<td style="min-width:110px; white-space:normal;">' + prChips(x.fl) + '</td><td style="width:22px;"><span style="display:inline-block; width:14px; height:14px; border:1.5px solid #111;"></span></td><td style="min-width:60px;"></td></tr>';
       if (!r) return '<tr>' + head + '<td colspan="' + (nData + 1) + '" class="note">Outlet belum ada di master: data Sell-In / demand tidak tersedia</td>' + tail;
-      return '<tr>' + head + prBrTd(r, 'SAL', 'fm') + prBrTd(r, 'SP', 'fm') + '<td class="num">' + prMoney(r.dem) + (r.demD ? '<br><span class="note">' + r.demD + ' hr aktif</span>' : '') + '</td>' +
+      return '<tr>' + head + prBrTd(r, 'SAL', 'fm') + prBrTd(r, 'SP', 'fm') + '<td class="num">' + prMoney(r.dem) + (r.demD ? '<br><span class="note">' + r.demD + ' hr aktif</span>' : '') + (r.demSal ? '<br><span class="note">SALMO ' + pjRp(r.demSal) + '</span>' : '') + '</td>' +
         (pv ? prBrTd(r, 'SAL', 'lm') : '') + prBrTd(r, 'SAL', 'mt') + '<td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td>' +
         (pv ? prBrTd(r, 'SP', 'lm') : '') + prBrTd(r, 'SP', 'mt') + '<td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td>' +
         (pv ? '<td class="num">' + prNum(r.gaP) + '</td>' : '') + '<td class="num">' + prNum(r.ga) + '</td>' + prVcCell(r, B) + tail;
@@ -7248,7 +7299,7 @@
       '<div class="note" style="font-size:10.5px;">Skor: ZERO SELLIN 4 (tanpa Sell-In apa pun MTD, termasuk SP) · NO SP SELLIN 3 · ZERO BALANCE 3 · NEVER VISITED MTD 2 · ZERO GA 2 · LOW STOCK (&lt; Rp 100 Rb) 1 · NO ENDBAL ACCT 1. High ≥ 5 (H), Medium 3–4 (M). Chip hitam = flag utama.</div>';
     var lists = '<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:8px;">' + listBox('Outlet tanpa Sell-In MTD', lNoSell, 'Semua outlet PJP sudah ada Sell-In.') + listBox('Outlet ZERO GA', lNoGa, B.hasGa ? 'Semua outlet PJP sudah ada GA.' : 'Feed GA belum dimuat.') + listBox('Outlet ZERO BALANCE', lZb, 'Tidak ada saldo nol.') + '</div>';
     return '<section class="ps-page" style="background:#fff; border:2px solid var(--ij-ink); padding:14px 16px; margin-top:12px;">' +
-      prHead('PJP Harian · ' + esc(g.dse) + (g.code ? ' <span style="font-weight:600; font-size:14px;">' + esc(g.code) + '</span>' : ''), PR_DAYN[dow] + ' ' + esc(iso) + ' · ' + esc(g.mc) + ' · DSO ' + esc(g.dso) + ' · ' + fmtCount(rows.length) + ' outlet hari ini', B, !pv) + perm + main + prio + lists +
+      prHead('PJP Harian · ' + esc(g.dse) + (g.code ? ' <span style="font-weight:600; font-size:14px;">' + esc(g.code) + '</span>' : ''), PR_DAYN[dow] + ' ' + esc(iso) + ' · ' + esc(g.mc) + ' · DSO ' + esc(g.dso) + ' · ' + fmtCount(rows.length) + ' outlet hari ini' + (function () { var cm = dseCoverMap(), h = cm && cm[String(g.dse || '').replace(/\.0$/, '').trim().toUpperCase()]; return h ? '<br><span style="text-transform:none; font-weight:400; font-size:11px;">' + esc(h.line) + '</span>' : ''; })(), B, !pv) + perm + main + prio + lists +
       '<div style="margin-top:12px; display:grid; grid-template-columns: 1fr 1fr; gap:20px; font-size:12px;"><div style="border-top:1.5px solid #111; padding-top:4px;">Tanda tangan DSE</div><div style="border-top:1.5px solid #111; padding-top:4px;">Disetujui DSO</div></div></section>';
   }
   function prPjp(B) {
@@ -7834,6 +7885,55 @@
   }
   var TOT_ST = 'background:var(--ij-ink); color:#fff; font-weight:800;';
   function totNum(v) { return '<td class="num">' + v + '</td>'; }
+  /* ================= DSE coverage line: kecamatan and desa covered by each DSE, shown under the DSE name in every table (lowercase) ================= */
+  var _dseCov = null;
+  function dseCoverMap() {
+    var T = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null;
+    if (!T) return null;
+    if (_dseCov && _dseCov.src === T) return _dseCov.map;
+    var by = {};
+    (T.outlets || []).forEach(function (o) {
+      var n = String(o.dse_name == null ? '' : o.dse_name).replace(/\.0$/, '').trim().toUpperCase();
+      if (!n || n === '0' || n.indexOf('UNASSIGNED') === 0) return;
+      var e = by[n] || (by[n] = { k: {}, d: {} });
+      var k = String(o.kecamatan || '').trim().toLowerCase(), d = String(o.desa || '').trim().toLowerCase();
+      if (k && k !== 'nan') e.k[k] = (e.k[k] || 0) + 1;
+      if (d && d !== 'nan') e.d[d] = (e.d[d] || 0) + 1;
+    });
+    var map = {};
+    Object.keys(by).forEach(function (n) {
+      var top = function (c, lim) { var all = Object.keys(c).sort(function (a, b) { return c[b] - c[a] || (a < b ? -1 : 1); }); return { show: all.slice(0, lim), more: Math.max(0, all.length - lim), all: all }; };
+      var K = top(by[n].k, 4), D = top(by[n].d, 6);
+      var line = 'kec: ' + (K.show.join(', ') || '-') + (K.more ? ' +' + K.more : '') + ' · desa: ' + (D.show.join(', ') || '-') + (D.more ? ' +' + D.more : '');
+      map[n] = { line: line, title: 'kecamatan: ' + K.all.join(', ') + ' | desa: ' + D.all.join(', ') };
+    });
+    _dseCov = { src: T, map: map };
+    return map;
+  }
+  function dseCoverEnhance(root) {
+    if (!root || !root.querySelectorAll) return;
+    var map = dseCoverMap(); if (!map) return;
+    // The line is shown the first time a DSE appears in a table; later rows of the same table only carry it as a tooltip (keeps outlet lists readable).
+    [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      var seen = {};
+      [].forEach.call(tb.querySelectorAll('td'), function (td) {
+        if (td.querySelector('.dse-cov')) return;
+        var b = td.querySelector('b'), n = '', hit = null;
+        if (b) { n = (b.textContent || '').replace(/\.0$/, '').trim().toUpperCase(); hit = map[n]; }
+        else if (!td.children.length && td.colSpan <= 2) { n = (td.textContent || '').replace(/\.0$/, '').trim().toUpperCase(); hit = map[n]; }
+        if (!hit && !b && td.colSpan <= 2) {          // cell such as "NAME rural" or "NAME · 12 outlet"
+          var m = (td.textContent || '').trim().toUpperCase().match(/^([A-Z0-9][A-Z0-9 .'\-]*?)(?:\s*[·(]|\s+RURAL\b|$)/);
+          if (m) { n = m[1].trim(); hit = map[n]; }
+        }
+        if (!hit) return;
+        if (seen[n]) { td.title = hit.title; return; }
+        seen[n] = 1;
+        var d = document.createElement('div');
+        d.className = 'dse-cov'; d.textContent = hit.line; d.title = hit.title;
+        td.appendChild(d);
+      });
+    });
+  }
   /* ================= Sortable tables: every table gets ▲ / ▼ on its column headers (sorts the rows in the DOM) ================= */
   var TSORT = {};   // table key -> { col, dir }; survives re-renders so a sort stays when filters or tabs change
   var TS_SKIP = '[data-mx-expand], [data-mx-toggle], [data-nv-outlet-grp], [data-nv-site-grp], [data-unvis-group]';
@@ -7989,7 +8089,7 @@
     if (p) p.textContent = META[state.view][1];
     if (c) { c.textContent = cutLabel() + ' · Governed Local Feed'; c.title = 'PJP visits and balance exports end ' + pjpCut() + '; DAILY_DATA_MOBII Sell-In (refresh 14 Oct) ends 13 Oct 2026; MOBI physical distribution ends 10 Oct 2026. Feeds rebuilt from the latest raw files on 14 Oct 2026.'; }
     if (s) s.textContent = scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : '');
-    if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); }
+    if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); dseCoverEnhance(v); }
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
     if (typeof document !== 'undefined' && document.querySelectorAll) {
       Array.prototype.forEach.call(document.querySelectorAll('.nav button'), function (b) {

@@ -42,7 +42,7 @@ Transactions belong in their own monitoring views, not in the catalogue.
 
 ## 4. How to run
 
-**Daily refresh (one command):** `python3 scripts/daily_update.py` finds the newest MOBII, MOBO and PJP visit files under `raw/` (any sub-folder), rebuilds the penjualan, demand, visits and KPI feeds in order, then runs the render check. `--check` only lists what it found.
+**Daily refresh (one command):** `python3 scripts/daily_update.py` finds the newest MOBII, MOBO and PJP visit files under `raw/` (any sub-folder), rebuilds the demand, penjualan, visits, KPI, ENDBAL (newest snapshot date only; older snapshot files in `raw/ENDBAL` are ignored) and GA feeds in order, then runs the render check. PJP coverage is read from each report's `PERIOD ->` line, not from the file name (a `*_14_14.zip` held 15 Oct). `--check` only lists what it found.
 Missing-day pattern: a day inside the period that no PJP export covers (12 Oct 2026 today) is flagged by the runner, listed in `dseVisitsFeed.metadata.missing_days`, shown as "n/a / Data not available" in the PJP views, and left out of per-day averages and `business_days`. Never show it as zero execution.
 
 ```bash
@@ -73,3 +73,4 @@ Preview: `.claude/launch.json` defines the `website` server (`python3 scripts/de
 - Brand colours (owner, 15 Oct 2026): IM3 = yellow, 3ID = magenta, IOH (hybrid / paired IM3 + 3ID) = tosca (`.badge-im3`, `.badge-3id`, `.badge-ioh`, dots `.br-dot`).
 - PJP visit measures exclude two groups (owner, 15 Oct 2026): promotors (operator type Promotor, logins `PRJAYAIN##`, flagged with the 🎤 Promotor badge) and ad-hoc visits at the 860 master outlets that have no DSE (flagged ADHOC · non-PJP). Both are listed separately in the visits feed (`regional_summary.excluded_from_pjp`) and are not counted as PJP planned / executed / productive visits or outlet coverage.
 - Print sheets: SALMO and SP are IM3 + 3ID combined per outlet; small lines under each figure split IM3 and 3ID (`bs` field of the penjualan feed).
+- DSE coverage line (owner, 16 Oct 2026): wherever a table shows a DSE name, a small lowercase line lists the kecamatan and desa that DSE covers (from the master outlets: `kec: … · desa: …`, top names by outlet count, full list in the tooltip). Shown the first time a DSE appears in a table, tooltip only on repeats; overlapping desa between DSEs is expected. Implemented by `dseCoverEnhance()` in `app.js`.

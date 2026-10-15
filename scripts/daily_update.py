@@ -8,15 +8,18 @@ daily_update.py  ·  one command for the daily data refresh
 
 Refreshes, in dependency order:
   1. Supply  · Penjualan ke Outlet    DAILY_DATA_MOBII_*.xlsb  -> build_penjualan_feed.py
-  2. Demand  · Transaction ke Pelanggan DAILY_DATA_MOBO_*.xlsb -> build_demand_feed.py
+  2. Demand  · Transaction ke Pelanggan DAILY_DATA_MOBO_*.xlsb (+ DAILY_DATA_MOBO_SALMO_*.xlsb) -> build_demand_feed.py
   3. PJP     · DSE visits             *_visit_dse_YYYYMM__DD_DD.zip (all ranges) -> generate_dse_visits_feed.py
   4. DSE KPI inputs (needs 1 + 3)     -> build_dse_kpi_feed.py
+  +  ENDBAL stock balance (needs 2)   -> build_endbal_feed.py   (newest snapshot only)
+  +  GA / SSO (raw/GA)                -> build_ga_feed.py
   5. Render check of every view       -> node scripts/render_check.js
 
 "Latest" = newest modified time under raw/ (any sub-folder, including OneDrive_* drops).
 Files are handed to the builders through MOBII_SRC / MOBO_SRC / VISIT_ZIPS, so a new
 download folder needs no code change. Pure stdlib; run from anywhere.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -38,6 +41,13 @@ def find(pattern):
     return sorted(hits, key=os.path.getmtime, reverse=True)
 
 
+STALE_HOURS = 36      # files dropped the previous evening are normal for a morning run
+
+
+def hours_old(path):
+    return (time.time() - os.path.getmtime(path)) / 3600
+
+
 def age(path):
     ts = datetime.fromtimestamp(os.path.getmtime(path))
     d = (date.today() - ts.date()).days
@@ -45,23 +55,60 @@ def age(path):
     return f"{ts:%d %b %Y %H:%M} ({tag})", d
 
 
+def file_md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def pick_visits():
     """All visit zips, copies in OneDrive_* folders folded by (name, size)."""
     seen, out = set(), []
     for p in find(VISIT_RE.pattern):
-        sig = (os.path.basename(p).lower(), os.path.getsize(p))
+        sig = (VISIT_RE.match(os.path.basename(p)).group(1).lower(), file_md5(p))   # a renamed or copied report counts once
         if sig not in seen:
             seen.add(sig)
             out.append(p)
     return sorted(out, key=lambda p: (os.path.basename(p).split("__")[1], os.path.basename(p).lower()))
 
 
-def visit_coverage(zips):
-    """Day numbers covered by the zip names, and the real last schedule date inside each zip."""
+PERIOD_RE = re.compile(r"PERIOD\s*->\s*(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}-[A-Za-z]{3}-\d{4})")
+
+
+def content_period(path):
+    """(first, last) date from the report's own 'PERIOD ->' line, or None."""
+    try:
+        if path.lower().endswith(".zip"):
+            z = zipfile.ZipFile(path)
+            fh = z.open(z.namelist()[0])
+        else:
+            fh = open(path, "rb")
+        with fh:
+            for i, line in enumerate(fh):
+                m = PERIOD_RE.search(line.decode("utf-8", "replace"))
+                if m:
+                    return datetime.strptime(m.group(1), "%d-%b-%Y"), datetime.strptime(m.group(2), "%d-%b-%Y")
+                if i > 15:
+                    break
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def visit_coverage(zips, warn=None):
+    """Day numbers covered, taken from each report's PERIOD line (file names can be wrong); falls back to the name."""
     days = set()
     for p in zips:
         m = VISIT_RE.match(os.path.basename(p))
-        days.update(range(int(m.group(3)), int(m.group(4)) + 1))
+        per = content_period(p)
+        if per:
+            days.update(range(per[0].day, per[1].day + 1))
+            if warn is not None and (per[0].day, per[1].day) != (int(m.group(3)), int(m.group(4))):
+                warn.append(f"{os.path.basename(p)} is named {m.group(3)}-{m.group(4)} but contains {per[0]:%d %b} to {per[1]:%d %b}: the content is used")
+        else:
+            days.update(range(int(m.group(3)), int(m.group(4)) + 1))
     return days
 
 
@@ -75,7 +122,7 @@ def run(label, cmd, env=None):
 
 def main():
     check_only = "--check" in sys.argv
-    mobii, mobo, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), find(r"^DAILY_DATA_MOBO_.*\.xlsb$"), pick_visits()
+    mobii, mobo, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), find(r"^DAILY_DATA_MOBO_(?!SALMO).*\.xlsb$"), pick_visits()
     print(f"Daily update · {datetime.now():%A %d %b %Y %H:%M} · project root {ROOT}\n")
     warn = []
 
@@ -94,15 +141,18 @@ def main():
 
     show("Supply  · Penjualan ke Outlet (DAILY_DATA_MOBII)", mobii[:3])
     show("Demand  · Transaction ke Pelanggan (DAILY_DATA_MOBO)", mobo[:3])
+    show("Demand  · MOBO_SALMO (Saldo Mobo ke pelanggan; ikut demand feed, di luar total)", find(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$")[:2])
     show("PJP     · DSE visits (journey plan zip/csv, all ranges are merged)", visits)
+    endbal = find(r"^(endbal_.*|.*Stock Balance Daily Report.*)\.csv$")
+    show("ENDBAL  · Stock Balance Daily Report (only the newest snapshot date is used)", endbal[:4])
     for title, files in (("MOBII", mobii), ("MOBO", mobo)):
-        if files and age(files[0])[1] > 0:
-            warn.append(f"Newest {title} file is not from today: {files[0]}")
+        if files and hours_old(files[0]) > STALE_HOURS:
+            warn.append(f"Newest {title} file is {hours_old(files[0]):.0f} h old (more than {STALE_HOURS} h): {files[0]}")
     if visits:
         newest_visit = max(os.path.getmtime(p) for p in visits)
-        if (date.today() - datetime.fromtimestamp(newest_visit).date()).days > 0:
-            warn.append("Newest PJP visit file is not from today")
-        cov = visit_coverage(visits)
+        if (time.time() - newest_visit) / 3600 > STALE_HOURS:
+            warn.append(f"Newest PJP visit file is {(time.time() - newest_visit) / 3600:.0f} h old (more than {STALE_HOURS} h)")
+        cov = visit_coverage(visits, warn)
         gaps = [d for d in range(min(cov), max(cov) + 1) if d not in cov]
         if gaps:
             warn.append("PJP visit export has no file for day(s) " + ", ".join(f"{d:02d}" for d in gaps)
@@ -126,6 +176,7 @@ def main():
         ("3/5 PJP · DSE visits feed", [py, "scripts/generate_dse_visits_feed.py"]),
         ("4/5 DSE KPI inputs", [py, "scripts/build_dse_kpi_feed.py"]),
     ]
+    steps.append(("ENDBAL · Stock balance feed (latest snapshot)", [py, "scripts/build_endbal_feed.py"]))   # needs the penjualan feed (saldo sell-in)
     if ga_ok:   # Gross Add / SSO feed (raw/GA); needs no other feed
         steps.append(("GA · Gross Add / SSO feed (RGUGA)", [py, "scripts/build_ga_feed.py"]))
     if "--no-render" not in sys.argv and shutil.which("node"):

@@ -218,9 +218,22 @@ if os.path.exists(VISITS):      # login codes of the PJP operators (incl. person
 known_dse = {m["dse"] for m in master.values() if m["dse"] != "UNASSIGNED"}
 print(f"   {len(master):,} outlet master, {len(by_im3):,} id IM3, {len(by_3id):,} id 3ID, {len(code2dse):,} kode DSE, {len(known_dse):,} nama DSE")
 
+# Inner Jakarta outlets that the RGUGA outlet sheets do not list but the earlier September raw pivot (Inner Jakarta filter) carried with a micro cluster.
+# The re-issued September raw pivots are national and have no region column, so this catalogue is the only evidence that these ids are Inner Jakarta outlets.
+IJ_REGISTRY = {}
+REGISTRY = "data/catalogues/ga_ij_outlet_registry.csv"
+if os.path.exists(REGISTRY):
+    with open(REGISTRY, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            IJ_REGISTRY[(r["brand"], norm_id(r["outlet_id"]))] = r
+
 # ---------------------------------------------------------------- RGUGA workbooks
 print("[2/5] Membaca", SEP_SRC)
-sep = read_sheets(SEP_SRC, {"IM3 SEP", "3ID SEP", "RAW_IM3", "RAW_3ID"})
+SEP_ALIAS = {"OUTLET IM3 DAILY RGUGA": "IM3 SEP", "OUTLET 3ID DAILY RGUGA": "3ID SEP"}   # September file re-issued 15 Oct 2026 with new sheet names
+sep = read_sheets(SEP_SRC, {"IM3 SEP", "3ID SEP", "RAW_IM3", "RAW_3ID", *SEP_ALIAS})
+for new, old in SEP_ALIAS.items():
+    if new in sep and old not in sep:
+        sep[old] = sep.pop(new)
 print("[3/5] Membaca", OCT_SRC)
 octo = read_sheets(OCT_SRC, {"IM3 OCT", "3ID OCT", "RAW IM3", "RAW 3ID"})
 
@@ -324,27 +337,50 @@ for brand in ("IM3", "3ID"):
 # September raw_* = Inner Jakarta outlets with their micro cluster; October raw * = ALL outlets nationwide (no region filter) plus a (blank) outlet row.
 sheet_sep_total = {b: sum(sum(x["s"].values()) for (bb, _i), x in rows_by.items() if bb == b) for b in ("IM3", "3ID")}
 sheet_oct_total = {b: sum(sum(x["o"].values()) for (bb, _i), x in rows_by.items() if bb == b) for b in ("IM3", "3ID")}
-sep_raw_mc, raw_stats = {}, {}
+raw_stats = {}
+sep_other = {b: defaultdict(int) for b in ("IM3", "3ID")}
+sep_blank = {b: defaultdict(int) for b in ("IM3", "3ID")}
+
+
+def raw_layout(rows):
+    """Raw pivots: October has the outlet id in column 0; the re-issued September pivots carry ga_brand in column 0 and the id in column 1."""
+    for i, r in enumerate(rows[:12]):
+        if str(r.get(0, "")).strip() == "ID OUTLET CLEAN":
+            return i, 0
+        if str(r.get(1, "")).strip() == "ID OUTLET CLEAN":
+            return i, 1
+    raise SystemExit("Header ID OUTLET CLEAN tidak ditemukan di pivot raw")
+
+
+# September raw_* is now NATIONAL (like October); the outlet sheets equal the raw pivots on every Inner Jakarta id
+# (docs/assessments/ga_rguga_outlet.md section 9), so the sheet is the source and the raw only adds master outlets missing from it.
 for brand in ("IM3", "3ID"):
     rows = sep["RAW_" + brand]
-    hi = header_index(rows, {"micro_cluster"})
-    dc = day_columns(rows[hi], PREV_MONTH)
-    n_new, g_new = 0, 0
+    hi, ic = raw_layout(rows)
+    dc = {d: c for d, c in day_columns(rows[hi], PREV_MONTH).items()}
+    n_new, g_new, n_cmp, g_diff, n_reg, g_reg = 0, 0, 0, 0, 0, 0
     for r in rows[hi + 1:]:
-        oid = norm_id(r.get(3))
+        oid = norm_id(r.get(ic))
         if not oid:
             continue
         days = {d: int(round(r[c])) for d, c in dc.items() if isinstance(r.get(c), (int, float)) and r[c] > 0}
-        mc = str(r.get(0) or "").strip()
-        if mc:
-            sep_raw_mc[(brand, oid)] = mc
+        if oid == "(BLANK)":
+            for d, q in days.items():
+                sep_blank[brand][d] += q
+            continue
         known = (brand, oid) in rows_by
-        x = getrec(brand, oid)
-        if not known:
-            n_new += 1; g_new += sum(days.values())
-            x["mc"] = mc
-        x["s"] = days                      # raw pivot replaces the (formula) outlet-sheet value
-    raw_stats[brand] = {"sep_raw_outlets_not_in_sheet": n_new, "sep_raw_ga_not_in_sheet": g_new}
+        mk = (by_im3 if brand == "IM3" else by_3id).get(oid)
+        if known:
+            n_cmp += 1; g_diff += abs(sum(days.values()) - sum(rows_by[(brand, oid)]["s"].values()))
+        elif mk:
+            x = getrec(brand, oid); x["mc"] = master[mk]["mc"]; x["s"] = days; n_new += 1; g_new += sum(days.values())
+        elif (brand, oid) in IJ_REGISTRY:
+            x = getrec(brand, oid); x["mc"] = IJ_REGISTRY[(brand, oid)]["micro_cluster"]; x["n"] = IJ_REGISTRY[(brand, oid)]["outlet_name"]; x["s"] = days
+            n_reg += 1; g_reg += sum(days.values())
+        else:
+            for d, q in days.items():
+                sep_other[brand][d] += q
+    raw_stats[brand] = {"sep_raw_outlets_not_in_sheet": n_new, "sep_raw_ga_not_in_sheet": g_new, "sep_raw_ids_compared": n_cmp, "sep_raw_abs_diff_vs_sheet": g_diff, "sep_registry_outlets": n_reg, "sep_registry_ga": g_reg}
 oct_other = {b: defaultdict(int) for b in ("IM3", "3ID")}
 oct_blank = {b: defaultdict(int) for b in ("IM3", "3ID")}
 for brand in ("IM3", "3ID"):
@@ -363,8 +399,8 @@ for brand in ("IM3", "3ID"):
             continue
         known = (brand, oid) in rows_by
         mk = (by_im3 if brand == "IM3" else by_3id).get(oid)
-        if not known and (brand, oid) in sep_raw_mc:      # Inner Jakarta outlet (September raw) missing from the October outlet sheet
-            x = getrec(brand, oid); x["mc"] = sep_raw_mc[(brand, oid)]; known = True; n_new += 1; g_new += sum(days.values())
+        if not known and (brand, oid) in IJ_REGISTRY and not mk:      # Inner Jakarta outlet missing from both outlet sheets
+            x = getrec(brand, oid); x["mc"] = IJ_REGISTRY[(brand, oid)]["micro_cluster"]; x["n"] = IJ_REGISTRY[(brand, oid)]["outlet_name"]; known = True; n_new += 1; g_new += sum(days.values())
         elif not known and mk:
             x = getrec(brand, oid); x["mc"] = master[mk]["mc"]; known = True; n_new += 1; g_new += sum(days.values())
         if known:
@@ -515,7 +551,8 @@ if m2s_files:
     print(f"   {len(location['kec'])} kecamatan; lokasi IM3 {sum(r['IM3']['gm'] for r in location['kec']):,} vs tagging 1-{LOC_CUT} Sep {sum(r['IM3']['t26'] for r in location['kec']):,}; 3ID {sum(r['3ID']['gm'] for r in location['kec']):,} vs {sum(r['3ID']['t26'] for r in location['kec']):,}")
 else:
     print("   file M2S KECAMATAN tidak ditemukan: tampilan lokasi aktivasi hanya level region (GA BIOMETRIC)")
-tag = {"oct_outside_ij": {b: {str(d): q for d, q in sorted(oct_other[b].items())} for b in oct_other}, "oct_blank": {b: {str(d): q for d, q in sorted(oct_blank[b].items())} for b in oct_blank},
+tag = {"sep_outside_ij": {b: {str(d): q for d, q in sorted(sep_other[b].items())} for b in sep_other}, "sep_blank": {b: {str(d): q for d, q in sorted(sep_blank[b].items())} for b in sep_blank},
+       "oct_outside_ij": {b: {str(d): q for d, q in sorted(oct_other[b].items())} for b in oct_other}, "oct_blank": {b: {str(d): q for d, q in sorted(oct_blank[b].items())} for b in oct_blank},
        "raw_stats": raw_stats, "sheet_totals": {"sep": sheet_sep_total, "oct": sheet_oct_total}, "unmapped_kec_ga_sep": dict(tag_unmapped)}
 
 meta = {

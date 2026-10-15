@@ -33,6 +33,9 @@ import struct, zipfile  # noqa: E402
 
 SRC_CANDIDATES = [os.environ["MOBO_SRC"]] if os.environ.get("MOBO_SRC") else ["raw/Data as of 14 Oct /DAILY_DATA_MOBO_202610.xlsb"]   # MOBO_SRC: set by scripts/daily_update.py
 ADHOC = "raw/Outlet & Mapping/adhoc_outlet_im3_3id_data_gcp.xlsb"
+SALMO_SRC = os.environ.get("MOBO_SALMO_SRC") or next(iter(sorted(
+    (os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$", f, re.I)),
+    key=os.path.getmtime, reverse=True)), None)      # newest MOBO_SALMO report (Saldo Mobo demand), optional
 TERRITORY = "website/data/territory_feed.js"
 PENJUALAN_JSON = "data/processed/penjualan_feed.json"
 OUT_JS = "website/data/demand_feed.js"
@@ -241,6 +244,46 @@ for sname, (code, label, has_val) in SHEETS.items():
             cell = F["md"].setdefault(d, [0.0, 0.0]); cell[0] += qq; cell[1] += vv
         pe = op[key][(code, pname)]; pe[0] += q; pe[1] += v
         P = prod[(code, pname)]; P["mq"] += q; P["mv"] += v; P["mo"].add(key)
+# ---- MOBO_SALMO: Saldo Mobo yang ditransaksikan outlet ke pelanggan (Rp per hari, DT_dd); kategori SAL di luar total demand
+sal_brand = defaultdict(lambda: [0.0, 0.0])
+sal_meta = {"source": None, "last_day": 0, "outlets": 0, "value": 0, "unknown": {"ids": 0, "value": 0}}
+sal_unknown = defaultdict(float)
+if SALMO_SRC and os.path.exists(SALMO_SRC):
+    print("   MOBO_SALMO:", SALMO_SRC)
+    srows = next(iter(read_xlsb(SALMO_SRC).values()))
+    hdr = {c: str(v).strip() for c, v in srows[0].items()}
+    c_id = next(c for c, v in hdr.items() if v.lower() == "id_outlet")
+    dcols = {int(m.group(1)): c for c, v in hdr.items() for m in [re.match(r"^DT_(\d{1,2})$", v, re.I)] if m}
+    for r in srows[1:]:
+        oid = norm_id(r.get(c_id))
+        if not oid:
+            continue
+        key, brand, tier, cls = resolve(oid)
+        days = {d: float(r.get(c) or 0) for d, c in dcols.items() if isinstance(r.get(c), (int, float)) and r.get(c)}
+        v = sum(days.values())
+        T = tiers[("SAL", cls)]
+        T["rows"] += 1; T["ids"].add(oid); T["v"] += v
+        if not days:
+            continue
+        sal_meta["last_day"] = max(sal_meta["last_day"], max(days))
+        if key is None:
+            sal_unknown[oid] += v
+            continue
+        if key in master and key not in outlets:
+            outlets[key] = master[key]
+        outlet_brand.setdefault(key, brand)
+        if brand in ("IM3", "3ID"):
+            sal_brand[key][0 if brand == "IM3" else 1] += v
+        F = facts[key]["SAL"]
+        F["mv"] += v
+        for d, vv in days.items():
+            cell = F["md"].setdefault(d, [0.0, 0.0]); cell[1] += vv
+    sal_meta.update({"source": SALMO_SRC, "outlets": sum(1 for k in facts if "SAL" in facts[k]),
+                     "value": int(sum(F["SAL"]["mv"] for F in facts.values() if "SAL" in F)),
+                     "unknown": {"ids": len(sal_unknown), "value": int(sum(sal_unknown.values()))}})
+    print(f"   MOBO_SALMO: {sal_meta['outlets']:,} outlet, Rp {sal_meta['value'] / 1e9:.2f} M, hari terakhir {sal_meta['last_day']}; id tidak dikenal {len(sal_unknown)} (Rp {sum(sal_unknown.values()) / 1e6:.1f} jt)")
+else:
+    print("   MOBO_SALMO tidak ditemukan: kategori SAL dilewati")
 print(f"   hari terakhir dengan data: {last_day} Okt; id tidak dikenal: {len(unknown_ids)} (Rp {sum(unknown_ids.values()) / 1e6:.1f} jt)")
 CUT_DAY = last_day
 
@@ -266,22 +309,25 @@ for key, cats in facts.items():
     for code, F in cats.items():
         md = sorted(F["md"].items())
         row["c"][code] = [int(F["mq"]), int(F["mv"]), md[-1][0] if md else None, len(md), [[d, int(c[1]), int(c[0])] for d, c in md]]
+    if key in sal_brand:
+        row["sb"] = [int(sal_brand[key][0]), int(sal_brand[key][1])]          # SALMO Rp per brand id [IM3, 3ID]
     row["p"] = {str(pidx[k]): [int(v[0]), int(v[1])] for k, v in op[key].items() if k in pidx and (v[0] or v[1])}
     outlet_rows.append(row)
-outlet_rows.sort(key=lambda r: -sum(c[1] for c in r["c"].values()))
+outlet_rows.sort(key=lambda r: -sum(c[1] for k, c in r["c"].items() if k != "SAL"))
 
 feed = {
     "metadata": {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
         "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
-        "categories": CATS, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
+        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],
         "notes": ["MTD saja: tidak ada sheet LMTD di file MOBO, jadi tidak ada growth vs bulan lalu.",
                   "SP Injection berisi unit dan (sejak file 14 Okt 18:12) rupiah; tidak dijumlahkan ke total demand. Reload/Voucher/CVM/Paket Data berisi rupiah.",
                   "MTD_RECARGE (judul kolom RECHARGE) berisi penjualan paket data, bukan isi ulang pulsa; dimuat sebagai kategori PKT Paket Data.",
-                  "Brand disimpulkan dari id (tidak ada kolom brand)."],
+                  "Brand disimpulkan dari id (tidak ada kolom brand).",
+                  "SAL = Saldo Mobo yang ditransaksikan outlet ke pelanggan (DAILY_DATA_MOBO_SALMO, Rp per hari); hanya Oktober, tidak dijumlahkan ke total demand sampai hubungannya dengan Reload / Voucher / Paket Data dikonfirmasi (docs/assessments/daily_data_mobo_salmo.md)."],
         "master_counts": {"br": {k[1]: v for k, v in master_count.items() if k[0] == "br"}, "mc": {k[1]: v for k, v in master_count.items() if k[0] == "mc"}, "dse": {k[1]: v for k, v in master_count.items() if k[0] == "dse"}},
         "mc_info": mc_info,
         "unknown": {"ids": len(unknown_ids), "value": int(sum(unknown_ids.values()))},

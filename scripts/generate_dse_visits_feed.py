@@ -33,6 +33,7 @@ Pure stdlib, no pandas. Run from the project root.
 
 import contextlib
 import csv
+import hashlib
 import io
 import json
 import os
@@ -52,6 +53,38 @@ OUTPUT_PATH = "website/data/dse_visits_feed.js"
 VISIT_ZIP_RE = re.compile(r"^(3id|im3)_visit_dse_(\d{6})__(\d{2})_(\d{2})\.(?:zip|csv)$", re.I)
 
 
+PERIOD_RE = re.compile(r"PERIOD\s*->\s*(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}-[A-Za-z]{3}-\d{4})")
+
+
+def content_period(path):
+    """(first, last) schedule date named by the report's own 'PERIOD ->' line. The file NAME can be wrong
+    (15 Oct 2026: `*__14_14.zip` held 15-Oct), so coverage is taken from the content, not the name."""
+    try:
+        with contextlib.ExitStack() as st:
+            if path.lower().endswith(".csv"):
+                fh = st.enter_context(open(path, "rb"))
+            else:
+                z = st.enter_context(zipfile.ZipFile(path, "r"))
+                fh = st.enter_context(z.open(z.namelist()[0]))
+            for i, line in enumerate(io.TextIOWrapper(fh, encoding="utf-8", errors="replace")):
+                m = PERIOD_RE.search(line)
+                if m:
+                    return datetime.strptime(m.group(1), "%d-%b-%Y"), datetime.strptime(m.group(2), "%d-%b-%Y")
+                if i > 15:
+                    break
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def file_md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def discover_visit_zips():
     """Every MOBI journey-plan zip under raw/ named <brand>_visit_dse_YYYYMM__DD_DD.zip.
     The same export is often copied into a OneDrive_* folder; copies are folded by (name, size).
@@ -66,11 +99,18 @@ def discover_visit_zips():
         m = VISIT_ZIP_RE.match(os.path.basename(p))
         if not m:
             continue
-        sig = (os.path.basename(p).lower(), os.path.getsize(p))
+        sig = (m.group(1).lower(), file_md5(p))          # same report copied or renamed (e.g. 14_14 -> 15_15) counts once
         if sig in seen:
+            print(f"  NOTE: {os.path.basename(p)} is an exact copy of a file already read; skipped")
             continue
         seen.add(sig)
-        found.append((m.group(1).upper(), p, int(m.group(2)[:4]), int(m.group(2)[4:]), int(m.group(3)), int(m.group(4))))
+        y, mo, d1, d2 = int(m.group(2)[:4]), int(m.group(2)[4:]), int(m.group(3)), int(m.group(4))
+        per = content_period(p)
+        if per:
+            if (per[0].year, per[0].month, per[0].day, per[1].day) != (y, mo, d1, d2):
+                print(f"  WARNING: {os.path.basename(p)} is named {d1:02d}-{d2:02d} but its PERIOD is {per[0]:%d-%b-%Y} to {per[1]:%d-%b-%Y}; using the content")
+            y, mo, d1, d2 = per[0].year, per[0].month, per[0].day, per[1].day
+        found.append((m.group(1).upper(), p, y, mo, d1, d2))
     return found
 
 
@@ -817,4 +857,4 @@ with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
     f.write(";\n")
 print(f"SUCCESS: {OUTPUT_PATH} ({os.path.getsize(OUTPUT_PATH) / 1024:.0f} KB). "
       f"Branch sum planned={sum(b['planned_visits'] for b in branch_list):,} vs regional {total_planned:,}; "
-      f"MC sum={sum(m['planned_visits'] for m in mc_list):,}; DSE sum={sum(d['planned_visits'] for d in dse_list):,}.")
+      f"MC sum={sum(m['planned_visits'] for m in mc_list):,}; DSE sum={sum(d['planned_visits'] for d in dse_list if not d['is_promotor']):,} (promotor rows excluded, as in the regional total).")

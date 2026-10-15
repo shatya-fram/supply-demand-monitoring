@@ -1,5 +1,7 @@
 # Assessment · Gross Add (GA) / SSO per outlet (raw/GA)
 
+> **Updated 15 Oct 2026 (third pass): section 9 supersedes every September figure in sections 4–8 (September workbook re-issued 15 Oct 21:02).**
+>
 > **Updated 15 Oct 2026 (second pass): section 8 supersedes the 3ID figures in sections 4–6.** The outlet sheets lose part of the 3ID outlets in their formula lookup; the raw pivots do not. The feed now takes GA per outlet from the raw pivots.
 
 Assessed 15 Oct 2026, before any app change (CLAUDE.md §2). This is the data contract for `scripts/build_ga_feed.py` and `website/data/ga_feed.js` (`GA_FEED`).
@@ -111,3 +113,39 @@ October raw: 486,275 IM3 and 188,794 3ID GA tagged to outlets that are not Inner
 
 ### 8.6 Source of outlet (FINAL OUTLET) — added 15 Oct 2026
 `FINAL OUTLET` in the RGUGA outlet sheets classifies each outlet as PJP (on the beat plan), NON (outside it) or KAM (key account); the workbook's own `UAR PJP` / `UAR ALL OUTLET` rows are SSO for PJP outlets and for all outlets. In the feed (`sg`): physical outlets PJP 21,888 rows → master outlets are 94% PJP (13,727 of 14,635), Non-PJP master outlets 830, KAM 6; outlets outside the master are mostly Non-PJP (3,905) or unclassified (3,292). The master DSE mapping therefore only covers PJP outlets, which is why 39% of October GA sits outside the master list: that GA is Non-PJP and has no DSE. 3,332 outlets (9,001 GA in October, 10% of GA) have no label because they appear only in the raw pivots (the 3ID September sheet carries no FINAL OUTLET); they are shown as "Belum terklasifikasi" rather than guessed.
+
+
+## 9. Third pass: September workbook re-issued (15 Oct 2026 21:02)
+
+`raw/GA/Daily_RGUGA_OUTLET_202609.xlsb` was replaced (11 MB → 125 MB, Power Pivot data model inside). The October workbook is unchanged.
+
+### 9.1 What changed in the file
+| | Before | Now |
+|---|---|---|
+| Sheets | `IM3 SEP`, `3ID SEP`, `raw_im3`, `raw_3id`, pivots | `OUTLET IM3 Daily RGUGA`, `OUTLET 3ID Daily RGUGA`, `raw_im3`, `raw_3id` (builder maps the outlet sheets to the old names) |
+| Outlet sheets | IM3 17,404 / 3ID 18,188 rows; 3ID lost ~35% of GA in its lookup | same rows, formulas fixed: IM3 **159,093**, 3ID **70,196** GA (`#RGUGA` row) |
+| `raw_*` pivots | Inner Jakarta only, with micro cluster | **national** (IM3 143,170 ids / 1.34 M GA; 3ID 101,511 / 0.62 M), `biometric_status = All`, `ga_brand` in column 0, id in column 1, no micro cluster, plus a `(blank)` row (IM3 47,556, 3ID 38,650 GA with no outlet tag) |
+
+### 9.2 Checks that passed
+- Outlet sheet = raw pivot on every common id: 0 GA difference (IM3 11,684 and 3ID 8,818 ids with GA); the sheets' `#RGUGA` and `UAR ALL OUTLET` rows tie to the feed within the same small raw-add margin as before (IM3 +327, 3ID +27 GA, from 24 + 10 master outlets that the sheet lacks).
+- No duplicate (brand, id) rows, no negative or out-of-range day values, all micro clusters except `MC-BEKASI SELATAN` (375 GA, not in the 36-MC master) known.
+- Daily shape against GA BIOMETRIC: correlation 0.995 (IM3), 0.980 (3ID); no IM3 day more than 50% away; 3ID only 1 Sep (2,625 vs 1,724).
+- October is untouched: IM3 60,921, 3ID 30,276 (same as the 14 Oct feed).
+
+### 9.3 Decision: Inner Jakarta outlets that neither outlet sheet lists
+3,300 3ID and 108 IM3 outlets (22,517 + 374 Sep GA; 8,779 Oct GA) were carried by the earlier September raw pivot, which was Inner Jakarta filtered. They are absent from the new outlet sheet. The 3ID ones are still in the new national raw with the same quantities (3,096 re-attached, 22,552 GA vs 22,517 before); the IM3 ones are no longer in the raw, so they drop out, and the new raw has no region column. They are frozen in `data/catalogues/ga_ij_outlet_registry.csv` (brand, id, micro cluster, name) and re-attached from the raw pivots, the same way the October builder already did. Without them October 3ID would lose 8,779 GA while September keeps its universe.
+
+### 9.4 Result: September FM and LMTD, old vs new feed
+| | Sep FM old → new | LMTD 1–13 Sep old → new | MTD 1–13 Oct | MTD vs LMTD old → new | SSO FM old → new |
+|---|---|---|---|---|---|
+| IM3 | 152,813 → **159,420** (+4.3%) | 58,425 → **62,143** | 60,921 | +4.3% → **−2.0%** | 11,948 → 11,708 |
+| 3ID | 65,444 → **92,775** (+41.8%) | 22,579 → **30,453** | 30,276 | +34.1% → **−0.6%** | 8,952 → 11,924 |
+| IOH | 218,257 → **252,195** | 81,004 → **92,596** | 91,197 | +12.6% → **−1.5%** | |
+
+- The earlier reading "3ID Oct +34% / IOH +12.6%" came from a September base that missed GA; on the corrected base GA is flat to slightly down. Sensitivity without the registry (3ID outlets listed in the sheets only): Sep 70,223, LMTD 22,759, MTD 21,497 = −5.5%; both treatments say 3ID is flat to down, not up.
+- Against GA BIOMETRIC (region, activation location): IM3 Sep 1.056× (was 1.012×), 3ID 1.309× (was 0.923×; the registry outlets are the difference). Tagging above the biometric total means IJ outlets record GA activated elsewhere or outside the validated subset; the same pattern was already seen in October 3ID (+32%). Do not read 3ID tagging as IJ activation volume.
+- Per-outlet values moved both ways for common IM3 outlets (1,890 up, 4,917 down, net +6,019): the re-issue changed attribution, not only the total. Not explainable from the file; ask the data owner if outlet-level September history matters.
+- Outlier days (≥ 300 GA, one outlet, one day) now 20 listed in `metadata.anomalies`, e.g. `Mustika cell` (3ID) 575 on 26 Sep and 502 on 28 Sep; the feed keeps them.
+
+### 9.5 Builder notes
+`scripts/build_ga_feed.py` reads the September raw like the October one (`raw_layout`), takes the outlet sheet as the September source, adds only master outlets and registry outlets that the sheet lacks, and stores national September totals outside Inner Jakarta and `(blank)` under `metadata.tag.sep_outside_ij` / `sep_blank`.
