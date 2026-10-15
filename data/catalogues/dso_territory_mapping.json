@@ -1,0 +1,634 @@
+[
+  {
+    "region": "INNER JAKARTA",
+    "branch": "BEKASI",
+    "nama_hoa": "Ali Sabana",
+    "micro_cluster": "MC-BEKASI TENGAH",
+    "nama_dso": "ADITYA HASANUDDIN",
+    "dse_count": 10,
+    "dses": [
+      "DODI SETIONO",
+      "RESTU SAMBUDI",
+      "TRI ADI PRASETYO",
+      "ACHMAD RIZKI FAUZI",
+      "AKMAL MAULANA",
+      "AHMAD FIRDAUS",
+      "INDRA PURWANTO",
+      "IRAMA HAREFA",
+      "MUHAMMAD ALDIANSA PANGESTU",
+      "SYAIFUL JAMAL"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "BEKASI",
+    "nama_hoa": "Ali Sabana",
+    "micro_cluster": "MC-BEKASI UTARA",
+    "nama_dso": "RAHAYU UTAMININGSIH",
+    "dse_count": 6,
+    "dses": [
+      "AAN KOSSUNJAMINARA",
+      "MOHAMMAD SLAMET",
+      "MUHAMMAD DEDI SAPUTRA",
+      "PARMAN",
+      "YOSEP MARTIN",
+      "MUHAMMAD IQBAL"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "BEKASI",
+    "nama_hoa": "Ali Sabana",
+    "micro_cluster": "MC-MUSTIKA JAYA",
+    "nama_dso": "MUHAMAD RIFALDI",
+    "dse_count": 8,
+    "dses": [
+      "ALFIAN FARDIANSYAH",
+      "MUKTIARTO",
+      "TOFIK HIDAYAT",
+      "TOMMY SAIFUL ATNAN",
+      "SYAIPUL BAHRI",
+      "ACHMAD ABDULAH",
+      "HERRY CHRISTIAN",
+      "MUHAMMAD ZULFIKAR"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "BEKASI",
+    "nama_hoa": "Ali Sabana",
+    "micro_cluster": "MC-PONDOK GEDE",
+    "nama_dso": "RULLI PRATAMA",
+    "dse_count": 10,
+    "dses": [
+      "NURHAEDI",
+      "SUSANTO",
+      "HERMANSYAH",
+      "MULYADI",
+      "AGUNG PURWOKO",
+      "MUHAMMAD RIZALDI",
+      "SANDY SAPUTRA",
+      "ADNAN S BADRUN",
+      "ZULFIKAR",
+      "SAYADI MAHMUD"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "CENTRAL NORTH JAKARTA",
+    "nama_hoa": "Ragus Sularto",
+    "micro_cluster": "MC-CEMPAKA PUTIH",
+    "nama_dso": "SUHENDRA",
+    "dse_count": 9,
+    "dses": [
+      "EKI LIFYANTO",
+      "SANDRA",
+      "RIYANTO",
+      "DEDE SULAIMAN",
+      "DJAMALUDIN HARYADI",
+      "ASEP SUMANTRI",
+      "ARIF HARDIANTORO",
+      "ROHMAD WIDODO",
+      "MAULANA SYAEFUL"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "CENTRAL NORTH JAKARTA",
+    "nama_hoa": "Ragus Sularto",
+    "micro_cluster": "MC-KELAPA GADING",
+    "nama_dso": "MUHAMAD YUNUS HIDAYAT",
+    "dse_count": 7,
+    "dses": [
+      "M. Alzikri",
+      "YAHYA MUHAIMIN",
+      "MOH IQBAL",
+      "Faisal Fachruddin P",
+      "UMAR HADIKUSUMA",
+      "SUBIARTO",
+      "Ariefarta Jayadi"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "CENTRAL NORTH JAKARTA",
+    "nama_hoa": "Ragus Sularto",
+    "micro_cluster": "MC-PADEMANGAN",
+    "nama_dso": "ANANTO PRATIKNO",
+    "dse_count": 8,
+    "dses": [
+      "SYARIFAH WANDA KHADIJAH ALKAFF",
+      "ABDUL GAFUR",
+      "CIPPY HENDRA LESMANA",
+      "MUHAMMAD FARWIS",
+      "SAMSIDIN",
+      "USMAN",
+      "YANDI LESMANA",
+      "AGUSTINUS"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "CENTRAL NORTH JAKARTA",
+    "nama_hoa": "Ragus Sularto",
+    "micro_cluster": "MC-TANAH ABANG",
+    "nama_dso": "NORMAN PARASIAN",
+    "dse_count": 5,
+    "dses": [
+      "BAHARUDIN",
+      "YUDI HARTONO",
+      "Muhammad Rizki",
+      "IDRIS MAULANA",
+      "RIKY ADE GUNAWAN"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "CENTRAL NORTH JAKARTA",
+    "nama_hoa": "Ragus Sularto",
+    "micro_cluster": "MC-TANJUNG PRIOK",
+    "nama_dso": "RUDI HARDANA DARMAWAN",
+    "dse_count": 8,
+    "dses": [
+      "Herry Apriyanto",
+      "Ade Muhidin",
+      "MUHAMAD AMARUDIN",
+      "MOCHAMAD RIDWAN",
+      "DWINANDA ARISTANTO",
+      "AGUS KURNIA BUDYONO",
+      "MOH IMAM YUSKY",
+      "YUSUP ARDIANSYAH"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-BEJI",
+    "nama_dso": "INVENT RADIANTI PRATIWI",
+    "dse_count": 6,
+    "dses": [
+      "Laraswati Indah Anggraeni",
+      "SURYADI DANU SAPUTRA",
+      "SAIDINA HAMZAH",
+      "MUHAMAD FIRDAUS",
+      "FARIDA ARYANI",
+      "ARIADNI"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-CIMANGGIS",
+    "nama_dso": "ARIBOWO",
+    "dse_count": 6,
+    "dses": [
+      "ELA RUSDIAH",
+      "RUDINI LAZUARDI",
+      "SYAEFUL BAHRI",
+      "EVA SOLINA SINAGA",
+      "ANITIYA",
+      "SUSANTO"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-CIPAYUNG",
+    "nama_dso": "FRILA HANDRIANI",
+    "dse_count": 8,
+    "dses": [
+      "SULENDRA",
+      "DEVI INDRIYANI",
+      "PUTRI NUR KOMALA",
+      "Junita Riana",
+      "BASUKI",
+      "Dwi Apriliani",
+      "Nursaranita",
+      "FADLY NAWAWI"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-SAWANGAN",
+    "nama_dso": "MUHAMMAD FAUZI",
+    "dse_count": 5,
+    "dses": [
+      "WAHYUDI",
+      "MUHADI",
+      "MUHAMMAD FEBRIANSYAH",
+      "ENDRA BIN MARDA",
+      "Mohammad Faisal Ahfanda"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "EAST JAKARTA",
+    "nama_hoa": "Muchlis",
+    "micro_cluster": "MC-CAKUNG",
+    "nama_dso": "FAHMI KURNIANTO",
+    "dse_count": 12,
+    "dses": [
+      "Mustofa Nurhidayat",
+      "Achmat Rizal",
+      "Heryanto",
+      "Radja Jabinil Azhar",
+      "Heru Mulyadi",
+      "Khinanti Mulya Setya",
+      "Muhammad Lukman Hakim",
+      "Idham Rosadi",
+      "Egi Lazuardy Wahyudy",
+      "Kusworo",
+      "Muhamad Imam Saptiaji",
+      "Ringki Harun"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "EAST JAKARTA",
+    "nama_hoa": "Muchlis",
+    "micro_cluster": "MC-CIRACAS",
+    "nama_dso": "ABDUL AZIZ KAMIL RAFIKOLAN",
+    "dse_count": 9,
+    "dses": [
+      "ERWIN SANTOSO",
+      "Ahmad Sony",
+      "GURUH JATIBUANA",
+      "GIVANY NUR CAHYO",
+      "ADE NOVRIANTO",
+      "AGUS JUMAEDI",
+      "BAGUS WULANDARU ANGGORO P",
+      "HERMAN FADLI",
+      "Andi Rizaldy"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "EAST JAKARTA",
+    "nama_hoa": "Muchlis",
+    "micro_cluster": "MC-KRAMATJATI",
+    "nama_dso": "RIZKY KURNIAWAN",
+    "dse_count": 7,
+    "dses": [
+      "RIXAN ABDUL AFIF",
+      "Didik Nugroho Saputra",
+      "DENY",
+      "NINA FAIQOH",
+      "EDY JUNAEDI",
+      "GUNADI",
+      "SOFIAN ADI PUTRA"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "EAST JAKARTA",
+    "nama_hoa": "Muchlis",
+    "micro_cluster": "MC-MATRAMAN",
+    "nama_dso": "RICHARD YADI SIDAURUK",
+    "dse_count": 8,
+    "dses": [
+      "TEGUH HARI KURNIA",
+      "M ARIEF TRI ANANDA",
+      "ALEXANDER MANURUNG",
+      "MUHAMMAD FADLI",
+      "Agus Sutrisno P",
+      "Agus Laksono",
+      "Sulis Piyanto",
+      "Yuli Setiawan"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-BABELAN",
+    "nama_dso": "MUHAMMAD GUFRON",
+    "dse_count": 6,
+    "dses": [
+      "BAGUS IRAWAN",
+      "BENI RAMDANI KUSUMAWARDANA",
+      "SYARIPUDIN",
+      "KRISNA JATI",
+      "ADE ELVIANTO",
+      "ANGGA PUTRA MAULANA"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-CIBARUSAH",
+    "nama_dso": "R. SYARIEF DURAHMAN",
+    "dse_count": 5,
+    "dses": [
+      "DAEL LEPASCO",
+      "DODY ISKANDAR",
+      "RANO HIDAYAT",
+      "LUTHFI FADHLUR",
+      "RENDI JULIANSYAH SUTISNA"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-CIBITUNG",
+    "nama_dso": "RIAN SANJAYA SURNA",
+    "dse_count": 6,
+    "dses": [
+      "MUHIDIN",
+      "RADESTA FICRY",
+      "DANIAS SUNDAH",
+      "BUDI DARSONO",
+      "CHARLES MUARIF",
+      "ISMAIL MARJUKI"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-CIKARANG BARAT",
+    "nama_dso": "MUHAMAD SHANDI MAULIDRIZKI",
+    "dse_count": 6,
+    "dses": [
+      "PRASETYA  HUTAMA YUSEP",
+      "SYAHRUL MAULANA",
+      "ANDRIAN",
+      "RAJA MANGKU ALAM YANDO PASONI",
+      "RIA KUSNIA",
+      "RIDWAN GUNAWAN"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-CIKARANG TIMUR",
+    "nama_dso": "THEOVILLUS MARTHIN YOHANES",
+    "dse_count": 5,
+    "dses": [
+      "MUHAMMAD RAFLI PERMANA",
+      "TONI RISQI DEWANTARA",
+      "FAHMI HUSAENI",
+      "AGUNG NUGROHO",
+      "SANUSI FATILA YUSUP"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-PEBAYURAN",
+    "nama_dso": "SANDY NOPRIANSYAH",
+    "dse_count": 6,
+    "dses": [
+      "JEJEN ZAENAL",
+      "KRISDIANTO",
+      "AHMAD SYARIF HIDAYAT",
+      "FIRMAN HIDAYAT",
+      "EKO SURYANTO",
+      "M. SIHABUDIN A"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KAB BEKASI",
+    "nama_hoa": "Budi Priyambodo",
+    "micro_cluster": "MC-TAMBUN",
+    "nama_dso": "RONA DWI KARYO",
+    "dse_count": 7,
+    "dses": [
+      "DEDY SUMANTRI",
+      "FIRMAI DONI",
+      "PANJI AGUS MUTAKIN",
+      "GUNTAR BUMI JAYA",
+      "DEDEN RIO NUGRAHA",
+      "SANDI",
+      "KUSNADI"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-BATUJAYA",
+    "nama_dso": "ADHITYA PRATAMA",
+    "dse_count": 9,
+    "dses": [
+      "IHSAN RIYADLUL JINAN",
+      "MUHAMMAD SATRIO DWIYANTO",
+      "SUKRON MAMUN",
+      "MUHAMAD SAIPUL",
+      "OPIK UMANG",
+      "KASMIN JAMALUDIN",
+      "AHMAD HABIBUDIN",
+      "KUNJANG MUGNI AL KAROMI",
+      "AAB ABDUL ROSID"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-EAST CIKAMPEK",
+    "nama_dso": "WIWIT PRASETYO",
+    "dse_count": 6,
+    "dses": [
+      "ZAINUDDIN",
+      "BAMBANG HERI PRASETYO",
+      "LUKMAN NUL HAKIM",
+      "DEVI SOPYAN",
+      "ILHAM JONENDA LAKSANA",
+      "ASEP BUDIANA"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-RENGASDENGKLOK",
+    "nama_dso": "MOCH ALI AS'AD",
+    "dse_count": 7,
+    "dses": [
+      "BAMBANG",
+      "EKO PURNAMA AJAYA ATIP",
+      "ERICK REJEKI LIMBONG",
+      "JUANA",
+      "PRIMADANA",
+      "RUSLI ANWAR",
+      "PARID ANSORI"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-WEST CIKAMPEK",
+    "nama_dso": "SEPTIAN AJI PUTRA",
+    "dse_count": 7,
+    "dses": [
+      "MIRA MILENIA",
+      "MAMAN SUHERMAN",
+      "ADIA ERES RUANTINO",
+      "RONI JUNIO ADHA",
+      "HABIBI",
+      "ALFIAN SETIA BUDI",
+      "YAYAN SOPIYAN"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-KEBAYORAN",
+    "nama_dso": "YUALITA PRASIDA RAMADHANI",
+    "dse_count": 9,
+    "dses": [
+      "Indah Kurniawati",
+      "Indra Al Fajar Ramadoni",
+      "Irwan Sumaryanto",
+      "Dimas prayogo",
+      "Marlina",
+      "Rizky Fadilah",
+      "Muhamad Sandi",
+      "Irfan kamaludin",
+      "Muhammad Aris Munandar"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-PANCORAN",
+    "nama_dso": "RINALDO FERNANDES SIREGAR",
+    "dse_count": 9,
+    "dses": [
+      "Purnomo",
+      "Riza Juliansyah",
+      "Derrys Saputra",
+      "Reza Akbar",
+      "Budiansyah",
+      "Iwan",
+      "Ahmad Zulfikar Fauji",
+      "Sorichi",
+      "Kusdaryadi Isanto"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "SOUTH JAKARTA DEPOK",
+    "nama_hoa": "Roswida Sidauruk",
+    "micro_cluster": "MC-PASAR MINGGU",
+    "nama_dso": "ARIE SETYO PRABOWO",
+    "dse_count": 12,
+    "dses": [
+      "Trias Yanuar Isnaeni",
+      "Andika",
+      "Aldi Thamrin",
+      "Tri Atmoko",
+      "Aldi Gerald Heryana",
+      "ASWAD",
+      "Ayu Wandira",
+      "Aan Setiadi",
+      "Erik Dwiyanto",
+      "Djoko Subroto",
+      "Victor Radianto",
+      "Umar"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-KARAWANG",
+    "nama_dso": "AGAM EKANANDA GUMELAR",
+    "dse_count": 8,
+    "dses": [
+      "GALIH KUSUMADISASTRA",
+      "ADNAN AL AP GHANI",
+      "CECEP HIDAYAT",
+      "YOGI IRAWAN",
+      "ENGGAR TRIAMRI",
+      "EKO WIJAYA",
+      "ALDI FEBRIAN",
+      "MARWAN HIDAYAT"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "KARAWANG",
+    "nama_hoa": "Apri Sugiyanto",
+    "micro_cluster": "MC-TEGALWARU",
+    "nama_dso": "RAIHAAN",
+    "dse_count": 7,
+    "dses": [
+      "TEGUH RACHMAT NOER",
+      "RAMDAN BUHARI",
+      "KUS JUNAEDI",
+      "ANAS ANWAR",
+      "ZULKIFLI",
+      "Reva Ayu Maharani",
+      "Tina"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "WEST JAKARTA",
+    "nama_hoa": "Antony Hermanto",
+    "micro_cluster": "MC-CENGKARENG",
+    "nama_dso": "AHYADI",
+    "dse_count": 10,
+    "dses": [
+      "Nur Ainun",
+      "Edi Warsono",
+      "Nurhariki",
+      "Rizki Wicaksono",
+      "Bambang Yudiyanto",
+      "Hikmah Ramadhan",
+      "Sahrul",
+      "Purwantoro",
+      "Andy Putra Intani",
+      "Ukon Sukron"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "WEST JAKARTA",
+    "nama_hoa": "Antony Hermanto",
+    "micro_cluster": "MC-GROGOL",
+    "nama_dso": "LESTARI A. R.",
+    "dse_count": 8,
+    "dses": [
+      "Ridho Rifai",
+      "Repi Anjani",
+      "Selvi Handayani",
+      "Amin Kurniawan",
+      "Rizky Andry",
+      "Oki Setiawan",
+      "Rendi Juniawan Saputra",
+      "Arief Rahman"
+    ]
+  },
+  {
+    "region": "INNER JAKARTA",
+    "branch": "WEST JAKARTA",
+    "nama_hoa": "Antony Hermanto",
+    "micro_cluster": "MC-KEMBANGAN",
+    "nama_dso": "ALDIKA FAYZAL RAHADITYA",
+    "dse_count": 7,
+    "dses": [
+      "Ega Fitriyansyah Saputra",
+      "Irfan Saptian",
+      "Reza Hidayat",
+      "Muhammad Aldi Syaputra",
+      "Berri Aji Samporno",
+      "Aries Wirawan",
+      "Dody Fahamsyah"
+    ]
+  }
+]

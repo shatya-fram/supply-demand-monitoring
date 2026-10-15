@@ -1,0 +1,9 @@
+# Raw exports are large and sensitive; keep them local only
+raw/
+.venv/
+.DS_Store
+__pycache__/
+*.pyc
+
+# Offline HTML bundles (32 MB each, rebuilt with scripts/build_offline_html.py)
+dist/

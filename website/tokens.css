@@ -1,0 +1,51 @@
+/* Inner Jakarta design tokens
+   Source: Inner Jakarta Brand & Frontend Guide v2.0 (4 Oct 2026), pages 4-7 and 12.
+   Link this file first, then style with var(--ij-*). */
+:root {
+  /* Core palette */
+  --ij-surface: #FFFFFF;      /* cards, header band, tables */
+  --ij-ground: #F3F2F2;       /* page background behind cards */
+  --ij-ink: #201E1D;          /* text, 2px rules, sidebar, active toggle */
+  --ij-ink-2: #4A4644;
+  --ij-muted: #6B6764;        /* muted text, prior period */
+  --ij-label: #8A857F;        /* labels */
+  --ij-disabled: #CDCAC6;
+  --ij-hairline: #E2DED9;
+
+  /* Accent: signal only (primary action, active scope, decline) */
+  --ij-accent: #EC3013;
+  --ij-accent-600: #DD2B0F;   /* hover */
+  --ij-accent-deep: #B3210D;  /* red text at body size, links */
+  --ij-accent-tint: #F7AB9D;
+  --ij-wash: #FDEEEB;         /* selected row wash */
+
+  /* Movement colours: the only meanings colour carries in data */
+  --ij-up: #1F6B3A;
+  --ij-up-soft: #5AA06F;
+  --ij-flat: #8A857F;
+  --ij-watch: #E8B40A;        /* fill only, fails contrast as text */
+  --ij-down: #B3210D;
+
+  /* Tonal ramps */
+  --ij-red-100: #FFF2EF; --ij-red-200: #FFE0D9; --ij-red-300: #FFC4B8;
+  --ij-red-400: #FF9783; --ij-red-500: #FF563C; --ij-red-600: #DD2B0F;
+  --ij-red-700: #AE1800; --ij-red-800: #7C1405; --ij-red-900: #4D170E;
+  --ij-grey-100: #F8F4F4; --ij-grey-200: #EAE7E7; --ij-grey-300: #D7D3D3;
+  --ij-grey-400: #BAB6B6; --ij-grey-500: #9B9797; --ij-grey-600: #7D7979;
+  --ij-grey-700: #605D5D; --ij-grey-800: #444141; --ij-grey-900: #2D2B2B;
+
+  /* Typography: one family, weights 400-800, fallback Arial */
+  --ij-font: 'Archivo', Arial, sans-serif;
+
+  /* Shape and spacing */
+  --ij-rule-w: 2px;
+  --ij-radius: 0;
+  --ij-sidebar-w: 284px;
+  --ij-pad-y: 18px;
+  --ij-pad-x: 24px;
+  --ij-gap: 14px;
+  --ij-card-pad-y: 12px;
+  --ij-card-pad-x: 14px;
+  --ij-space-1: 4px; --ij-space-2: 8px; --ij-space-3: 12px;
+  --ij-space-4: 14px; --ij-space-5: 18px; --ij-space-6: 24px;
+}
