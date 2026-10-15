@@ -530,16 +530,16 @@ select { border: var(--ij-rule-w) solid var(--ij-ink); background: #fff; color: 
   display: inline-block;
 }
 .badge-3id {
-  background: #c084fc;
-  color: #111;
+  background: #e6007e;   /* 3ID = magenta (owner, 15 Oct 2026) */
+  color: #fff;
   font: 800 14px var(--ij-font);
   padding: 3px 8px;
-  border: 1px solid #9333ea;
+  border: 1px solid #9d174d;
   border-radius: 2px;
   display: inline-block;
 }
-.badge-hybrid {
-  background: #2dd4bf;
+.badge-hybrid, .badge-ioh {
+  background: #2dd4bf;   /* IOH (hybrid / paired IM3 + 3ID) = tosca */
   color: #111;
   font: 800 14px var(--ij-font);
   padding: 3px 8px;
@@ -547,6 +547,26 @@ select { border: var(--ij-rule-w) solid var(--ij-ink); background: #fff; color: 
   border-radius: 2px;
   display: inline-block;
 }
+.badge-promotor {
+  background: #ede9fe;   /* promotor (PRJAYAIN##): not measured as DSE PJP productivity */
+  color: #4c1d95;
+  font: 800 14px var(--ij-font);
+  padding: 3px 8px;
+  border: 1px solid #6d28d9;
+  border-radius: 2px;
+  display: inline-block;
+}
+.badge-adhoc {
+  background: #fff7ed;   /* ad-hoc visit, non-PJP */
+  color: #9a3412;
+  font: 800 14px var(--ij-font);
+  padding: 3px 8px;
+  border: 1px solid #ea580c;
+  border-radius: 2px;
+  display: inline-block;
+}
+.br-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 3px; vertical-align: baseline; border: 1px solid rgba(0,0,0,.35); }
+.br-dot.im3 { background: #facc15; } .br-dot.id3 { background: #e6007e; } .br-dot.ioh { background: #2dd4bf; }
 .alert-tag {
   background: #fee2e2;
   color: #991b1b;

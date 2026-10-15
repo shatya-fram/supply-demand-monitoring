@@ -2122,23 +2122,25 @@
     var rowOf = function (d) {
       var v = bval(d), rate = hitPct(v);
       var statusTag;
-      if (!v.actual && v.planned) statusTag = '<span class="alert-tag">No execution</span>';
+      if (d.is_promotor) statusTag = promoTag(d) + '<br><span class="note">tidak diukur sebagai PJP</span>';
+      else if (!v.actual && v.planned) statusTag = '<span class="alert-tag">No execution</span>';
       else if (rate >= 70) statusTag = '<span class="good-tag">Strong (&ge;70%)</span>';
       else if (rate >= 50) statusTag = '<span class="sw sw-up"></span> Healthy';
       else if (rate >= 25) statusTag = '<span class="sw sw-watch"></span> Needs Focus';
       else statusTag = '<span class="alert-tag">Severe (&lt;25%)</span>';
       var logins = (d.logins || []).map(function (l) { var p = l.split(':'); return '<span class="' + (p[0] === 'IM3' ? 'badge-im3' : 'badge-3id') + '">' + esc(p[0]) + '</span> <code>' + esc(p[1]) + '</code>'; }).join(' ');
       var cov = d.assigned_coverage_rate == null ? '—' : d.assigned_coverage_rate + '%';
-      return '<tr>' +
-        '<td class="cur" style="padding-left:40px;"><b>' + esc(d.dse_name) + '</b>' + (d.in_master ? '' : ' <span class="note" title="Login not found in MASTER DSE Hirarki">(not in master)</span>') + '<br><span style="font-size:13px;">' + logins + '</span></td>' +
+      var adh = d.adhoc_planned ? ' <span class="badge-adhoc" title="Kunjungan ad-hoc di outlet tanpa DSE, tidak dihitung sebagai PJP">ADHOC ' + fmtCount(d.adhoc_actual) + '/' + fmtCount(d.adhoc_planned) + '</span>' : '';
+      return '<tr' + (d.is_promotor ? ' style="background:#faf5ff;"' : '') + '>' +
+        '<td class="cur" style="padding-left:40px;">' + (d.is_promotor ? '🎤 ' : '') + '<b>' + esc(d.dse_name) + '</b> ' + iohTag(d.logins) + promoTag(d) + adh + (d.in_master || d.is_promotor ? '' : ' <span class="note" title="Login not found in MASTER DSE Hirarki">(not in master)</span>') + '<br><span style="font-size:13px;">' + logins + '</span></td>' +
         '<td>' + esc(d.operator_type) + '</td>' +
         '<td>' + esc(d.branch) + '</td>' +
         '<td>' + esc(d.micro_cluster) + '</td>' +
         '<td>' + esc(d.dso_leader || '—') + '</td>' +
         '<td class="num">' + fmtCount(v.planned) + '</td>' +
         '<td class="num cur"><b>' + fmtCount(v.actual) + '</b></td>' +
-        '<td>' + hitBar(rate) + '</td>' +
-        '<td class="num">' + (d.productive_rate != null && d.actual_visits ? d.productive_rate + '%' : '—') + '</td>' +
+        '<td>' + (d.is_promotor ? '<span class="note">tidak diukur</span>' : hitBar(rate)) + '</td>' +
+        '<td class="num">' + (!d.is_promotor && d.productive_rate != null && d.actual_visits ? d.productive_rate + '%' : '—') + '</td>' +
         '<td class="num">' + d.days_active + ' / ' + d.days_planned + '</td>' +
         '<td class="num">' + d.visits_per_active_day + '</td>' +
         '<td class="num">' + fmtCount(d.outlets_visited) + ' / ' + fmtCount(d.outlets_planned) + '</td>' +
@@ -2156,7 +2158,7 @@
     var dsoOfMc = {}, hoaOfArea = {};
     filtered.forEach(function (d) { if (!dsoOfMc[d.micro_cluster]) dsoOfMc[d.micro_cluster] = d.dso_leader || '—'; if (!hoaOfArea[d.branch]) hoaOfArea[d.branch] = d.hoa_leader || hoaMap[d.branch] || '—'; });
     var sub = function (it) {
-      var pl = grpSum(it, function (d) { return bval(d).planned; }), ac = grpSum(it, function (d) { return bval(d).actual; });
+      var pl = grpSum(it, function (d) { return d.is_promotor ? 0 : bval(d).planned; }), ac = grpSum(it, function (d) { return d.is_promotor ? 0 : bval(d).actual; });
       return '<td colspan="4"></td><td class="num">' + fmtCount(pl) + '</td><td class="num"><b>' + fmtCount(ac) + '</b></td><td>' + hitBar(hitPct({ planned: pl, actual: ac })) + '</td><td colspan="6"></td>' +
         '<td class="num alert-tag">' + fmtCount(grpSum(it, function (d) { return d.assigned_not_visited_mtd; })) + '</td>' +
         '<td class="num">' + fmtCount(grpSum(it, function (d) { return d.im3_visits; })) + '</td><td class="num">' + fmtCount(grpSum(it, function (d) { return d['3id_visits']; })) + '</td><td colspan="4"></td>';
@@ -2198,6 +2200,7 @@
     var brand = state.visitsBrandFilter || 'all';
     return (feed.dses || []).filter(function (d) {
       if (state.visitsDse) return d.person_id === state.visitsDse;
+      if (d.is_promotor) return false;          // promotors are listed in the DSE view but not measured as PJP productivity
       if (state.branch && d.branch !== state.branch) return false;
       if (state.hoa && d.hoa_leader !== state.hoa && hoaMap[d.branch] !== state.hoa) return false;
       if (state.kec && d.micro_cluster !== state.kec) return false;
@@ -3852,7 +3855,7 @@
     }
     function outRow(o) {
       var sel = state.pjMxSel === o.k, t = topOf([o]);
-      return '<tr data-pj-mx="' + esc(o.k) + '" style="cursor:pointer;' + (sel ? ' outline:2px solid var(--ij-ink); outline-offset:-2px;' : '') + '"><td class="cur" style="padding-left:40px;"><b>' + esc(o.n || o.id) + '</b><br><span class="note"><code>' + esc(o.id) + '</code> · ' + esc(o.dse) + '</span>' +
+      return '<tr data-pj-mx="' + esc(o.k) + '" style="cursor:pointer;' + (sel ? ' outline:2px solid var(--ij-ink); outline-offset:-2px;' : '') + '"><td class="cur" style="padding-left:40px;"><b>' + esc(o.n || o.id) + '</b><br><span class="note"><code>' + esc(o.id) + '</code> · </span>' + dseHtml(o.dse) +
         '<br><span style="font-size:12.5px;">' + topTxt(t) + '</span></td><td>' + esc(o.mc) + '<br><span class="note">' + esc(o.site || '') + '</span></td>' + cols.map(function (p, ci) { return cell(o, ci); }).join('') + '<td class="num cur"><b>' + pjRp(o._mxv) + '</b></td></tr>';
     }
     var byArea = {}; rows.forEach(function (o) { var a = (mi[o.mc] || {}).br || '—'; ((byArea[a] || (byArea[a] = {}))[o.mc] || (byArea[a][o.mc] = [])).push(o); });
@@ -5340,7 +5343,7 @@
     var mode = state.kec ? 'dse' : ((state.branch || state.hoa) ? 'mc' : 'area'), col = state.uarCollapsed || {}, rows = [];
     function by(f) { var g = {}; list.forEach(function (o) { var k = f(o); (g[k] || (g[k] = [])).push(o); }); return g; }
     function agg(l) { return uarAgg(l, tab, thr, spi); }
-    function dseName(o) { var n = String(o.dse == null ? '' : o.dse).replace(/\.0$/, ''); return n === '0' || !n ? 'Tanpa DSE' : n; }
+    function dseName(o) { return uarDse(o); }
     var sortG = function (x, y) { return (uarGrow(y[1].u, y[1].up) == null ? 1e9 : uarGrow(y[1].u, y[1].up)) - (uarGrow(x[1].u, x[1].up) == null ? 1e9 : uarGrow(x[1].u, x[1].up)); };
     var gMc = {};
     if (mode === 'area') {
@@ -5392,7 +5395,12 @@
     return { P: P, tab: tab, thr: thr, spi: spi, mi: P.metadata.mc_info || {}, list: uarOutlets(P), M: P.metadata, G: Gp, term: tab === 'spi' ? 'SSO' : 'UAR',
       cur: 'bulan ini (MTD)', prev: 'bulan lalu (LMTD)' };
   }
-  function uarDse(o) { var n = String(o.dse == null ? '' : o.dse).replace(/\.0$/, ''); return n === '0' || !n ? 'Tanpa DSE' : n; }
+  function uarDse(o) { var n = String(o.dse == null ? '' : o.dse).replace(/\.0$/, ''); return n === '0' || !n || n.toUpperCase().indexOf('UNASSIGNED') === 0 ? 'ADHOC (non-PJP)' : n; }
+  // outlets without a DSE are ad-hoc visits outside the PJP for now (owner, 15 Oct 2026)
+  function dseIsNone(n) { n = String(n == null ? '' : n).replace(/\.0$/, '').trim().toUpperCase(); return !n || n === '0' || n.indexOf('UNASSIGNED') === 0 || n === 'ADHOC (NON-PJP)' || n === 'TANPA DSE'; }
+  function dseHtml(n) { return dseIsNone(n) ? '<span class="badge-adhoc" title="Outlet tanpa DSE: kunjungan dicatat sebagai ADHOC (non-PJP) untuk sementara">ADHOC · non-PJP</span>' : esc(n); }
+  function promoTag(d) { return d && d.is_promotor ? '<span class="badge-promotor" title="Promotor (PRJAYAIN##): kunjungan ditampilkan tetapi tidak diukur sebagai produktivitas PJP VISIT">🎤 Promotor</span>' : ''; }
+  function iohTag(logins) { var L = {}; (logins || []).forEach(function (l) { L[String(l).split(':')[0]] = 1; }); return L.IM3 && L['3ID'] ? '<span class="badge-ioh" title="IOH: login IM3 + 3ID dalam satu orang (hybrid / paired)">IOH</span> ' : ''; }
   function uarCats(tab) { return tab === 'sp' || tab === 'spi' ? ['SP'] : (tab === 'sal' ? ['SALMO'] : (state.uarVc === 'value' ? ['VCF'] : (state.uarVc === 'zero' ? ['VCB'] : ['VCF', 'VCB']))); }
   function uarSlabIdx(tab, v) { var S = UAR_SLABS[tab]; for (var i = S.length - 1; i >= 0; i--) { if (v >= S[i][0]) return i; } return 0; }
   function uarTerrRows(C, rowFn) {
@@ -5532,7 +5540,7 @@
     var head = '<tr>' + dkStickyTh('Area › MC › Outlet', 1) + th('Site') + th('MC') + th('DSE') + th('Status') + th((unitSal ? 'Saldo ' : 'Volume ') + C.prev, 1) + th((unitSal ? 'Saldo ' : 'Volume ') + C.cur, 1) + th('Terakhir beli') + (isAct ? '' : th('Usulan produk untuk didorong')) + '</tr>';
     function uRow(r) {
       var o = r.o, st = UAR_SEG_LABEL[r.s], ld = uarLastDay(o, C);
-      return '<tr>' + dkStickyTd('<b>' + esc(o.n || '(tanpa nama)') + '</b><br><code style="font-size:12px;">' + esc(o.id) + ' · ' + esc(o.b) + '</code>') + '<td><code>' + esc(o.site || '—') + '</code></td><td>' + esc(o.mc) + '</td><td>' + esc(uarDse(o)) + '</td><td>' + dkTag(st[0], st[1]) + '</td>' +
+      return '<tr>' + dkStickyTd('<b>' + esc(o.n || '(tanpa nama)') + '</b><br><code style="font-size:12px;">' + esc(o.id) + ' · ' + esc(o.b) + '</code>') + '<td><code>' + esc(o.site || '—') + '</code></td><td>' + esc(o.mc) + '</td><td>' + dseHtml(uarDse(o)) + '</td><td>' + dkTag(st[0], st[1]) + '</td>' +
         '<td class="num">' + uarVol(C.tab, r.m[1]) + '</td><td class="num"><b>' + uarVol(C.tab, r.m[0]) + '</b></td><td>' + (ld ? 'tgl ' + ld + ' Okt' : '<span class="note">—</span>') + '</td>' + (isAct ? '' : '<td style="min-width:260px;">' + esc(uarPropose(C, o, r.s, r.m)) + '</td>') + '</tr>';
     }
     function uSub(items) { var p = 0, c = 0; items.forEach(function (r) { p += r.m[1]; c += r.m[0]; }); return '<td class="num">' + uarVol(C.tab, p) + '</td><td class="num"><b>' + uarVol(C.tab, c) + '</b></td><td' + (isAct ? '' : ' colspan="2"') + '></td>'; }
@@ -7099,9 +7107,19 @@
       r.fmSAL = r.sepSAL; r.lmSAL = sa[3] || 0; r.mtSAL = sa[1] || 0;
       r.fmSP = r.sepSPq; r.lmSP = sp[2] || 0; r.mtSP = sp[0] || 0;
       r.demD = dd[r.k] || 0;
+      r.bs = (pj[r.k] || {}).bs || {};          // per brand (IM3 / 3ID): {SALMO|SP: [mq, mv, lq, lv, fq, fv]}
       r.gapSAL = r.fmSAL - r.mtSAL; r.gapSP = r.fmSP - r.mtSP;
     });
     B._pr = true; return B;
+  }
+  /* Saldo and SP in the print sheets are IM3 + 3ID combined for the outlet (hybrid outlets sum both ids).
+     The small lines under each figure split it by brand: IM3 yellow dot, 3ID magenta dot; the tosca dot (IOH) marks an outlet that has both. */
+  var PR_BI = { SAL: ['SALMO', { fm: 5, lm: 3, mt: 1 }, true], SP: ['SP', { fm: 4, lm: 2, mt: 0 }, false] };
+  function prBrTd(r, cat, w) {
+    var d = PR_BI[cat], money = d[2], tot = r[w + cat], bs = r.bs || {}, im = ((bs.IM3 || {})[d[0]] || [])[d[1][w]] || 0, id = ((bs['3ID'] || {})[d[0]] || [])[d[1][w]] || 0;
+    var f = function (v) { return money ? prMoney(v) : prNum(v); }, both = im > 0 && id > 0;
+    var line = function (cls, lbl, v) { return v > 0 ? '<div style="font-size:9.5px; line-height:1.25; font-weight:600;"><i class="br-dot ' + cls + '"></i>' + lbl + ' ' + (money ? pjRp(v) : fmtCount(v)) + '</div>' : ''; };
+    return '<td class="num">' + (both ? '<i class="br-dot ioh" title="IOH: IM3 + 3ID"></i>' : '') + f(tot) + line('im3', 'IM3', im) + line('id3', '3ID', id) + '</td>';
   }
   function prGap(v, money) { if (v > 0) return '<b>' + (money ? pjRp(v) : fmtCount(v)) + '</b>'; return '<span class="note">✓ ' + (v < 0 ? '+' + (money ? pjRp(-v) : fmtCount(-v)) : '0') + '</span>'; }
   function prMoney(v) { return v ? pjRp(v) : '·'; }
@@ -7114,7 +7132,7 @@
     return '<div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:3px solid #111; padding-bottom:6px;"><div><div style="font:800 11px var(--ij-font); letter-spacing:.1em; text-transform:uppercase;">Inner Jakarta · Supply &amp; Demand Monitoring</div><div style="font:800 21px var(--ij-font);">' + title + '</div><div style="font-size:12.5px;">' + sub + '</div></div>' +
       '<div style="text-align:right; font-size:12px;">Sell-In cut ' + B.cutDay + ' Okt 2026 · Last FM = September penuh (1–' + B.sepDays + ' Sep)<br>' + (noLmtd ? '' : 'LMTD = 1–' + B.cutDay + ' Sep · ') + 'MTD = 1–' + B.cutDay + ' Okt</div></div>';
   }
-  var PR_NOTE = '<p class="note" style="margin-top:6px;">Gap = Last FM − MTD: yang masih harus dikejar untuk menyamai September penuh; ✓ = sudah melewati bulan lalu. Trade Demand = nilai transaksi outlet ke pelanggan (MOBO: Reload + Voucher Injection + CVM + Paket Data) sampai cut Okt; file MOBO tidak memuat bulan lalu, jadi demand bulan lalu belum tersedia. SALMO = Saldo Mobo transfer ke outlet (Rp); SP = Starter Pack Sell-In (pcs).</p>';
+  var PR_NOTE = '<p class="note" style="margin-top:6px;">SALMO dan SP = IM3 + 3ID digabung per outlet (outlet hybrid menjumlahkan kedua ID); baris kecil di bawah angka memisahkan IM3 (titik kuning) dan 3ID (titik magenta), titik tosca = IOH (outlet punya kedua brand). Gap = Last FM − MTD: yang masih harus dikejar untuk menyamai September penuh; ✓ = sudah melewati bulan lalu. Trade Demand = nilai transaksi outlet ke pelanggan (MOBO: Reload + Voucher Injection + CVM + Paket Data) sampai cut Okt; file MOBO tidak memuat bulan lalu, jadi demand bulan lalu belum tersedia. SALMO = Saldo Mobo transfer ke outlet (Rp); SP = Starter Pack Sell-In (pcs).</p>';
 
   function prPopulation(B) {
     prEnrich(B);
@@ -7127,8 +7145,8 @@
       sub.n++; sub.fmS += r.fmSAL; sub.lmS += r.lmSAL; sub.mtS += r.mtSAL; sub.dem += r.dem; sub.fmP += r.fmSP; sub.lmP += r.lmSP; sub.mtP += r.mtSP;
       tot.fmS += r.fmSAL; tot.lmS += r.lmSAL; tot.mtS += r.mtSAL; tot.dem += r.dem; tot.fmP += r.fmSP; tot.lmP += r.lmSP; tot.mtP += r.mtSP;
       body += '<tr><td class="cur"><b>' + esc(r.n) + '</b></td><td><code>' + esc(r.id) + '</code></td><td class="num">' + (r.lat ? Number(r.lat).toFixed(5) : '—') + '</td><td class="num">' + (r.lon ? Number(r.lon).toFixed(5) : '—') + '</td><td>' + esc(r.dse) + '</td>' +
-        '<td class="num">' + prMoney(r.fmSAL) + '</td><td class="num">' + prMoney(r.lmSAL) + '</td><td class="num">' + prMoney(r.mtSAL) + '</td><td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td><td class="num">' + prMoney(r.dem) + '</td>' +
-        '<td class="num">' + prNum(r.fmSP) + '</td><td class="num">' + prNum(r.lmSP) + '</td><td class="num">' + prNum(r.mtSP) + '</td><td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td></tr>';
+        prBrTd(r, 'SAL', 'fm') + prBrTd(r, 'SAL', 'lm') + prBrTd(r, 'SAL', 'mt') + '<td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td><td class="num">' + prMoney(r.dem) + '</td>' +
+        prBrTd(r, 'SP', 'fm') + prBrTd(r, 'SP', 'lm') + prBrTd(r, 'SP', 'mt') + '<td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td></tr>';
     });
     flush();
     var foot = '<tr style="background:#111; color:#fff; font-weight:800;"><td colspan="5">TOTAL ' + fmtCount(list.length) + ' outlet</td><td class="num">' + pjRp(tot.fmS) + '</td><td class="num">' + pjRp(tot.lmS) + '</td><td class="num">' + pjRp(tot.mtS) + '</td><td class="num">' + pjRp(Math.max(0, tot.fmS - tot.mtS)) + '</td><td class="num">' + pjRp(tot.dem) + '</td><td class="num">' + fmtCount(tot.fmP) + '</td><td class="num">' + fmtCount(tot.lmP) + '</td><td class="num">' + fmtCount(tot.mtP) + '</td><td class="num">' + fmtCount(Math.max(0, tot.fmP - tot.mtP)) + '</td></tr>';
@@ -7142,8 +7160,11 @@
   function prCsv(B) {
     prEnrich(B);
     function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
-    var lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Lat', 'Long', 'SALMO Last FM', 'SALMO LMTD', 'SALMO MTD', 'SALMO Gap to FM', 'Trade Demand MTD', 'SP Last FM', 'SP LMTD', 'SP MTD', 'SP Gap to FM'].map(q).join(',')];
-    B.rows.filter(opdIn).forEach(function (r) { lines.push([r.br, r.mc, r.dso, r.dse, r.site, r.id, r.n, r.lat, r.lon, r.fmSAL, r.lmSAL, r.mtSAL, r.gapSAL, r.dem, r.fmSP, r.lmSP, r.mtSP, r.gapSP].map(q).join(',')); });
+    var lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Lat', 'Long', 'SALMO Last FM', 'SALMO LMTD', 'SALMO MTD', 'SALMO Gap to FM', 'Trade Demand MTD', 'SP Last FM', 'SP LMTD', 'SP MTD', 'SP Gap to FM', 'SALMO Last FM IM3', 'SALMO LMTD IM3', 'SALMO MTD IM3', 'SALMO Last FM 3ID', 'SALMO LMTD 3ID', 'SALMO MTD 3ID', 'SP Last FM IM3', 'SP LMTD IM3', 'SP MTD IM3', 'SP Last FM 3ID', 'SP LMTD 3ID', 'SP MTD 3ID'].map(q).join(',')];
+    var bv = function (r, br, cat, w) { var d = PR_BI[cat]; return (((r.bs || {})[br] || {})[d[0]] || [])[d[1][w]] || 0; };
+    B.rows.filter(opdIn).forEach(function (r) { lines.push([r.br, r.mc, r.dso, r.dse, r.site, r.id, r.n, r.lat, r.lon, r.fmSAL, r.lmSAL, r.mtSAL, r.gapSAL, r.dem, r.fmSP, r.lmSP, r.mtSP, r.gapSP,
+      bv(r, 'IM3', 'SAL', 'fm'), bv(r, 'IM3', 'SAL', 'lm'), bv(r, 'IM3', 'SAL', 'mt'), bv(r, '3ID', 'SAL', 'fm'), bv(r, '3ID', 'SAL', 'lm'), bv(r, '3ID', 'SAL', 'mt'),
+      bv(r, 'IM3', 'SP', 'fm'), bv(r, 'IM3', 'SP', 'lm'), bv(r, 'IM3', 'SP', 'mt'), bv(r, '3ID', 'SP', 'fm'), bv(r, '3ID', 'SP', 'lm'), bv(r, '3ID', 'SP', 'mt')].map(q).join(',')); });
     var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = 'all_population_outlet_' + (state.kec || state.branch || 'inner_jakarta').replace(/[^A-Za-z0-9]+/g, '_') + '.csv'; a.click();
   }
@@ -7195,12 +7216,12 @@
     var body = rows.map(function (x, i) {
       var o = x.o, r = x.r, days = PR_DAYS.filter(function (d, k) { return o.w.charAt(k) === '1'; }).join('·');
       if (r) { t.fmS += r.fmSAL; t.lmS += r.lmSAL; t.mtS += r.mtSAL; t.fmP += r.fmSP; t.lmP += r.lmSP; t.mtP += r.mtSP; t.dem += r.dem; t.gaL += r.gaP || 0; t.gaM += r.ga || 0; }
-      var head = '<td class="num">' + (i + 1) + (x.rank ? '<br><b style="font-size:10px;">' + x.fl.tier + x.rank + '</b>' : '') + '</td><td class="cur"><b>' + esc(o.n || '(tanpa nama)') + '</b></td><td><code>' + esc(o.i || '—') + '</code>' + (o.j ? '<br><code>' + esc(o.j) + '</code>' : '') + '</td><td>F' + o.f + '<br><span class="note">' + days + '</span></td>';
+      var head = '<td class="num">' + (i + 1) + (x.rank ? '<br><b style="font-size:10px;">' + x.fl.tier + x.rank + '</b>' : '') + '</td><td class="cur"><b>' + esc(o.n || '(tanpa nama)') + '</b></td><td>' + (o.i && o.j ? '<i class="br-dot ioh" title="IOH: IM3 + 3ID"></i>' : '') + (o.i ? '<i class="br-dot im3"></i>' : '') + '<code>' + esc(o.i || '—') + '</code>' + (o.j ? '<br><i class="br-dot id3"></i><code>' + esc(o.j) + '</code>' : '') + '</td><td>F' + o.f + '<br><span class="note">' + days + '</span></td>';
       var tail = '<td style="min-width:110px; white-space:normal;">' + prChips(x.fl) + '</td><td style="width:22px;"><span style="display:inline-block; width:14px; height:14px; border:1.5px solid #111;"></span></td><td style="min-width:60px;"></td></tr>';
       if (!r) return '<tr>' + head + '<td colspan="' + (nData + 1) + '" class="note">Outlet belum ada di master: data Sell-In / demand tidak tersedia</td>' + tail;
-      return '<tr>' + head + '<td class="num">' + prMoney(r.fmSAL) + '</td><td class="num">' + prNum(r.fmSP) + '</td><td class="num">' + prMoney(r.dem) + (r.demD ? '<br><span class="note">' + r.demD + ' hr aktif</span>' : '') + '</td>' +
-        (pv ? '<td class="num">' + prMoney(r.lmSAL) + '</td>' : '') + '<td class="num">' + prMoney(r.mtSAL) + '</td><td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td>' +
-        (pv ? '<td class="num">' + prNum(r.lmSP) + '</td>' : '') + '<td class="num">' + prNum(r.mtSP) + '</td><td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td>' +
+      return '<tr>' + head + prBrTd(r, 'SAL', 'fm') + prBrTd(r, 'SP', 'fm') + '<td class="num">' + prMoney(r.dem) + (r.demD ? '<br><span class="note">' + r.demD + ' hr aktif</span>' : '') + '</td>' +
+        (pv ? prBrTd(r, 'SAL', 'lm') : '') + prBrTd(r, 'SAL', 'mt') + '<td class="num">' + (r.fmSAL || r.mtSAL ? prGap(r.gapSAL, true) : '·') + '</td>' +
+        (pv ? prBrTd(r, 'SP', 'lm') : '') + prBrTd(r, 'SP', 'mt') + '<td class="num">' + (r.fmSP || r.mtSP ? prGap(r.gapSP) : '·') + '</td>' +
         (pv ? '<td class="num">' + prNum(r.gaP) + '</td>' : '') + '<td class="num">' + prNum(r.ga) + '</td>' + prVcCell(r, B) + tail;
     }).join('');
     var foot = '<tr style="background:#eee; font-weight:800;"><td></td><td colspan="3">TOTAL ' + fmtCount(rows.length) + ' outlet</td><td class="num">' + pjRp(t.fmS) + '</td><td class="num">' + fmtCount(t.fmP) + '</td><td class="num">' + pjRp(t.dem) + '</td>' +

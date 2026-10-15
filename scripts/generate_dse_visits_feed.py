@@ -160,6 +160,7 @@ site_outlets, branch_outlets, mc_outlets, dse_outlets = defaultdict(set), defaul
 code_outlets = defaultdict(set)          # DSE login code (IM3 or 3ID) -> assigned master outlets
 code_pairs = {}                          # IM3 code -> 3ID code seen on the same outlet
 code_name = {}                           # login code -> dse_name from the territory feed
+ADHOC_KEYS = set()                       # master outlets with no DSE: ad-hoc visits, outside the PJP base (owner, 15 Oct 2026)
 for o in master_outlets:
     k = o["outlet_key"]
     br = str(o.get("branch") or "").strip()
@@ -172,6 +173,13 @@ for o in master_outlets:
         dso_map.setdefault(mc, o["dso_leader"])
     if mc and br:
         mc_branch.setdefault(mc, br)
+    if dse == "UNASSIGNED":
+        ADHOC_KEYS.add(k)
+        for _id, _map in ((norm_id(o.get("outlet_id_im3")), im3_to_key), (norm_id(o.get("outlet_id_3id")), thrid_to_key)):
+            if _id:
+                _map[_id] = k
+                _map[_id.lstrip("0")] = k
+        continue                          # not in out_meta / sites / branch / MC / DSE bases: not measured as PJP
     out_meta[k] = {
         "outlet_key": k, "name": o.get("outlet_name") or "", "site": site, "branch": br, "mc": mc, "dse": dse,
         "kec": str(o.get("kecamatan") or "").strip() or "—",
@@ -201,6 +209,7 @@ for o in master_outlets:
                 code_name.setdefault(c, str(o["dse_name"]).strip())
     if c_im3 and c_3id:
         code_pairs.setdefault(c_im3, c_3id)
+print(f"  {len(ADHOC_KEYS):,} master outlets without a DSE are treated as ad-hoc (non-PJP) and left out of the PJP base.")
 master_branches = set(branch_outlets)
 master_mcs = set(mc_outlets)
 print(f"Catalogue indexed: {len(out_meta):,} outlets, {len(site_outlets):,} DSO-mapped sites, "
@@ -281,12 +290,18 @@ def person_for(brand, op):
 print("Step 2: Streaming MOBI journey plan logs...")
 
 
+def is_promo(op, optype):
+    """Promotors (operator type Promotor, login PRJAYAIN##) are not measured as DSE PJP productivity."""
+    return str(optype).strip().lower().startswith("promotor") or norm_id(op).startswith("PRJAYAIN")
+
+
 def new_stat():
     return {"planned": 0, "actual": 0, "productive": 0, "prod_phys": 0, "prod_saldo": 0, "flow": 0, "im3": 0, "3id": 0,
             "planned_im3": 0, "planned_3id": 0, "sellin": 0, "balance": 0, "sp_qty": 0, "vc_qty": 0, "saldo_rp": 0.0,
             "durations": [], "deviations": []}
 
 
+x_stats = {"promo": None, "adhoc": None}      # visits left out of the PJP measures: promotors and ad-hoc visits at unassigned outlets
 daily_stats = defaultdict(new_stat)
 branch_stats = defaultdict(new_stat)
 mc_stats = defaultdict(new_stat)
@@ -298,6 +313,27 @@ op_days_active = defaultdict(set)
 op_outlets_planned = defaultdict(set)        # person -> (brand, org id)
 op_outlets_visited = defaultdict(set)
 op_master_visited = defaultdict(set)         # person -> master outlet keys visited
+x_stats["promo"], x_stats["adhoc"] = new_stat(), new_stat()
+adhoc_outlets_visited = set()                # unassigned master outlets with a check-in
+adhoc_by_person = defaultdict(lambda: {"planned": 0, "actual": 0})
+promo_persons = set()
+
+
+def stat_sets(s, sched, brand, brand_level=False):
+    """Which stat blocks a stop feeds: PJP measures (day, branch, MC) only for normal stops; the person block unless it is an
+    ad-hoc stop (a DSE's visit at an unassigned outlet); the excluded-visits block for the two excluded kinds."""
+    x = s["x"]
+    t = []
+    if not x:
+        t += [daily_stats[sched], branch_stats[s["br"]], mc_stats[s["mc"]]]
+    else:
+        t.append(x_stats[x])
+    if x != "adhoc":
+        t.append(op_stats[s["pid"]])
+        if brand_level:
+            t.append(op_brand[s["pid"]][brand])
+    return t
+
 # Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id]
 daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0, 0, 0, 0, 0, 0])) for lvl in ("br", "mc", "op")}
 op_outlet_days = defaultdict(dict)           # person -> (brand, org id) -> {n, mc, k, d: {date: 'p' planned | 'x' executed}}
@@ -369,21 +405,27 @@ for brand, zpath in FILES:
                         k = im3_to_key.get(norm_id(org)) or im3_to_key.get(norm_id(mobo)) or im3_to_key.get(org.lstrip("0"))
                     else:
                         k = thrid_to_key.get(norm_id(mobo)) or thrid_to_key.get(norm_id(org)) or thrid_to_key.get(mobo.lstrip("0"))
-                    stops[skey] = {"br": br, "mc": mc, "pid": pid, "k": k, "ci": False, "si": False, "bt": False, "sp": 0.0, "vc": 0.0, "saldo": 0.0}
+                    xk = "promo" if is_promo(op, r[c_optype]) else ("adhoc" if k in ADHOC_KEYS else None)
+                    stops[skey] = {"br": br, "mc": mc, "pid": pid, "k": k, "ci": False, "si": False, "bt": False, "sp": 0.0, "vc": 0.0, "saldo": 0.0, "x": xk}
                     raw_branch_counter[raw_br] += 1
+                    if xk == "promo":
+                        promo_persons.add(pid)
                     pbk = "planned_im3" if brand == "IM3" else "planned_3id"
-                    for S in (daily_stats[sched], branch_stats[br], mc_stats[mc], op_stats[pid], op_brand[pid][brand]):
+                    for S in stat_sets(stops[skey], sched, brand, True):
                         S["planned"] += 1
                         S[pbk] += 1
-                    op_days_planned[pid].add(sched)
-                    op_outlets_planned[pid].add((brand, org))
-                    bi = 2 if brand == "IM3" else 4
-                    for lvl, key in (("br", br), ("mc", mc), ("op", pid)):
-                        cell = daily_by[lvl][key][sched]
-                        cell[0] += 1
-                        cell[bi] += 1
-                    od = op_outlet_days[pid].setdefault((brand, org), {"n": r[c_name].strip() if len(r) > c_name else "", "mc": mc, "k": k, "d": {}})
-                    od["d"].setdefault(sched, "p")
+                    if xk == "adhoc":
+                        adhoc_by_person[pid]["planned"] += 1
+                    else:
+                        op_days_planned[pid].add(sched)
+                        op_outlets_planned[pid].add((brand, org))
+                        bi = 2 if brand == "IM3" else 4
+                        for lvl, key in ((("br", br), ("mc", mc)) if not xk else ()) + (("op", pid),):
+                            cell = daily_by[lvl][key][sched]
+                            cell[0] += 1
+                            cell[bi] += 1
+                        od = op_outlet_days[pid].setdefault((brand, org), {"n": r[c_name].strip() if len(r) > c_name else "", "mc": mc, "k": k, "d": {}})
+                        od["d"].setdefault(sched, "p")
 
                 s = stops[skey]
                 if st != "completed":
@@ -392,30 +434,35 @@ for brand, zpath in FILES:
                     if not s["ci"]:
                         s["ci"] = True
                         bk = "im3" if brand == "IM3" else "3id"
-                        for S in (daily_stats[sched], branch_stats[s["br"]], mc_stats[s["mc"]], op_stats[s["pid"]], op_brand[s["pid"]][brand]):
+                        for S in stat_sets(s, sched, brand, True):
                             S["actual"] += 1
                             S[bk] += 1
-                        op_days_active[s["pid"]].add(sched)
-                        op_outlets_visited[s["pid"]].add((brand, org))
-                        bi = 2 if brand == "IM3" else 4
-                        for lvl, key in (("br", s["br"]), ("mc", s["mc"]), ("op", s["pid"])):
-                            cell = daily_by[lvl][key][sched]
-                            cell[1] += 1
-                            cell[bi + 1] += 1
-                        op_outlet_days[s["pid"]][(brand, skey[3])]["d"][sched] = "x"
                         k = s["k"]
-                        if k:
-                            outlet_visit_dates[k].add(sched)
-                            outlet_visit_brands[k].add(brand)
-                            outlet_checkin_count[k] += 1
-                            op_master_visited[s["pid"]].add(k)
+                        if s["x"] == "adhoc":
+                            adhoc_by_person[s["pid"]]["actual"] += 1
+                            if k:
+                                adhoc_outlets_visited.add(k)
+                        else:
+                            op_days_active[s["pid"]].add(sched)
+                            op_outlets_visited[s["pid"]].add((brand, org))
+                            bi = 2 if brand == "IM3" else 4
+                            for lvl, key in ((("br", s["br"]), ("mc", s["mc"])) if not s["x"] else ()) + (("op", s["pid"]),):
+                                cell = daily_by[lvl][key][sched]
+                                cell[1] += 1
+                                cell[bi + 1] += 1
+                            op_outlet_days[s["pid"]][(brand, skey[3])]["d"][sched] = "x"
+                            if k and not s["x"]:            # a promotor visit does not count as PJP coverage of the outlet
+                                outlet_visit_dates[k].add(sched)
+                                outlet_visit_brands[k].add(brand)
+                                outlet_checkin_count[k] += 1
+                                op_master_visited[s["pid"]].add(k)
                         dev_str = r[c_dev].strip() if len(r) > c_dev else ""
                         dur_str = r[c_dur].strip() if len(r) > c_dur else ""
                         if dev_str:
                             try:
                                 dev = float(dev_str.replace(",", ".")) * 1000.0
                                 if 0 <= dev <= 100000:
-                                    for S in (daily_stats[sched], branch_stats[s["br"]], mc_stats[s["mc"]], op_stats[s["pid"]]):
+                                    for S in stat_sets(s, sched, brand):
                                         S["deviations"].append(dev)
                             except ValueError:
                                 pass
@@ -424,7 +471,7 @@ for brand, zpath in FILES:
                                 p = [int(x) for x in dur_str.split(":")]
                                 secs = p[0] * 60 + p[1] if len(p) == 2 else p[0] * 3600 + p[1] * 60 + p[2]
                                 if 0 < secs < 28800:
-                                    for S in (daily_stats[sched], branch_stats[s["br"]], mc_stats[s["mc"]], op_stats[s["pid"]]):
+                                    for S in stat_sets(s, sched, brand):
                                         S["durations"].append(secs)
                             except ValueError:
                                 pass
@@ -446,7 +493,7 @@ for (brand, sched, _bp, _org), s in stops.items():
         if phys or sal:
             prod_without_ci += 1
         continue
-    for S in (daily_stats[sched], branch_stats[s["br"]], mc_stats[s["mc"]], op_stats[s["pid"]], op_brand[s["pid"]][brand]):
+    for S in stat_sets(s, sched, brand, True):
         if flow: S["flow"] += 1
         if s["si"]: S["sellin"] += 1
         if s["bt"]: S["balance"] += 1
@@ -454,10 +501,11 @@ for (brand, sched, _bp, _org), s in stops.items():
         if sal: S["prod_saldo"] += 1
         if phys or sal: S["productive"] += 1
         S["sp_qty"] += s["sp"]; S["vc_qty"] += s["vc"]; S["saldo_rp"] += s["saldo"]
-total_planned = len(stops)
-total_actual = sum(1 for s in stops.values() if s["ci"])
-total_productive = sum(1 for s in stops.values() if s["ci"] and (s["sp"] > 0 or s["vc"] > 0 or s["saldo"] > SALDO_MIN_RP))
-total_flow = sum(1 for s in stops.values() if s["ci"] and (s["si"] or s["bt"]))
+pjp_stops = {k_: v_ for k_, v_ in stops.items() if not v_["x"]}      # promotor and ad-hoc visits are not PJP measures
+total_planned = len(pjp_stops)
+total_actual = sum(1 for s in pjp_stops.values() if s["ci"])
+total_productive = sum(1 for s in pjp_stops.values() if s["ci"] and (s["sp"] > 0 or s["vc"] > 0 or s["saldo"] > SALDO_MIN_RP))
+total_flow = sum(1 for s in pjp_stops.values() if s["ci"] and (s["si"] or s["bt"]))
 print(f"  Stops: planned={total_planned:,} executed={total_actual:,} ({total_actual / total_planned * 100:.1f}%), "
       f"productive={total_productive:,} (qty/saldo rule), flow-completed={total_flow:,}, sales-without-check-in={prod_without_ci:,}")
 print(f"  Outside master territory: {sum(outside_rows.values()):,} planned stops in {len(outside_rows)} raw branch/MC pairs")
@@ -578,6 +626,8 @@ for pid, S in op_stats.items():
     types = [t for t, _ in info["types"].most_common()]
     row = {
         "person_id": pid, "dse_name": name, "in_master": bool(P["in_master"]),
+        "is_promotor": pid in promo_persons,        # promotor (PRJAYAIN##): visits are shown but not measured as PJP productivity
+        "adhoc_planned": adhoc_by_person[pid]["planned"], "adhoc_actual": adhoc_by_person[pid]["actual"],   # ad-hoc visits at unassigned outlets (not PJP)
         "logins": sorted(info["logins"]), "operator_type": types[0], "operator_types": types,
         "branch": br, "micro_cluster": mc, "raw_branch": info["raw_brs"].most_common(1)[0][0],
         "dso_leader": P["dso_leader"] if P["in_master"] else dso_map.get(mc, "—"),
@@ -603,8 +653,8 @@ dse_list.sort(key=lambda r: (-r["planned_visits"], r["dse_name"]))
 ops_summary = {
     "total": len(dse_list),
     "in_master": sum(1 for d in dse_list if d["in_master"]),
-    "canvassers": sum(1 for d in dse_list if "promotor" not in d["operator_type"].lower()),
-    "promotors": sum(1 for d in dse_list if "promotor" in d["operator_type"].lower()),
+    "canvassers": sum(1 for d in dse_list if not d["is_promotor"]),
+    "promotors": sum(1 for d in dse_list if d["is_promotor"]),
     "hybrid_logins": sum(1 for d in dse_list if len({l.split(":")[0] for l in d["logins"]}) > 1),
     "active": sum(1 for d in dse_list if d["actual_visits"]),
     "zero_execution": sum(1 for d in dse_list if d["planned_visits"] and not d["actual_visits"]),
@@ -733,6 +783,12 @@ regional_summary = {
     "raw_branch_names": [{"raw": b, "mapped_to": (b if b in master_branches else BRANCH_ALIAS.get(b, OUTSIDE)), "planned": n}
                          for b, n in raw_branch_counter.most_common()],
     "operators": ops_summary,
+    "excluded_from_pjp": {
+        "rule": "Promotor visits (PRJAYAIN## logins, operator type Promotor) and ad-hoc visits at master outlets without a DSE are shown separately and are not counted as PJP planned / executed / productive visits or as outlet coverage.",
+        "promotor": {"persons": len(promo_persons), "planned": x_stats["promo"]["planned"], "actual": x_stats["promo"]["actual"], "productive": x_stats["promo"]["productive"]},
+        "adhoc_unassigned": {"master_outlets": len(ADHOC_KEYS), "outlets_visited": len(adhoc_outlets_visited), "planned": x_stats["adhoc"]["planned"],
+                             "actual": x_stats["adhoc"]["actual"], "productive": x_stats["adhoc"]["productive"]},
+    },
     "sellin_link": sellin_link,
     "growth_wow": {"w1_actual": w1_ac, "w2_actual": w2_ac, "w1_planned": w1_pl, "w2_planned": w2_pl, "w1_days": len(W1_AVAIL), "w2_days": len(W2_AVAIL),
                    "w1_compliance": round(w1_ac / w1_pl * 100, 1) if w1_pl else 0, "w2_compliance": round(w2_ac / w2_pl * 100, 1) if w2_pl else 0,

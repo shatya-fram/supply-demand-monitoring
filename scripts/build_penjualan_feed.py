@@ -216,6 +216,7 @@ def empty_fact():
 
 outlet_facts = defaultdict(lambda: defaultdict(empty_fact))   # key -> cat -> fact   (brand kept per outlet key)
 outlet_brand = {}
+brand_facts = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0.0] * 6)))   # key -> brand -> cat (SP, SALMO) -> [mq, mv, lq, lv, fq, fv]: IM3 and 3ID kept apart for hybrid outlets
 alloc_facts = defaultdict(lambda: defaultdict(empty_fact))    # (brand, id) -> cat -> fact
 alloc_dim = {}
 prod_facts = defaultdict(lambda: {"mq": 0.0, "mv": 0.0, "lq": 0.0, "lv": 0.0, "fq": 0.0, "fv": 0.0, "mo": set(), "lo": set(), "fo": set()})
@@ -270,11 +271,14 @@ for sname, rows in sheets.items():
             if not q and not v:
                 continue
             tgt = outlet_facts[key][cat] if tier == "OUTLET" else alloc_facts[key][cat]
+            bf_ = brand_facts[key][brand][cat] if (tier == "OUTLET" and cat in ("SP", "SALMO")) else None
             t_key = (period, brand, cat, tier if tier != "OUTLET" else ("OUTLET_M" if not key.startswith("A:") else "OUTLET_A"))
             if period == "MTD" and d <= CUT_DAY:
                 if cat == "SALMO" and v > 0:
                     tgt["tq"] += 1
                 tgt["mq"] += q; tgt["mv"] += v
+                if bf_ is not None:
+                    bf_[0] += q; bf_[1] += v
                 cell = tgt["md"].setdefault(d, [0.0, 0.0]); cell[0] += (1 if cat == "SALMO" and v > 0 else q); cell[1] += v   # SALMO: qty harian = jumlah transfer
                 tier_tot[t_key][0] += q; tier_tot[t_key][1] += v
                 if tier == "OUTLET":
@@ -287,6 +291,10 @@ for sname, rows in sheets.items():
                     if d <= CUT_DAY:
                         tgt["tlq"] += 1
                 tgt["fq"] += q; tgt["fv"] += v
+                if bf_ is not None:
+                    bf_[4] += q; bf_[5] += v
+                    if d <= CUT_DAY:
+                        bf_[2] += q; bf_[3] += v
                 if tier == "OUTLET":
                     pf = prod_facts[(brand, cat, pname)]; pf["fq"] += q; pf["fv"] += v; pf["fo"].add(key)
                     op = outlet_prod[key][(brand, cat, pname)]; op[4] += q; op[5] += v
@@ -333,6 +341,16 @@ for key, cats in outlet_facts.items():
     row["b"] = outlet_brand.get(key, "")
     row["id"] = dim["id_im3"] if row["b"] == "IM3" else dim["id_3id"]
     row["c"] = {cat: pack(f) for cat, f in cats.items()}
+    bs = {}
+    for br_, cs_ in brand_facts.get(key, {}).items():
+        d_ = {}
+        for cat_, a_ in cs_.items():
+            if any(a_):
+                d_[cat_] = [int(x) for x in a_]
+        if d_:
+            bs[br_] = d_
+    if bs:
+        row["bs"] = bs        # per brand (IM3 / 3ID): {cat: [mq, mv, lq, lv, fq, fv]} for SP and SALMO
     outlet_rows.append(row)
 
 # ---- SP Injection (digital, MOBO) sebagai bagian Sell-In (owner, 15 Okt 2026) ----------------------
