@@ -179,6 +179,13 @@ state.gaBrand = 'all'; state.gaBasis = 'site'; for (const tb of ['ringkasan', 'd
 state.gaBasis = 'outlet'; state.gaTab = 'roaming'; for (const br of ['all', 'IM3', '3ID']) { state.gaBrand = br; check('grossadd/roaming/brand=' + br, VIEWS.mb_grossadd); } state.gaBrand = 'all'; state.gaTab = 'ringkasan';
 state.gaSg = 'PJP'; state.gaTab = 'ringkasan'; check('grossadd/segmen=PJP', VIEWS.mb_grossadd); state.gaSg = 'all'; state.gaCover = 'master'; check('grossadd/cakupan=master', VIEWS.mb_grossadd); state.gaCover = 'all'; state.gaSearch = 'cell'; state.gaTab = 'dse'; check('grossadd/dse/search', VIEWS.mb_grossadd); state.gaSearch = '';
 state.gaSeg = 'all'; state.gaTab = 'ringkasan';
+for (const m of ['si', 'sal', 'ga']) for (const tb of ['outlet', 'dse', 'flag']) {
+  const v = m === 'ga' ? 'mb_grossadd' : 'mb_penjualan'; state.view = v; state.pjTab = 'sga'; state.gaTab = 'sga'; if (m !== 'ga') state.sgaMetric = m; state.sgaTab = tb; state.branch = ''; state.hoa = ''; state.kec = ''; state.sgaPage = 1; state.sgaSeg = 'all';
+  for (const base of ['lm', 'fm']) { state.sgaBase = base; for (const fl of ['outlet', 'dse']) { state.sgaFlag = fl; check('sga/' + m + '/' + tb + '/' + base + '/' + fl, VIEWS[v]); } }
+  state.branch = fb.branch; check('sga/' + m + '/' + tb + '/branch', VIEWS[v]); state.kec = fm.micro_cluster; state.branch = fm.branch; check('sga/' + m + '/' + tb + '/mc', VIEWS[v]); state.branch = ''; state.kec = '';
+}
+for (const sg of ['lost', 'drop', 'big']) { state.view = 'mb_penjualan'; state.sgaMetric = 'si'; state.sgaTab = 'flag'; state.sgaSeg = sg; state.sgaFlag = 'outlet'; check('sga/flag/seg=' + sg, VIEWS.mb_penjualan); }
+state.sgaSeg = 'all'; state.sgaMetric = 'si'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaTab = 'outlet'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaMetric = 'si';
 state.view = 'mb_ringkasan'; state.rkTab = 'demand'; check('ringkasan/demand', VIEWS.mb_ringkasan); for (const tb of ['ringkasan', 'dse', 'outlet', 'harian', 'slab']) { state.rkTab = 'grossadd'; state.gaTab = tb; check('ringkasan/grossadd/' + tb, VIEWS.mb_ringkasan); } state.gaTab = 'ringkasan';
 for (const sb of ['growth', 'slab', 'aktif', 'inaktif']) { state.view = 'mb_ringkasan'; state.rkTab = 'uar'; state.uarSub = sb; state.uarTab = 'sp'; check('ringkasan/uar/' + sb, VIEWS.mb_ringkasan); }
 state.rkTab = 'dse'; state.uarSub = 'growth'; state.view = 'mb_uar';

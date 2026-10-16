@@ -302,6 +302,14 @@
     sellinCat: 'all',
     sellinFlow: 'all',
     // Morning DSE Briefing
+    sgaTab: 'outlet',        // Slab Sellin & GA: outlet | dse | flag
+    sgaMetric: 'si',         // si = Sell-in SP (pcs) | ga = GA SP (pcs) | sal = Saldo (Rp)
+    sgaBase: 'lm',           // flag basis: lm = last month same days (LMTD) | fm = last month full
+    sgaThr: { si: 30, ga: 30, sal: 2000000 },
+    sgaSeg: 'all',
+    sgaFlag: 'outlet',
+    sgaPage: 1,
+    sgaSearch: '',
     gaTab: 'ringkasan',      // Gross Add / SSO: ringkasan | dse | outlet | harian | slab
     gaBasis: 'outlet',       // outlet (sell-in / tagging) | site (lokasi aktivasi)
     gaBrand: 'all',          // all | IM3 | 3ID
@@ -3552,7 +3560,7 @@
   var PJ_CATS_BASE = [['SP', 'Starter Pack'], ['VCF', 'Voucher isi'], ['VCB', 'Voucher blank'], ['SALMO', 'Saldo Mobo']];
   function pjCats() { return pjSpiOn() ? PJ_CATS_BASE.concat([['SPI', 'SP Injection']]) : PJ_CATS_BASE; }
   var PJ_CAT_LABEL = { SP: 'Starter Pack', VCF: 'Voucher isi', VCB: 'Voucher blank', SALMO: 'Saldo Mobo', SPI: 'SP Injection', all: 'Semua kategori' };
-  var PJ_TABS = [['ringkasan', '📊 Ringkasan'], ['teritori', '🏢 Per Teritori'], ['heat', '🗓️ Heatmap Harian'], ['slab', '🧮 Matriks Slab'], ['produk', '📦 Produk'], ['outlet', '🏪 Outlet']];
+  var PJ_TABS = [['ringkasan', '📊 Ringkasan'], ['teritori', '🏢 Per Teritori'], ['heat', '🗓️ Heatmap Harian'], ['slab', '🧮 Matriks Slab'], ['sga', '📶 Slab Sellin & Saldo'], ['produk', '📦 Produk'], ['outlet', '🏪 Outlet']];
   var PJ_LEVELS = [['auto', '⚙️ Otomatis · ikut filter'], ['area', 'Area (Branch)'], ['mc', 'Micro Cluster'], ['dse', 'DSE'], ['outlet', 'Outlet']];
   var PJ_LEVEL_LABEL = { area: 'per Area (Branch)', mc: 'per Micro Cluster', dse: 'per DSE', outlet: 'per Outlet' };
   var PJ_TIER_LABEL = { DSE: 'Node DSE / Canvasser', MPC: 'Distributor (MPC)', MP3: 'Sub-distributor (MP3)', SDP: 'SDP', OTHER: 'Stockist / node lain', OUTLET_MOBI: 'Outlet (hanya di laporan MOBI)', UNKNOWN: 'Tidak dikenal' };
@@ -4391,7 +4399,7 @@
       kpi('Run-rate akhir Oktober', pjRp(T.mv / n * (M.mtd_month_days || 31)), 'vs September penuh ' + pjRp(T.fv), T.mv / n * 31 >= T.fv ? 'up' : 'down', 'Nilai MTD ÷ ' + n + ' hari × 31 · ' + ldTxt + pjRp(LD.D.tot.v) + ' vs rata-rata ' + pjRp(T.mv / n) + '/hari') +
       kpi('Penjualan hari kerja terakhir · ' + LD.W.label, pjRp(LD.D.tot.v), 'vs ' + LD.W.prevShort + ' ' + pjRp(LD.P.tot.v) + ldDelta(LD.D.tot.v, LD.P.tot.v), LD.D.tot.v >= LD.P.tot.v ? 'up' : 'down', 'SP ' + fmtCount(LD.D.SP.q) + ' pcs · Voucher ' + fmtCount(LD.D.VC.q) + ' pcs · Saldo ' + pjRp(LD.D.SALMO.v)) +
     '</div>';
-    var body = tab === 'ringkasan' ? pjRingkasan(F, rows, A) : (tab === 'teritori' ? pjTeritori(F) : (tab === 'heat' ? pjHeat(F) : (tab === 'slab' ? pjSlabTab(F) : (tab === 'produk' ? pjProduk(F) : pjOutletTab(F)))));
+    var body = tab === 'ringkasan' ? pjRingkasan(F, rows, A) : (tab === 'teritori' ? pjTeritori(F) : (tab === 'heat' ? pjHeat(F) : (tab === 'slab' ? pjSlabTab(F) : (tab === 'sga' ? viewSlabSga('pj') : (tab === 'produk' ? pjProduk(F) : pjOutletTab(F))))));
     return nav + tools + pjSelectionBand(F) + pjScorecard(F, rows) + kpis + body;
   }
 
@@ -5582,7 +5590,7 @@
   }
 
   /* ================= GROSS ADD · SSO (SIM Selling Outlet) · RGUGA per outlet, Oktober vs September, kontrol GA BIOMETRIC ================= */
-  var GA_TABS = [['ringkasan', '📊 Ringkasan per Teritori'], ['dse', '👤 Per DSE'], ['outlet', '🏪 Outlet'], ['harian', '🗓️ Harian'], ['slab', '📶 Slab SSO'], ['roaming', '🔀 Distribusi & Roaming']];
+  var GA_TABS = [['ringkasan', '📊 Ringkasan per Teritori'], ['sga', '📶 Slab GA'], ['dse', '👤 Per DSE'], ['outlet', '🏪 Outlet'], ['harian', '🗓️ Harian'], ['slab', '📶 Slab SSO'], ['roaming', '🔀 Distribusi & Roaming']];
   var GA_SLABS = [[0, 0, '0 GA'], [1, 2, '1–2'], [3, 4, '3–4'], [5, 9, '5–9'], [10, 1e12, '≥ 10']];
   function gaFeed() { return (typeof window !== 'undefined' && window.GA_FEED) ? window.GA_FEED : null; }
   function gaDays(a) { var d = [], i; for (i = 0; i < 32; i++) d.push(0); for (i = 0; a && i < a.length; i += 2) d[a[i]] += a[i + 1]; return d; }
@@ -5966,10 +5974,195 @@
     var G = gaPrep(); if (!G) return card('Gross Add', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
     var tab = state.gaTab || 'ringkasan', list = gaScopeList(), brand = gaBrand();
     var body;
-    if (tab === 'roaming') body = gaRoaming(list, brand);
+    if (tab === 'sga') body = viewSlabSga('ga');
+    else if (tab === 'roaming') body = gaRoaming(list, brand);
     else if (gaBasis() === 'site' && tab === 'ringkasan') body = gaSiteView(list, brand);
     else body = tab === 'dse' ? gaDse(list, brand) : (tab === 'outlet' ? gaOutlet(list, brand) : (tab === 'harian' ? gaHarian(list, brand) : (tab === 'slab' ? gaSlab(list, brand, gaBasis() === 'site') : gaRingkasan(list, brand))));
     return gaTabNav() + body;
+  }
+
+
+  /* ================= SLAB SELL-IN / GA SP / SALDO · bulan lalu (FM dan LMTD) vs bulan ini (MTD), flag gap ================= */
+  var SG_PCS = [[101, Infinity, '> 100'], [61, 100, '60–100'], [31, 60, '30–60'], [11, 30, '10–30'], [1, 10, '1–10']];   // [from, to, label]; the upper bound belongs to the lower slab
+  var SG_RP = PJ_SLABS_RP.slice(1).reverse();                                                                              // the existing Rupiah slabs, highest first
+  var SG_LABEL = { si: 'Sell-in SP (pcs)', ga: 'GA SP (pcs)', sal: 'Saldo Mobo (Rp)' };
+  function sgSlabs(m) { return m === 'sal' ? SG_RP : SG_PCS; }
+  function sgIdx(S, x) { if (!(x > 0)) return S.length; for (var i = 0; i < S.length; i++) if (x >= S[i][0]) return i; return S.length - 1; }   // S.length = no volume
+  function sgFmt(m, v) { return m === 'sal' ? pjRp(v) : fmtCount(Math.round(v)); }
+  function sgVal(o, m, G) {
+    var c = o.c || {};
+    if (m === 'si') { var a = c.SP || []; return [a[0] || 0, a[2] || 0, a[4] || 0]; }
+    if (m === 'sal') { var b = c.SALMO || []; return [b[1] || 0, b[3] || 0, b[5] || 0]; }
+    var g = G && G.by[o.k], st = g ? gaStat(g, 'all') : null; return st ? [st.cur, st.prev, st.full] : [0, 0, 0];
+  }
+  var _sgMode = 'pj';   // 'pj' = Penjualan ke Outlet (Sell-in SP and Saldo); 'ga' = Gross Add (GA SP only)
+  function sgCtx() {
+    var P = pjFeed(); if (!P) return null;
+    var m = _sgMode === 'ga' ? 'ga' : (state.sgaMetric === 'sal' ? 'sal' : 'si'), G = m === 'ga' ? gaPrep() : null;
+    if (m === 'ga' && !G) return { P: P, m: m, missing: true };
+    var mi = P.metadata.mc_info || {}, list = pjOutlets(P).filter(function (o) { return o.tier === 'M'; });
+    var S = sgSlabs(m);
+    list.forEach(function (o) { o._sg = sgVal(o, m, G); o._sl = [sgIdx(S, o._sg[0]), sgIdx(S, o._sg[1]), sgIdx(S, o._sg[2])]; });
+    return { P: P, m: m, G: G, S: S, list: list, mi: mi, cut: P.metadata.cut_day, gcut: G ? G.cut : null };
+  }
+  function sgCount(list, S) {   // counts[period][slab] and totals; periods: 0 = MTD (this month), 1 = LMTD, 2 = FM
+    var cnt = [0, 1, 2].map(function () { return S.map(function () { return 0; }); }), sum = [0, 0, 0], act = [0, 0, 0], none = [0, 0, 0];
+    list.forEach(function (o) { for (var p = 0; p < 3; p++) { sum[p] += o._sg[p]; if (o._sl[p] < S.length) { cnt[p][o._sl[p]]++; act[p]++; } else none[p]++; } });
+    return { cnt: cnt, sum: sum, act: act, none: none, n: list.length };
+  }
+  function sgNav(C) {
+    var tabs = [['outlet', '🏪 Slab Outlet'], ['dse', '👤 Slab DSE'], ['flag', '🚩 Flag Gap Outlet & DSE']];
+    var thrOpts = C.m === 'sal' ? [500000, 1000000, 2000000, 5000000] : [10, 30, 60], thr = (state.sgaThr || {})[C.m] || thrOpts[1];
+    var tabNav = '<div class="sub-nav" role="tablist">' + tabs.map(function (x) { var a = (state.sgaTab || 'outlet') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-sga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    var bar = '<div class="map-toolbar" style="margin-top:8px;">' + (_sgMode === 'ga' ? '<div class="map-toolbar-group"><span class="map-label">Metrik:</span><span class="chip">GA SP (pcs) · Daily_RGUGA_OUTLET</span></div>' : sellinBtnGroup('Metrik', 'sga-metric', [['si', 'Sell-in SP (pcs)'], ['sal', 'Saldo (Rp)']], C.m)) +
+      ((state.sgaTab || 'outlet') === 'flag' ? sellinBtnGroup('Gap terhadap', 'sga-base', [['lm', 'Bulan lalu LMTD'], ['fm', 'Bulan lalu penuh (FM)']], state.sgaBase || 'lm') +
+        sellinBtnGroup('Gap besar ≥', 'sga-thr', thrOpts.map(function (v) { return [String(v), C.m === 'sal' ? pjRp(v) : v + ' pcs']; }), String(thr)) : '') + '</div>';
+    return tabNav + bar;
+  }
+  function sgCell(c, k, S) {   // big = this month (MTD), small = LMTD / FM
+    var a = c.cnt[0][k], b = c.cnt[1][k], f = c.cnt[2][k];
+    if (!a && !b && !f) return '<td class="num" style="color:var(--ij-muted);">·</td>';
+    var clr = a > b ? '#166534' : (a < b ? '#991b1b' : 'inherit');
+    return '<td class="num"><b style="color:' + clr + ';">' + fmtCount(a) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(b) + ' / ' + fmtCount(f) + '</div></td>';
+  }
+  function sgHeadSlabs(S) { return S.map(function (x) { return '<th class="num">' + x[2] + '</th>'; }).join(''); }
+  var SG_NOTE = 'Besar = bulan ini (MTD), kecil = bulan lalu LMTD / bulan lalu penuh (FM). Hijau = lebih banyak outlet di slab itu dibanding LMTD. Batas atas slab masuk ke slab yang lebih rendah. Hanya outlet master di lingkup filter; migrasi sistem MOBII / MOBO membuat awal Oktober (1–9 Okt) rendah, jadi MTD terlihat lebih kecil dari semestinya.';
+
+  function sgOutletView(C) {
+    var T = sgCount(C.list, C.S), S = C.S, rows = '';
+    var cur = ['MTD ' + 'Okt', 'LMTD Sep', 'FM Sep'];
+    S.forEach(function (x, k) {
+      var a = T.cnt[0][k], b = T.cnt[1][k], f = T.cnt[2][k];
+      function pcs(p) { var t = 0; C.list.forEach(function (o) { if (o._sl[p] === k) t += o._sg[p]; }); return t; }
+      rows += '<tr><td class="cur"><b>' + x[2] + '</b></td><td class="num"><b>' + fmtCount(a) + '</b></td><td class="num">' + sgFmt(C.m, pcs(0)) + '</td><td class="num">' + fmtCount(b) + '</td><td class="num">' + sgFmt(C.m, pcs(1)) + '</td><td class="num">' + fmtCount(f) + '</td><td class="num">' + sgFmt(C.m, pcs(2)) + '</td>' +
+        '<td class="num">' + uarGTag(b ? (a / b - 1) * 100 : (a ? null : 0)) + ' <span class="note">' + (a - b >= 0 ? '+' : '') + fmtCount(a - b) + '</span></td><td class="num">' + uarGTag(f ? (a / f - 1) * 100 : (a ? null : 0)) + ' <span class="note">' + (a - f >= 0 ? '+' : '') + fmtCount(a - f) + '</span></td></tr>';
+    });
+    rows += '<tr><td class="cur">Tanpa volume (0)</td><td class="num">' + fmtCount(T.none[0]) + '</td><td class="num">·</td><td class="num">' + fmtCount(T.none[1]) + '</td><td class="num">·</td><td class="num">' + fmtCount(T.none[2]) + '</td><td class="num">·</td><td></td><td></td></tr>';
+    rows += '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td class="cur" style="background:var(--ink); color:#fff;">TOTAL · ' + fmtCount(T.n) + ' outlet</td><td class="num">' + fmtCount(T.act[0]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[0]) + '</td><td class="num">' + fmtCount(T.act[1]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[1]) + '</td><td class="num">' + fmtCount(T.act[2]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[2]) + '</td><td class="num">' + (T.sum[1] ? ((T.sum[0] / T.sum[1] - 1) * 100).toFixed(1) + '%' : '—') + '</td><td class="num">' + (T.sum[2] ? ((T.sum[0] / T.sum[2] - 1) * 100).toFixed(1) + '%' : '—') + '</td></tr>';
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('Outlet aktif MTD (' + SG_LABEL[C.m] + ')', fmtCount(T.act[0]), 'LMTD ' + fmtCount(T.act[1]) + ' · FM ' + fmtCount(T.act[2]), T.act[0] >= T.act[1] ? 'up' : 'down', pctOf(T.act[0], T.n) + '% dari ' + fmtCount(T.n) + ' outlet master') +
+      kpi('Volume MTD', sgFmt(C.m, T.sum[0]), 'LMTD ' + sgFmt(C.m, T.sum[1]) + ' · FM ' + sgFmt(C.m, T.sum[2]), T.sum[0] >= T.sum[1] ? 'up' : 'down', 'MTD Okt 1–' + (C.m === 'ga' && C.gcut ? C.gcut : C.cut) + ' vs Sep 1–' + (C.m === 'ga' && C.gcut ? C.gcut : C.cut)) +
+      kpi('Slab teratas (' + S[0][2] + ')', fmtCount(T.cnt[0][0]), 'LMTD ' + fmtCount(T.cnt[1][0]) + ' · FM ' + fmtCount(T.cnt[2][0]), T.cnt[0][0] >= T.cnt[1][0] ? 'up' : 'down', 'outlet dengan volume tertinggi') + '</div>';
+    var main = card('Slab ' + SG_LABEL[C.m] + ' · jumlah outlet per slab · ' + esc(scopeText()),
+      '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th('Slab') + th('Outlet MTD', 1) + th('Volume MTD', 1) + th('Outlet LMTD', 1) + th('Volume LMTD', 1) + th('Outlet FM', 1) + th('Volume FM', 1) + th('MTD vs LMTD', 1) + th('MTD vs FM', 1) + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="note">LMTD = 1–' + (C.m === 'ga' && C.gcut ? C.gcut : C.cut) + ' September (hari yang sama); FM = September penuh. Kolom Volume = jumlah ' + SG_LABEL[C.m] + ' dari outlet di slab itu.</p>');
+    function rowFn(label, ket, l, style) {
+      var c = sgCount(l, S), bg = /ink/.test(style) ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(c.n) + '</td>' +
+        '<td class="num"><b>' + fmtCount(c.act[0]) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(c.act[1]) + ' / ' + fmtCount(c.act[2]) + '</div></td>' + S.map(function (x, k) { return sgCell(c, k, S); }).join('') +
+        '<td class="num"><b>' + sgFmt(C.m, c.sum[0]) + '</b><div class="note" style="font-size:11.5px;">' + sgFmt(C.m, c.sum[1]) + ' / ' + sgFmt(C.m, c.sum[2]) + '</div></td></tr>';
+    }
+    var TR = uarTerrRows({ list: C.list, mi: C.mi }, rowFn);
+    var terr = card('Slab per teritori · ' + esc(scopeText()), uarAreaTools(TR.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th(TR.mode === 'dse' ? 'DSE' : 'Region / Area / MC') + th('DSO / ket.') + th('Outlet master', 1) + th('Outlet aktif', 1) + sgHeadSlabs(S) + th('Volume', 1) + '</tr></thead><tbody>' + TR.rows.join('') + '</tbody></table></div><p class="note">' + SG_NOTE + '</p>');
+    return cards + main + terr;
+  }
+
+  function sgDseGroups(C) {
+    var g = {};
+    C.list.forEach(function (o) { var d = uarDse(o), k = o.mc + '||' + d, x = g[k] || (g[k] = { key: k, dse: d, mc: o.mc, br: (C.mi[o.mc] || {}).br || '—', list: [] }); x.list.push(o); });
+    return Object.keys(g).map(function (k) { var x = g[k]; x.c = sgCount(x.list, C.S); x.gap = x.c.sum[1] - x.c.sum[0]; return x; });
+  }
+  function sgDseView(C) {
+    var q = (state.sgaSearch || '').toLowerCase(), S = C.S, ps = 50;
+    var G = sgDseGroups(C).filter(function (x) { return !q || (x.dse + ' ' + x.mc + ' ' + x.br).toLowerCase().indexOf(q) !== -1; }).sort(function (a, b) { return b.gap - a.gap; });
+    var tp = Math.ceil(G.length / ps) || 1, page = Math.min(state.sgaPage || 1, tp); state.sgaPage = page;
+    var body = G.slice((page - 1) * ps, page * ps).map(function (x) {
+      var c = x.c, gcls = x.gap > 0 ? '#991b1b' : '#166534';
+      return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + dseHtml(x.dse) + '</b></td><td>' + esc(x.mc) + '<div class="note">' + esc(x.br) + '</div></td><td class="num">' + fmtCount(c.n) + '</td>' +
+        '<td class="num"><b>' + fmtCount(c.act[0]) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(c.act[1]) + ' / ' + fmtCount(c.act[2]) + '</div></td>' + S.map(function (y, k) { return sgCell(c, k, S); }).join('') +
+        '<td class="num"><b>' + sgFmt(C.m, c.sum[0]) + '</b><div class="note" style="font-size:11.5px;">' + sgFmt(C.m, c.sum[1]) + ' / ' + sgFmt(C.m, c.sum[2]) + '</div></td><td class="num" style="color:' + gcls + ';"><b>' + (x.gap > 0 ? '−' : '+') + sgFmt(C.m, Math.abs(x.gap)) + '</b></td></tr>';
+    }).join('');
+    var T = sgCount(C.list, S);
+    var tot = '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td class="cur" style="background:var(--ink); color:#fff;">TOTAL · ' + fmtCount(G.length) + ' DSE</td><td></td><td class="num">' + fmtCount(T.n) + '</td><td class="num">' + fmtCount(T.act[0]) + '</td>' + S.map(function (y, k) { return '<td class="num">' + fmtCount(T.cnt[0][k]) + '</td>'; }).join('') + '<td class="num">' + sgFmt(C.m, T.sum[0]) + '</td><td class="num">' + (T.sum[1] > T.sum[0] ? '−' : '+') + sgFmt(C.m, Math.abs(T.sum[1] - T.sum[0])) + '</td></tr>';
+    return card('Slab per DSE · ' + SG_LABEL[C.m] + ' · ' + esc(scopeText()),
+      '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><input type="text" id="sgaSearchInput" aria-label="Cari DSE atau MC" placeholder="🔍 Cari DSE, MC, area..." value="' + esc(state.sgaSearch || '') + '" class="map-select" style="min-width:240px;"><span class="note">Diurutkan dari gap terbesar terhadap LMTD.</span></div></div>' +
+      '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th('DSE') + th('MC') + th('Outlet', 1) + th('Outlet aktif', 1) + sgHeadSlabs(S) + th('Volume', 1) + th('Gap vs LMTD', 1) + '</tr></thead><tbody>' + body + tot + '</tbody></table></div>' +
+      (tp > 1 ? mbPager('sga-page', page, tp, 'DSE ' + ((page - 1) * ps + 1) + '–' + Math.min(page * ps, G.length) + ' dari ' + fmtCount(G.length)) : '') + '<p class="note">Isi tiap kolom slab = jumlah outlet DSE itu di slab tersebut. ' + SG_NOTE + '</p>');
+  }
+
+  /* ---- flag gap: outlets and DSEs whose volume fell far below last month, with likely reasons ---- */
+  var _sgReason = null;
+  function sgReasons() {
+    if (_sgReason) return _sgReason;
+    var R = { nv: {}, zs: {}, hasEb: false, dem: {}, hasDem: false }, vf = (typeof mbVisitsFeed === 'function') ? mbVisitsFeed() : null;
+    if (vf && vf.unvisited_outlets) vf.unvisited_outlets.forEach(function (u) { if (u.w === 'mtd') R.nv[u.k] = 1; });
+    var eb = ebFeed(); if (eb) { R.hasEb = true; eb.outlets.forEach(function (o) { if ((o.st || 0) <= 0) R.zs[o.k] = 1; else R.zs[o.k] = 0; }); }
+    var D = poFeed(); if (D) { R.hasDem = true; D.outlets.forEach(function (o) { var v = 0; Object.keys(o.c || {}).forEach(function (c) { if (c !== 'SPI') v += o.c[c][1] || 0; }); if (v > 0) R.dem[o.k] = 1; }); }
+    return (_sgReason = R);
+  }
+  function sgFlagRows(C) {
+    var base = state.sgaBase === 'fm' ? 2 : 1, thr = (state.sgaThr || {})[C.m] || (C.m === 'sal' ? 2000000 : 30), R = sgReasons(), S = C.S, out = [];
+    C.list.forEach(function (o) {
+      var cur = o._sg[0], bv = o._sg[base], gap = bv - cur, lost = bv > 0 && cur <= 0, drop = o._sl[0] - o._sl[base] >= 2 && bv > 0, big = gap >= thr;
+      if (!(lost || drop || big)) return;
+      var why = [];
+      if (R.nv[o.k]) why.push(['bad', 'Belum divisit MTD']);
+      if (R.hasEb && R.zs[o.k] === 1) why.push(['bad', 'Stok saldo 0']);
+      if (R.hasDem && !R.dem[o.k]) why.push(['warn', 'Tanpa demand MTD']);
+      if (dseIsNone(o.dse)) why.push(['warn', 'ADHOC (tanpa DSE)']);
+      if (C.m !== 'si' && !(o.c && o.c.SP && o.c.SP[0] > 0)) why.push(['warn', 'Tanpa sell-in SP MTD']);
+      if (C.m === 'si' && C.G === null) { /* GA cross-check needs the GA feed */ }
+      out.push({ o: o, cur: cur, base: bv, gap: gap, lost: lost, drop: drop, big: big, why: why, sl: o._sl });
+    });
+    return out;
+  }
+  function sgFlagView(C) {
+    var rows = sgFlagRows(C), q = (state.sgaSearch || '').toLowerCase(), seg = state.sgaSeg || 'all', view = state.sgaFlag || 'outlet', S = C.S, bl = state.sgaBase === 'fm' ? 'FM' : 'LMTD';
+    var n = { all: rows.length, lost: rows.filter(function (r) { return r.lost; }).length, drop: rows.filter(function (r) { return r.drop; }).length, big: rows.filter(function (r) { return r.big; }).length };
+    var f = rows.filter(function (r) { return (seg === 'all' || (seg === 'lost' && r.lost) || (seg === 'drop' && r.drop) || (seg === 'big' && r.big)) && (!q || ((r.o.n || '') + ' ' + r.o.id + ' ' + (r.o.site || '') + ' ' + r.o.mc + ' ' + uarDse(r.o)).toLowerCase().indexOf(q) !== -1); });
+    var totGap = rows.reduce(function (a, r) { return a + Math.max(0, r.gap); }, 0);
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('Outlet ber-flag', fmtCount(n.all), pctOf(n.all, C.list.length) + '% dari ' + fmtCount(C.list.length) + ' outlet', 'down', 'gap ' + bl + ' besar, hilang, atau turun ≥ 2 slab') +
+      kpi('Hilang (' + bl + ' ada, MTD 0)', fmtCount(n.lost), 'prioritas pertama', 'down', 'outlet yang berhenti') +
+      kpi('Turun ≥ 2 slab', fmtCount(n.drop), 'dibanding ' + bl, 'down', 'penurunan tajam') +
+      kpi('Total gap outlet ber-flag', sgFmt(C.m, totGap), SG_LABEL[C.m] + ' terhadap ' + bl, 'down', 'jumlah penurunan dari outlet ber-flag') + '</div>';
+    var segBar = sellinBtnGroup('Segmen', 'sga-seg', [['all', 'Semua (' + fmtCount(n.all) + ')'], ['lost', 'Hilang (' + fmtCount(n.lost) + ')'], ['drop', 'Turun ≥ 2 slab (' + fmtCount(n.drop) + ')'], ['big', 'Gap besar (' + fmtCount(n.big) + ')']], seg) + sellinBtnGroup('Tampilan', 'sga-flag', [['outlet', '🏪 Daftar outlet'], ['dse', '👤 Daftar DSE']], view);
+    var search = '<div class="map-toolbar-group"><input type="text" id="sgaSearchInput" aria-label="Cari outlet, DSE, site atau MC" placeholder="🔍 Cari outlet, ID, site, DSE, MC..." value="' + esc(state.sgaSearch || '') + '" class="map-select" style="min-width:240px;"><button type="button" class="btn" data-act="sga-export">📥 Export CSV</button></div>';
+    var tools = '<div class="map-toolbar" style="margin:10px 0 8px;">' + segBar + search + '</div>';
+    var ps = 50, body, head, pager = '';
+    var chip = function (w) { return w.map(function (x) { return dkTag(x[0], x[1]); }).join(' ') || '<span class="note">tidak ada penyebab terdeteksi</span>'; };
+    var lvl = function (i) { return i >= S.length ? 'tanpa volume' : S[i][2]; };
+    if (view === 'dse') {
+      var g = {}; f.forEach(function (r) { var d = uarDse(r.o), k = r.o.mc + '||' + d, x = g[k] || (g[k] = { dse: d, mc: r.o.mc, n: 0, gap: 0, lost: 0, nv: 0, zs: 0, dem: 0, ad: 0 }); x.n++; x.gap += Math.max(0, r.gap); if (r.lost) x.lost++; r.why.forEach(function (w) { if (w[1] === 'Belum divisit MTD') x.nv++; else if (w[1] === 'Stok saldo 0') x.zs++; else if (w[1] === 'Tanpa demand MTD') x.dem++; }); });
+      var tot = {}; sgDseGroups(C).forEach(function (x) { tot[x.mc + '||' + x.dse] = x.list.length; });
+      var L = Object.keys(g).map(function (k) { var x = g[k]; x.all = tot[k] || x.n; return x; }).sort(function (a, b) { return b.gap - a.gap; });
+      var tp = Math.ceil(L.length / ps) || 1, page = Math.min(state.sgaPage || 1, tp); state.sgaPage = page;
+      head = '<tr>' + th('DSE') + th('MC') + th('Outlet ber-flag', 1) + th('% dari outlet DSE', 1) + th('Hilang', 1) + th('Total gap', 1) + th('Belum divisit MTD', 1) + th('Stok saldo 0', 1) + th('Tanpa demand', 1) + '</tr>';
+      body = L.slice((page - 1) * ps, page * ps).map(function (x) { return '<tr><td class="cur"><b>' + dseHtml(x.dse) + '</b></td><td>' + esc(x.mc) + '</td><td class="num"><b>' + fmtCount(x.n) + '</b></td><td class="num">' + pctOf(x.n, x.all) + '%</td><td class="num">' + fmtCount(x.lost) + '</td><td class="num"><b>' + sgFmt(C.m, x.gap) + '</b></td><td class="num">' + pctOf(x.nv, x.n) + '%</td><td class="num">' + pctOf(x.zs, x.n) + '%</td><td class="num">' + pctOf(x.dem, x.n) + '%</td></tr>'; }).join('');
+      if (L.length > 1) {
+        var Z = { n: 0, all: 0, lost: 0, gap: 0, nv: 0, zs: 0, dem: 0 }; L.forEach(function (x) { Z.n += x.n; Z.all += x.all; Z.lost += x.lost; Z.gap += x.gap; Z.nv += x.nv; Z.zs += x.zs; Z.dem += x.dem; });
+        body += '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td class="cur" style="background:var(--ink); color:#fff;">TOTAL · ' + fmtCount(L.length) + ' DSE</td><td></td><td class="num">' + fmtCount(Z.n) + '</td><td class="num">' + pctOf(Z.n, Z.all) + '%</td><td class="num">' + fmtCount(Z.lost) + '</td><td class="num">' + sgFmt(C.m, Z.gap) + '</td><td class="num">' + pctOf(Z.nv, Z.n) + '%</td><td class="num">' + pctOf(Z.zs, Z.n) + '%</td><td class="num">' + pctOf(Z.dem, Z.n) + '%</td></tr>';
+      }
+      if (tp > 1) pager = mbPager('sga-page', page, tp, 'DSE ' + ((page - 1) * ps + 1) + '–' + Math.min(page * ps, L.length) + ' dari ' + fmtCount(L.length));
+    } else {
+      f.sort(function (a, b) { return b.gap - a.gap; });
+      var tp2 = Math.ceil(f.length / ps) || 1, page2 = Math.min(state.sgaPage || 1, tp2); state.sgaPage = page2;
+      head = '<tr>' + dkStickyTh('Outlet', 1) + th('MC') + th('DSE') + th('Slab FM') + th('Slab LMTD') + th('Slab MTD') + th('FM', 1) + th('LMTD', 1) + th('MTD', 1) + th('Gap vs ' + bl, 1) + th('Kemungkinan penyebab (cek)') + '</tr>';
+      body = f.slice((page2 - 1) * ps, page2 * ps).map(function (r) {
+        var o = r.o;
+        return '<tr>' + dkStickyTd('<b>' + esc(o.n || '(tanpa nama)') + '</b><br><code style="font-size:12px;">' + esc(o.id) + ' · ' + esc(o.b) + '</code><br><code style="font-size:12px;">' + esc(o.site || '—') + '</code>') + '<td>' + esc(o.mc) + '</td><td>' + dseHtml(uarDse(o)) + '</td>' +
+          '<td>' + lvl(r.sl[2]) + '</td><td>' + lvl(r.sl[1]) + '</td><td><b>' + lvl(r.sl[0]) + '</b></td><td class="num">' + sgFmt(C.m, o._sg[2]) + '</td><td class="num">' + sgFmt(C.m, o._sg[1]) + '</td><td class="num"><b>' + sgFmt(C.m, o._sg[0]) + '</b></td><td class="num" style="color:#991b1b;"><b>−' + sgFmt(C.m, Math.max(0, r.gap)) + '</b></td><td style="min-width:240px;">' + chip(r.why) + '</td></tr>';
+      }).join('');
+      if (tp2 > 1) pager = mbPager('sga-page', page2, tp2, 'Outlet ' + ((page2 - 1) * ps + 1) + '–' + Math.min(page2 * ps, f.length) + ' dari ' + fmtCount(f.length));
+    }
+    return cards + card('Flag gap · ' + SG_LABEL[C.m] + ' · ' + esc(scopeText()), tools + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + (body || '<tr><td colspan="11" class="note">Tidak ada outlet ber-flag pada filter ini.</td></tr>') + '</tbody></table></div>' + pager +
+      '<p class="note">Outlet di-flag bila: gap terhadap ' + bl + ' ≥ ambang, atau volume ' + bl + ' ada tetapi MTD 0, atau turun ≥ 2 slab. Kolom penyebab memeriksa: belum divisit MTD (PJP), stok saldo ENDBAL 0, tanpa demand MTD (MOBO), outlet tanpa DSE (ADHOC)' + (C.m !== 'si' ? ', dan tanpa sell-in SP MTD' : '') + '. Daftar DSE menunjukkan porsi outlet ber-flag tiap DSE dan persentase tiap penyebab untuk melihat pola. ' + SG_NOTE + '</p>');
+  }
+  function sgExportCsv() {
+    var C = sgCtx(); if (!C || C.missing || typeof window === 'undefined') return;
+    var rows = sgFlagRows(C), bl = state.sgaBase === 'fm' ? 'FM' : 'LMTD';
+    function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+    var lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Brand', 'Outlet Name', 'Metrik', 'FM', 'LMTD', 'MTD', 'Gap vs ' + bl, 'Hilang', 'Turun >= 2 slab', 'Penyebab'].map(q).join(',')];
+    rows.sort(function (a, b) { return b.gap - a.gap; }).forEach(function (r) { var o = r.o, i = C.mi[o.mc] || {}; lines.push([i.br, o.mc, i.dso, uarDse(o), o.site, o.id, o.b, o.n, SG_LABEL[C.m], o._sg[2], o._sg[1], o._sg[0], r.gap, r.lost ? 'ya' : '', r.drop ? 'ya' : '', r.why.map(function (w) { return w[1]; }).join('; ')].map(q).join(',')); });
+    var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'flag_gap_' + C.m + '_' + (state.sgaBase || 'lm') + '.csv'; a.click();
+  }
+  function viewSlabSga(mode) {
+    _sgMode = mode === 'ga' ? 'ga' : 'pj';
+    var C = sgCtx(); if (!C) return card('Slab Sellin, Saldo & GA', '<p class="note">Feed penjualan belum dibangun.</p>');
+    if (C.missing) return sgNav({ m: C.m }) + card('Slab GA', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
+    var tab = state.sgaTab || 'outlet';
+    return sgNav(C) + (tab === 'dse' ? sgDseView(C) : (tab === 'flag' ? sgFlagView(C) : sgOutletView(C)));
   }
 
   /* ================= KONFIGURASI · TARGET SETTING (Sell-In SP + OSA) ================= */
@@ -8106,7 +8299,7 @@
     }
   }
   function onClick(e) {
-    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-pj-mxbrand], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
+    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-pj-mxbrand], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-tsort')) { tsHandle(t); return; }
     if (t.disabled || t.getAttribute('aria-disabled') === 'true') return;   // temporarily disabled menu items
@@ -8241,6 +8434,14 @@
     else if (t.hasAttribute('data-ga-cover')) { state.gaCover = t.getAttribute('data-ga-cover'); state.gaPage = 1; }
     else if (t.hasAttribute('data-ga-page')) { var gad = t.getAttribute('data-ga-page'); if (gad === 'prev' && state.gaPage > 1) state.gaPage--; else if (gad === 'next') state.gaPage++; }
     else if (t.getAttribute('data-act') === 'ga-export') { gaExportCsv(); return; }
+    else if (t.hasAttribute('data-sga-tab')) { state.sgaTab = t.getAttribute('data-sga-tab'); state.sgaPage = 1; }
+    else if (t.hasAttribute('data-sga-metric')) { state.sgaMetric = t.getAttribute('data-sga-metric'); state.sgaPage = 1; state.sgaSeg = 'all'; }
+    else if (t.hasAttribute('data-sga-base')) { state.sgaBase = t.getAttribute('data-sga-base'); state.sgaPage = 1; }
+    else if (t.hasAttribute('data-sga-thr')) { state.sgaThr = state.sgaThr || {}; state.sgaThr[state.sgaMetric || 'si'] = parseInt(t.getAttribute('data-sga-thr'), 10); state.sgaPage = 1; }
+    else if (t.hasAttribute('data-sga-seg')) { state.sgaSeg = t.getAttribute('data-sga-seg'); state.sgaPage = 1; }
+    else if (t.hasAttribute('data-sga-flag')) { state.sgaFlag = t.getAttribute('data-sga-flag'); state.sgaPage = 1; }
+    else if (t.hasAttribute('data-sga-page')) { var sgd = t.getAttribute('data-sga-page'); if (sgd === 'prev' && state.sgaPage > 1) state.sgaPage--; else if (sgd === 'next') state.sgaPage++; }
+    else if (t.getAttribute('data-act') === 'sga-export') { sgExportCsv(); return; }
     else if (t.hasAttribute('data-pj-mxarea')) { var mxa = t.getAttribute('data-pj-mxarea'); state.pjMxAreaClosed = state.pjMxAreaClosed || {}; state.pjMxAreaClosed[mxa] = !state.pjMxAreaClosed[mxa]; }
     else if (t.hasAttribute('data-pj-mxmc')) { var mxm = t.getAttribute('data-pj-mxmc'), mxo = state.pjMxMc || (state.pjMxMc = {}), mxcur = mxo[mxm] != null ? !!mxo[mxm] : (state.pjMxMcAll != null ? state.pjMxMcAll : !!state.kec); mxo[mxm] = !mxcur; }
     else if (t.hasAttribute('data-pj-mxall')) { state.pjMxMcAll = t.getAttribute('data-pj-mxall') === 'open'; state.pjMxMc = {}; }
@@ -8632,6 +8833,10 @@
     if (e.target && e.target.id === 'gaSearchInput') {
       state.gaSearch = e.target.value; state.gaPage = 1; render();
       var gai = document.getElementById('gaSearchInput'); if (gai) { gai.focus(); gai.setSelectionRange(gai.value.length, gai.value.length); }
+    }
+    if (e.target && e.target.id === 'sgaSearchInput') {
+      state.sgaSearch = e.target.value; state.sgaPage = 1; render();
+      var sgi = document.getElementById('sgaSearchInput'); if (sgi) { sgi.focus(); sgi.setSelectionRange(sgi.value.length, sgi.value.length); }
     }
     if (e.target && e.target.id === 'uarSearchInput') {
       state.uarSearch = e.target.value; state.uarPage = 1; render();
