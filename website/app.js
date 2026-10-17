@@ -7013,7 +7013,7 @@
   var OPD_SECS = [['visit', '1 · Outlet belum divisit'], ['sitev', '2 · Site belum divisit'], ['sitega', '3 · Site tanpa GA'], ['gasp', '4 · Outlet tanpa GA / SP Sell-In'], ['saldo', '5 · Tanpa Saldo Sell-In + demand'], ['endbal', '6 · ENDBAL rendah / nol'], ['peta', '🗺️ Peta lokasi']];
   var OPD_LOW = 100000;   // ENDBAL below Rp 100K counts as low; zero or below (or no stock account) counts as none
   var _opdCache = null;
-  // One record per master outlet: territory, last month order (September full), this month order, GA (SP Injection), demand signals
+  // One record per master outlet: territory, last month order (September full), this month order, GA (RGUGA, raw/GA), demand signals
   function opdBase() {
     var P = pjFeed(), T = (typeof window !== 'undefined') ? window.TERRITORY_FEED : null, V = mbVisitsFeed(); if (!P || !T || !V) return null;
     var D = poFeed(), E = ebFeed(), spi = uarSpiMap();

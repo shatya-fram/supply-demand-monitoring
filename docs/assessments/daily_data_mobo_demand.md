@@ -87,3 +87,7 @@ Filter: Branch/HoA/MC, brand, komoditas, Outlet adhoc ikut/tanpa, cari. Band Are
 5. Selisih rupiah Reload 10 % antara file harian dan ekspor transaksi hari ke-1 belum dijelaskan (bagian 3).
 6. Ekspor transaksi mentah (`raw/MOBO TRANSACTION DETAILS/`) hanya berisi 1 Okt; kolom tambahan (status gagal, wallet type, SP lama/baru, jam, pelanggan unik) belum bisa dibuat MTD sampai ada ekspor 1–13 Okt.
 7. Brand filter memakai `b` (brand pertama terlihat) sehingga outlet master dengan dua id ikut ke satu brand; split nilai di tab Bauran memakai `bv`.
+
+
+## 8. CVM sheet carrying RECARGE rows (17 Oct 2026)
+The workbook saved 17 Oct 04:35 had 75,692 rows in both `CVM` and `RECARGE`. The CVM sheet held the real CVM rows (14,301 outlet × product keys, Rp 1.86 B) **plus** 61,391 rows that equal RECARGE rows on outlet, product and every day value (Rp 36.2 B). Built as is, CVM would have read Rp 38.1 B and total demand would have been overstated by about 60% (Paket Data counted twice). `build_demand_feed.py` now removes CVM rows that are exact copies of RECARGE rows (`drop_copied_rows`), prints a WARNING with the count and amount, and keeps the 14,301 genuine CVM rows (Rp 1.86 B, consistent with 16 Oct's Rp 1.77 B plus one day). If the sheets are ever swapped completely the warning shows a much larger count: check the file before using the result.

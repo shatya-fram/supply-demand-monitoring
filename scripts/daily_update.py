@@ -185,8 +185,10 @@ def main():
     for label, cmd in steps:
         if run(label, cmd, env) != 0:
             failed.append(label)
-            if "KPI" not in label and "Render" not in label:   # feeds below depend on this one
-                if label.startswith(("1/5", "3/5")):
+            if label.startswith("1/5"):
+                print("  Demand feed NOT rebuilt: the previous demand feed stays in place; the other feeds continue.")
+            elif "KPI" not in label and "Render" not in label:   # feeds below depend on this one
+                if label.startswith(("2/5", "3/5")):
                     print("  Stopping: later steps depend on this feed.")
                     break
 

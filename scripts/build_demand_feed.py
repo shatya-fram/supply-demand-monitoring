@@ -156,6 +156,39 @@ print("[2/4] Membaca", src)
 sheets = read_xlsb(src)
 print("   sheet:", {k: max(len(v) - 1, 0) for k, v in sheets.items()})
 
+def _sig_rows(rows):
+    """{(id_outlet, productname): tuple of all day values} for one MOBO sheet."""
+    hdr = {c: str(v).strip().lower() for c, v in rows[0].items()}
+    c_id = next(c for c, v in hdr.items() if v == "id_outlet"); c_pn = next(c for c, v in hdr.items() if v == "productname")
+    vc = [c for c, v in sorted(hdr.items()) if re.match(r"^(hits|dt|amount)_\d+$", v)]
+    return c_id, c_pn, vc
+
+
+def drop_copied_rows(sheets):
+    """17 Oct 2026: the CVM sheet of the new workbook held the real CVM rows PLUS an exact copy of 61,391 RECARGE (Paket Data) rows (Rp 36.2 B),
+    which would have inflated total demand by about 60%. Rows of CVM that are identical to a RECARGE row (same outlet, product and every day value) are dropped."""
+    cvm_key = "CVM" if "CVM" in sheets else ("MTD_CVM" if "MTD_CVM" in sheets else None)
+    rcg_key = "RECARGE" if "RECARGE" in sheets else ("MTD_RECARGE" if "MTD_RECARGE" in sheets else None)
+    if not cvm_key or not rcg_key or len(sheets[cvm_key]) < 2 or len(sheets[rcg_key]) < 2:
+        return
+    ci, cp, cv = _sig_rows(sheets[cvm_key]); ri, rp, rv = _sig_rows(sheets[rcg_key])
+    ref = {(str(r.get(ri)), str(r.get(rp))): tuple(round(float(r.get(c) or 0), 2) for c in rv) for r in sheets[rcg_key][1:]}
+    keep, dropped, amt = [sheets[cvm_key][0]], 0, 0.0
+    hdr = {c: str(v).strip().lower() for c, v in sheets[cvm_key][0].items()}
+    acols = [c for c, v in hdr.items() if v.startswith("amount_")]
+    for r in sheets[cvm_key][1:]:
+        sig = ref.get((str(r.get(ci)), str(r.get(cp))))
+        if sig is not None and sig == tuple(round(float(r.get(c) or 0), 2) for c in cv):
+            dropped += 1; amt += sum(float(r.get(c) or 0) for c in acols)
+        else:
+            keep.append(r)
+    if dropped:
+        print(f"   WARNING: CVM sheet held {dropped:,} rows identical to RECARGE rows (Rp {amt / 1e9:.1f} B): removed, {len(keep) - 1:,} CVM rows kept")
+        sheets[cvm_key] = keep
+
+
+drop_copied_rows(sheets)
+
 outlets = {}                 # key -> dim
 outlet_brand = {}
 brand_val = defaultdict(lambda: {"IM3": 0.0, "3ID": 0.0})   # key -> nilai rupiah per brand id (outlet master bisa punya id IM3 dan 3ID)
