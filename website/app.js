@@ -2464,15 +2464,18 @@
     return visitsSelectionBand(feed) + (visitsScoped() ? visitsScorecard(feed) : '') + visitsLevelBar(feed) + body + renderNeverBlock(feed);
   }
 
+  /* Heat map standard (owner, 17 Oct 2026): 100% green · 90–99% light green · 80–89% orange · 70–79% yellow · below 70% red */
+  var HEAT_BANDS = [[100, '#16a34a', '#fff', '100%', 'green'], [90, '#bbf7d0', '#14532d', '90–99%', 'light green'], [80, '#fdba74', '#7c2d12', '80–89%', 'orange'], [70, '#fde68a', '#713f12', '70–79%', 'yellow'], [-1e9, '#f87171', '#7f1d1d', '&lt; 70%', 'red']];
+  function heatBand(pct) { for (var i = 0; i < HEAT_BANDS.length; i++) if (pct >= HEAT_BANDS[i][0]) return { bg: HEAT_BANDS[i][1], fg: HEAT_BANDS[i][2] }; return { bg: HEAT_BANDS[4][1], fg: HEAT_BANDS[4][2] }; }
+  function heatLegend(id) {
+    return HEAT_BANDS.map(function (b) { return '<span style="display:inline-block; width:12px; height:12px; background:' + b[1] + '; border:1px solid rgba(0,0,0,.25); vertical-align:middle; margin-right:3px;"></span>' + b[3] + (id ? ' ' + { green: 'hijau', 'light green': 'hijau muda', orange: 'oranye', yellow: 'kuning', red: 'merah' }[b[4]] : ' ' + b[4]); }).join(' &nbsp; ');
+  }
   function heatCell(p, x, binary) {
     if (!p) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
     if (binary) {
       return x ? '<td style="background:#16a34a; color:#fff; text-align:center; font-weight:800;">✓</td>' : '<td style="background:#fee2e2; color:#991b1b; text-align:center; font-weight:800;">○</td>';
     }
-    var pct = Math.round(x / p * 100);
-    var bg, fg = '#111';
-    if (pct < 30) { bg = '#fee2e2'; fg = '#991b1b'; }
-    else { var a = 0.12 + 0.6 * (pct / 100); bg = 'rgba(22,163,74,' + a.toFixed(2) + ')'; }
+    var pct = Math.round(x / p * 100), band = heatBand(pct), bg = band.bg, fg = band.fg;
     return '<td class="num" title="' + x + ' of ' + p + ' planned" style="background:' + bg + '; color:' + fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + x + '/' + p + '</span></td>';
   }
   function renderVisitsHeat(feed) {
@@ -2521,7 +2524,7 @@
     var pag = paged ? '<div style="margin-top:10px;" class="note">' + fmtCount(rows.length) + ' rows · dikelompokkan Area › MC' + (level === 'outlet' ? ' › DSE' : '') + '</div>' : '';
     var legend = binary
       ? '<span style="display:inline-block; width:12px; height:12px; background:#16a34a; vertical-align:middle;"></span> check-in done &nbsp; <span style="display:inline-block; width:12px; height:12px; background:#fee2e2; border:1px solid #fca5a5; vertical-align:middle;"></span> planned, not visited &nbsp; · not on the beat plan that day'
-      : 'Cell = executed check-ins ÷ planned stops on that calendar day. <span class="alert-tag">&lt; 30%</span> is flagged; deeper green is a higher hit rate; · means nothing was planned. Every day ' + pjpPeriod('mtd') + ' is shown, including Sundays.' + (missing.length ? ' <b>n/a</b> = no PJP export for that day (' + esc(missing.join(', ')) + '); it is not counted as zero execution.' : '');
+      : 'Cell = executed check-ins ÷ planned stops on that calendar day. Colour: ' + heatLegend() + '; · means nothing was planned. Every day ' + pjpPeriod('mtd') + ' is shown, including Sundays.' + (missing.length ? ' <b>n/a</b> = no PJP export for that day (' + esc(missing.join(', ')) + '); it is not counted as zero execution.' : '');
     var next = { area: 'its micro clusters', mc: 'its DSEs', dse: 'its outlets' }[level];
     return visitsSelectionBand(feed) + (visitsScoped() ? visitsScorecard(feed) : '') + visitsLevelBar(feed) +
       card('Daily PJP Heatmap · ' + VISIT_LEVEL_LABEL[level] + ' · ' + brandLabel(),
@@ -3591,10 +3594,13 @@
     return 'Rp ' + Math.round(v);
   }
   function pjGrowthPct(m, l) { return l ? (m / l - 1) * 100 : null; }
+  /* Growth colours (owner, 17 Oct 2026): growth green, degrowth red, flat orange (within ±GROWTH_FLAT %) */
+  var GROWTH_FLAT = 2;
+  function growthKind(g) { return g > GROWTH_FLAT ? 'up' : (g < -GROWTH_FLAT ? 'down' : 'flat'); }
   function pjGrowth(m, l) {
     var g = pjGrowthPct(m, l);
     if (g == null) return m ? '<span class="good-tag">baru</span>' : '<span class="note">—</span>';
-    return '<span class="' + (g >= 0 ? 'good-tag' : 'alert-tag') + '">' + (g >= 0 ? '+' : '') + g.toFixed(1) + '%</span>';
+    return '<span class="' + { up: 'good-tag', flat: 'flat-tag', down: 'alert-tag' }[growthKind(g)] + '">' + (g >= 0 ? '+' : '') + g.toFixed(1) + '%</span>';
   }
   function pjDim(o, F) { var mi = (F.metadata.mc_info || {})[o.mc] || {}; return { br: o.br || mi.br || 'OUTSIDE MASTER TERRITORY', hoa: mi.hoa || '—', dso: mi.dso || '—' }; }
   function pjInScope(o, F) {
@@ -5326,7 +5332,7 @@
     return A;
   }
   function uarGrow(a, b) { return b > 0 ? (a / b - 1) * 100 : null; }
-  function uarGTag(g) { return g == null ? dkTag('none', 'baru') : dkTag(g >= 0 ? 'ok' : 'bad', (g >= 0 ? '+' : '') + g.toFixed(1) + '%'); }
+  function uarGTag(g) { return g == null ? dkTag('none', 'baru') : dkTag({ up: 'ok', flat: 'flat', down: 'bad' }[growthKind(g)], (g >= 0 ? '+' : '') + g.toFixed(1) + '%'); }
   function uarVol(tab, v) { return tab === 'sal' ? pjRp(v) : fmtCount(v); }
   function uarRow(label, ket, a, tab, style) {
     var gU = uarGrow(a.u, a.up), gQ = uarGrow(a.q, a.qp), gV = uarGrow(a.v, a.vp), bg = style && /ink/.test(style) ? 'var(--ij-ink)' : (style && /wash/.test(style) ? 'var(--ij-wash)' : '#fff');
@@ -6620,7 +6626,7 @@
   }
 
   /* ================= DSE PRODUCTIVITY · KPI DSE Oct 2026 ================= */
-  var DK_COL = { bad: ['#fee2e2', '#991b1b'], warn: ['#fef3c7', '#92400e'], ok: ['#dcfce7', '#166534'], top: ['#86efac', '#14532d'], none: ['#f3f4f6', '#4b5563'] };
+  var DK_COL = { bad: ['#fee2e2', '#991b1b'], flat: ['#ffedd5', '#9a3412'], warn: ['#fef3c7', '#92400e'], ok: ['#dcfce7', '#166534'], top: ['#86efac', '#14532d'], none: ['#f3f4f6', '#4b5563'] };
   function dkFeed() { return (typeof window !== 'undefined' && window.DSE_KPI_FEED) ? window.DSE_KPI_FEED : null; }
   function dkOpt() { return { basis: state.dkBasis || 'prorata', osa: state.dkOsa || 'all', ec: state.dkEc || 'prod', sp: 'target' }; }
   function dkTag(kind, text) { var c = DK_COL[kind]; return '<span style="display:inline-block; padding:2px 7px; font:700 13px var(--ij-font); background:' + c[0] + '; color:' + c[1] + '; border:1px solid ' + c[1] + '33; white-space:nowrap;">' + text + '</span>'; }
@@ -7635,7 +7641,7 @@
     } else body = slice.map(heatRow).join('');
     var entity = { area: 'Area', mc: 'Micro Cluster', dse: 'DSE', outlet: 'Outlet' }[level], parent = { area: 'Head of Area', mc: 'Area · DSO', dse: 'MC · Area', outlet: 'MC · DSE' }[level];
     var pag = grouped ? '<p class="note">' + fmtCount(rows.length) + ' baris, dikelompokkan Area › Micro Cluster; klik panah untuk membuka.</p>' : paged ? mbPager('visits-page', page, totalPages, 'Menampilkan ' + (rows.length ? start + 1 : 0) + '–' + Math.min(start + pageSize, rows.length) + ' dari ' + fmtCount(rows.length) + ' baris') : '';
-    var legend = binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu; &lt; 30% ditandai merah, hijau makin pekat = hit rate makin tinggi; · = tidak ada rencana.';
+    var legend = binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu. Warna: ' + heatLegend(true) + '; · = tidak ada rencana.';
     return card('Heatmap PJP Harian · per ' + entity + ' · ' + mbScopeLabel(vf),
       (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + th('Rencana', 1) + th('Terlaksana', 1) + th('% Sukses', 1) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
       '<p class="note">' + legend + ' Klik tanggal (kolom) atau sel mana pun untuk membuka performa hari itu per DSE dan per outlet. "Detail" memperkecil cakupan ke tingkat di bawahnya.</p>');
