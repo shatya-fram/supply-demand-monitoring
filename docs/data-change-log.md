@@ -50,6 +50,15 @@ Tooling in the same commit: ENDBAL and GA join the daily command, stale-file war
 | GA / SSO | `GA/Daily_RGUGA_OUTLET_202609.xlsb` re-issued 21:02 | September full month IOH 218,257 → **252,195** pcs, LMTD (1–13 Sep) 81,004 → 92,596; October MTD vs LMTD **+12.6% → −1.5%** (IM3 +4.3% → −2.0%, 3ID +34.1% → −0.6%). 3ID outlets absent from the new sheets are kept through `data/catalogues/ga_ij_outlet_registry.csv` (without them 3ID would be −5.5%). `docs/assessments/ga_rguga_outlet.md` §9. |
 | Gross Add menu | — | Basis GA bar above the tabs, site NBS basis, scorecard with last full month, gap, run-rate and SSO gap, Overall Inner Jakarta table. |
 
+## 19 Oct 2026 (refresh to 18 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| MOBII / MOBO / SALMO | files re-saved 18 Oct 22:49 | Cut 16 → **18 Oct**. Total demand MTD Rp 63.70 B → **69.03 B**; LMTD (1–18 Sep) Rp 58.75 B, growth **+17.5%**. Sell-in MTD (Rp B): SP 0.31 → 0.38, voucher isi 0.76 → 0.86, voucher blank 0.17 → 0.20, saldo transfer 6.85 → 7.62. |
+| PJP visits | `*_17_17.zip`, `*_18_18.zip` (18 Oct 22:33) | 18 days in the feed, no missing day. |
+| GA | `GA/Daily_RGUGA_OUTLET_202610.xlsb` (19 Oct 05:32) | Cut 15 → **17 Oct**. |
+| CVM | MOBO sheet CVM | The CVM sheet again held a copy of RECARGE, now stale: equal to RECARGE up to 16 Oct and different on 17–18 Oct, so the exact-copy filter missed 13,718 rows (Rp 19.3 B + 0.7 B). Without the fix CVM read Rp 22.08 B instead of **2.08 B**. `drop_copied_rows` now also drops CVM rows whose outlet + product exist in RECARGE and agree up to day 16. 60,092 rows removed, 15,600 kept. |
+| Fix | `website/app.js` | The unterminated string in the Gross Add note (KRO session) is fixed; render check passes. |
+
 ## 18 Oct 2026 (September MOBO full close)
 | Scope | Source | Change |
 |---|---|---|

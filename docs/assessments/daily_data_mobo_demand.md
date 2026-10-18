@@ -97,3 +97,4 @@ The workbook saved 17 Oct 04:35 had 75,692 rows in both `CVM` and `RECARGE`. The
 `DAILY_DATA_MOBO_202609.xlsb`: sheets SP INJECTION 12,774 / RELOAD 26,639 / VOUCHER 20,991 / CVM 38,127 / RECHARGE 114,789 rows, all 30 days non-zero, no CVM-RECHARGE overlap, no duplicate keys. Same layout as October (RECARGE is spelled RECHARGE). Attributed to master outlets ≈ file totals (SPI 1.88, RLD 12.37, VCI 22.12, CVM 6.22, PKT 65.79 Rp B); 32 ids (Rp 0.04 B) are unknown and kept in region totals only.
 Definitions: LMTD = September day 1 to the October cut day; Last FM = September 1–30; Gap vs FM = MTD − Last FM; Req RR / hari = max(0, FM − MTD) ÷ (31 − cut day).
 Observation: September Reload rises from about Rp 0.1–0.2 B/day (early Sep) to 1.2–1.5 B/day (late Sep), so Reload growth vs LMTD (+383%) is inflated by a low early-September base. SALMO has no September file, so SAL shows no LMTD / Last FM.
+

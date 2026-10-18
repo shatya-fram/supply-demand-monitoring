@@ -1,7 +1,7 @@
 # Data completeness checklist · MTD, LMTD, last full month
 
-Status as of **17 Oct 2026 11:40 WIB** (feeds built from the files in `raw/`). ✅ complete · ⚠️ available with a caveat · ❌ not available in any file under `raw/`.
-MTD = 1–16 Oct (GA: 1–15 Oct). LMTD = September day 1 to the same cut day. FM = September 1–30.
+Status as of **19 Oct 2026 06:00 WIB** (feeds built from the files in `raw/`). ✅ complete · ⚠️ available with a caveat · ❌ not available in any file under `raw/`.
+MTD = 1–18 Oct (GA: 1–17 Oct). LMTD = September day 1 to the same cut day. FM = September 1–30.
 
 ## 1. Visit PJP (`raw/MOBI VISIT DSE/*_visit_dse_*`)
 | Window | Status | Detail |
@@ -44,25 +44,27 @@ Other caveats: Reload (about Rp 247 Jt) and SP Injection are low on 15 and 16 Oc
 
 Caveats: 3ID outlets that the outlet sheets omit are carried through `data/catalogues/ga_ij_outlet_registry.csv` (without them 3ID would read about 5 points lower); about one third of October GA sits on outlets outside the master list (no DSE); October days 1–13 were revised by a few pcs between files.
 
-## 5. Checklist kelengkapan (MTD, LMTD, FM) · update 18 Oct 2026
+## 5. Checklist kelengkapan (MTD, LMTD, FM) · update 19 Oct 2026
 
-✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di `raw/`
+Cut data: MOBII, MOBO, SALMO, PJP = 18 Okt · GA = 17 Okt · ENDBAL snapshot = 16 Okt. LMTD = 1–18 Sep, FM = 1–30 Sep. ✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di `raw/`
 
 | Komponen | MTD Okt | LMTD Sep | FM Sep |
 |---|---|---|---|
-| **Visit PJP** | ✅ 1–16 Okt, tanpa hari kosong | ❌ | ❌ |
-| **MOBII**: SP | ✅ 16/16 hari | ✅ | ✅ 29/30 (6 Sep, hari Minggu, nol) |
-| MOBII: Voucher isi | ✅ 16/16 | ✅ | ✅ 30/30 |
-| MOBII: Voucher blank | ✅ 16/16 | ✅ | ✅ 30/30 |
-| MOBII: Saldo Mobo | ✅ 14/16 (4 dan 11 Okt Minggu nol) | ✅ | ✅ 30/30 |
-| **MOBO**: Reload | ✅ 16/16 | ✅ 1–16 Sep (Rp 2.17 B) | ✅ 30/30 (Rp 12.37 B) |
-| MOBO: Voucher Injection | ✅ 16/16 | ✅ (Rp 8.46 B) | ✅ 30/30 (Rp 22.12 B) |
-| MOBO: CVM | ⚠️ 16/16 (sheet berisi salinan RECARGE yang sudah dibuang) | ✅ (Rp 3.63 B) | ✅ 30/30 (Rp 6.22 B; tidak ada salinan RECHARGE) |
-| MOBO: Paket Data | ✅ 16/16 | ✅ (Rp 37.18 B) | ✅ 30/30 (Rp 65.75 B) |
-| MOBO: SP Injection | ✅ 16/16 | ✅ (Rp 0.49 B) | ✅ 30/30 (Rp 1.88 B, di luar total demand) |
-| MOBO: SALMO (demand saldo) | ⚠️ 16/16, di luar total demand | ❌ | ❌ |
-| **GA outlet dan SSO** | ✅ 1–15 Okt (GA satu hari di belakang) | ✅ | ✅ 30/30 |
+| **Visit PJP** | ✅ 1–18 Okt, tanpa hari kosong (17 dan 18 Okt masuk 18 Okt 22:33) | ❌ | ❌ |
+| **MOBII**: SP | ✅ 17/18 hari (18 Okt Minggu, nol) | ✅ | ✅ 29/30 (6 Sep, Minggu, nol) |
+| MOBII: Voucher isi | ✅ 18/18 (18 Okt Rp 6.7 Jt, Minggu) | ✅ | ✅ 30/30 |
+| MOBII: Voucher blank | ✅ 14/18 (3 dan 4 Okt nol karena migrasi; 11 dan 18 Okt Minggu nol) | ✅ | ✅ 30/30 |
+| MOBII: Saldo Mobo | ✅ 16/18 (4 dan 11 Okt Minggu nol; 18 Okt Rp 0.5 Jt) | ✅ | ✅ 30/30 |
+| **MOBO**: Reload | ✅ 18/18 (Rp 11.04 B) | ✅ Rp 2.17 B (1–16 Sep) | ✅ 30/30, Rp 12.37 B |
+| MOBO: Voucher Injection | ✅ 18/18 (Rp 9.74 B) | ✅ | ✅ 30/30, Rp 22.12 B |
+| MOBO: CVM | ⚠️ 18/18, Rp 2.08 B; sheet CVM memuat salinan RECARGE (60,092 baris, Rp 36.2 B) yang dibuang, termasuk salinan lama yang tidak identik di 17–18 Okt | ✅ | ✅ 30/30, Rp 6.22 B (tidak ada salinan) |
+| MOBO: Paket Data | ✅ 18/18 (Rp 46.17 B) | ✅ | ✅ 30/30, Rp 65.75 B |
+| MOBO: SP Injection | ✅ 18/18 (Rp 0.37 B) | ✅ | ✅ 30/30, Rp 1.88 B (di luar total demand) |
+| MOBO: SALMO (demand saldo) | ⚠️ 18/18, Rp 77.95 B, di luar total demand; 56 id tak dikenal (Rp 7.70 B) | ❌ | ❌ |
+| **GA outlet dan SSO** | ✅ 1–17 Okt (GA satu hari di belakang) | ✅ | ✅ 30/30 |
 | **GA site** (outlet digulung per site NBS) | ✅ | ✅ | ✅ |
+| **Target GA** (M2S KECAMATAN, per kecamatan dan brand) | ✅ target Oktober | n/a | n/a |
 | GA lokasi aktivasi sebenarnya (M2S) | ❌ Oktober | ⚠️ tidak dapat dipakai | ⚠️ September sampai sekitar 26 Sep |
+| ENDBAL (stok dan saldo outlet) | ⚠️ snapshot 16 Okt (2 hari di belakang) | n/a | n/a |
 
-Yang masih perlu: export PJP September (Visit), file MOBO_SALMO September, GA 16 Okt, dan M2S Oktober.
+Yang masih perlu: export PJP September, file MOBO_SALMO September, GA 18 Okt, snapshot ENDBAL terbaru, dan M2S Oktober.

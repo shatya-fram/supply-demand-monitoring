@@ -181,9 +181,20 @@ def drop_copied_rows(sheets):
     keep, dropped, amt = [sheets[cvm_key][0]], 0, 0.0
     hdr = {c: str(v).strip().lower() for c, v in sheets[cvm_key][0].items()}
     acols = [c for c, v in hdr.items() if v.startswith("amount_")]
+    day_cols = sorted((int(re.search(r"(\d+)$", v).group(1)), c) for c, v in hdr.items() if re.match(r"^amount_\d+$", v))
+    rhdr = {c: str(v).strip().lower() for c, v in sheets[rcg_key][0].items()}
+    rday = {int(re.search(r"(\d+)$", v).group(1)): c for c, v in rhdr.items() if re.match(r"^amount_\d+$", v)}
+    rref = {(str(r.get(ri)), str(r.get(rp))): r for r in sheets[rcg_key][1:]}
+    def same_through(r, ref_row, last_day):    # every day value up to last_day equal to the RECARGE row
+        return all(round(float(r.get(c) or 0), 2) == round(float(ref_row.get(rday.get(d)) or 0), 2) for d, c in day_cols if d <= last_day)
     for r in sheets[cvm_key][1:]:
-        sig = ref.get((str(r.get(ci)), str(r.get(cp))))
-        if sig is not None and sig == tuple(round(float(r.get(c) or 0), 2) for c in cv):
+        key = (str(r.get(ci)), str(r.get(cp)))
+        sig = ref.get(key)
+        copied = sig is not None and sig == tuple(round(float(r.get(c) or 0), 2) for c in cv)
+        # 19 Oct 2026: the RECARGE sheet moved on (days 17-18) while the CVM sheet kept an older copy of it: same outlet and product, equal up to day 16, later days differ
+        if not copied and key in rref and same_through(r, rref[key], 16):
+            copied = True
+        if copied:
             dropped += 1; amt += sum(float(r.get(c) or 0) for c in acols)
         else:
             keep.append(r)
