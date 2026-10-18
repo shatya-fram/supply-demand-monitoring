@@ -374,8 +374,8 @@ def stat_sets(s, sched, brand, brand_level=False):
             t.append(op_brand[s["pid"]][brand])
     return t
 
-# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id]
-daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0, 0, 0, 0, 0, 0])) for lvl in ("br", "mc", "op")}
+# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive]
+daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0, 0, 0, 0, 0, 0, 0])) for lvl in ("br", "mc", "op")}
 op_outlet_days = defaultdict(dict)           # person -> (brand, org id) -> {n, mc, k, d: {date: 'p' planned | 'x' executed}}
 
 stops = {}                                   # stop key -> dict(flags)
@@ -533,6 +533,9 @@ for (brand, sched, _bp, _org), s in stops.items():
         if phys or sal:
             prod_without_ci += 1
         continue
+    if phys or sal:       # productive visit per day for branch / MC / person (Effective Call D-1)
+        for lvl, key in ((("br", s["br"]), ("mc", s["mc"])) if not s["x"] else ()) + ((("op", s["pid"]),) if s["x"] != "adhoc" else ()):
+            daily_by[lvl][key][sched][6] += 1
     for S in stat_sets(s, sched, brand, True):
         if flow: S["flow"] += 1
         if s["si"]: S["sellin"] += 1
@@ -566,7 +569,7 @@ total_sites = len(site_outlets)
 
 def daily_series(lvl, key):
     inner = daily_by[lvl].get(key, {})
-    return [list(inner[d]) if d in inner else [0, 0, 0, 0, 0, 0] for d in DAYS]
+    return [list(inner[d]) if d in inner else [0, 0, 0, 0, 0, 0, 0] for d in DAYS]
 
 
 def hybrid(keys):
@@ -840,7 +843,7 @@ regional_summary = {
 feed_data = {
     "metadata": {"generated_at": datetime.now().isoformat(timespec="seconds"), "period_start": PERIOD_START, "period_end": PERIOD_END,
                  "days_count": len(DAYS), "business_days": N_BUSINESS_DAYS, "days": DAYS, "missing_days": MISSING_DAYS,
-                 "daily_columns": ["planned", "executed", "planned_im3", "executed_im3", "planned_3id", "executed_3id"], "dates_last_3d": sorted(DATES_LAST_3D), "dates_last_7d": sorted(DATES_LAST_7D),
+                 "daily_columns": ["planned", "executed", "planned_im3", "executed_im3", "planned_3id", "executed_3id", "productive"], "dates_last_3d": sorted(DATES_LAST_3D), "dates_last_7d": sorted(DATES_LAST_7D),
                  "grain": "PJP stop = (brand, schedule date, BEATPLANID, ORG. ID); executed = Check In Completed; productive = Sell In SP/VC qty > 0 or Balance Transfer saldo > Rp 50,000 (flow_completed = status-only rule)",
                  "contract": "docs/assessments/pjp_journey_plan_report.md"},
     "regional_summary": regional_summary, "daily_timeline": daily_timeline, "branches": branch_list, "micro_clusters": mc_list,

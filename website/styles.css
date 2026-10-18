@@ -724,3 +724,26 @@ tr[style*="background:var(--ink)"] > td b { color: #fff !important; }
 /* DSE coverage line (kecamatan and desa), always lowercase */
 .dse-cov { display: block; font: 400 11.5px/1.3 var(--ij-font); color: var(--ij-muted); text-transform: none; letter-spacing: 0; margin-top: 2px; max-width: 320px; white-space: normal; font-weight: 400; }
 @media print { .dse-cov { font-size: 8.5px; } }
+
+/* Overall Performance: compact KPI boxes (several per line), clickable, with a popup shortlist */
+.kpis.kpis-s { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.kpis.kpis-s .kpi { padding: 8px 10px; cursor: pointer; }
+.kpis.kpis-s .kpi:hover, .kpis.kpis-s .kpi:focus { outline: 2px solid var(--ij-ink); outline-offset: -2px; }
+.kpis.kpis-s .kpi h2.sect { font-size: 11.5px; letter-spacing: .04em; margin: 0; }
+.kpis.kpis-s .kpi .value { font-size: 24px; margin: 2px 0; }
+.kpis.kpis-s .kpi .delta { font-size: 12px; line-height: 1.25; }
+.kpis.kpis-s .kpi .note { font-size: 11px; line-height: 1.25; margin-top: 2px; }
+#ovPop { position: fixed; inset: 0; background: rgba(32, 30, 29, .55); z-index: 9999; display: flex; align-items: flex-start; justify-content: center; padding: 3vh 6px 6px; }
+#ovPop .ov-box { background: #fff; border: 2px solid var(--ij-ink); width: min(1560px, 99vw); max-height: 92vh; display: flex; flex-direction: column; }
+#ovPop .ov-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 10px 14px; border-bottom: 2px solid var(--ij-ink); background: var(--ij-wash, #f6f4f1); }
+#ovPop .ov-title { font: 800 15px var(--ij-font); text-transform: uppercase; }
+#ovPop .ov-scope { font-size: 12px; color: var(--ij-muted, #555); margin-top: 2px; }
+#ovPop .ov-actions { display: flex; gap: 6px; flex: none; }
+#ovPop .ov-lines { margin: 8px 14px 0; padding-left: 18px; font-size: 12.5px; }
+#ovPop .ov-body { overflow: auto; padding: 8px 14px 14px; }
+#ovPop .ov-body table { font-size: 14px; width: 100%; }
+#ovPop .ov-body th, #ovPop .ov-body td { padding: 5px 9px; }
+#ovPop .ov-body th { white-space: nowrap; }
+#ovPop .ov-body td:nth-child(2), #ovPop .ov-body td:nth-child(3) { white-space: normal; }
+#ovPop .ov-actions .btn { font-size: 13px; padding: 7px 11px; }
+#ovPop .ov-lines { font-size: 13.5px; }
