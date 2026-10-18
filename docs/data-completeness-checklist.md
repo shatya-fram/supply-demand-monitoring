@@ -32,7 +32,7 @@ Caveats: 1–9 Oct are genuinely low (migration), so MTD vs LMTD is structurally
 | SP Injection (SPI) | ✅ 16 / 16 (units; Rp from 14 Oct file) | ❌ | ❌ |
 | Saldo Mobo demand (SAL) | ⚠️ 16 / 16 days, Rp 72.06 B, outside total demand until its overlap with the other categories is confirmed | ❌ | ❌ |
 
-No file under `raw/` holds September for MOBO: the workbooks have October only and `MOBO TRANSACTION DETAILS/` holds 1 Oct. Demand growth vs last month needs a September workbook in the same layout (all six sheets).
+September MOBO (`DAILY_DATA_MOBO_202609.xlsb`, full close, received 18 Oct) now supplies LMTD and Last FM for Reload, Voucher Injection, CVM, Paket Data and SP Injection. Only Saldo Mobo (SALMO) still has no September file.
 Other caveats: Reload (about Rp 247 Jt) and SP Injection are low on 15 and 16 Oct against 12–14 Oct; 55 SALMO ids (Rp 6.89 B) and a few other ids cannot be attributed to any outlet.
 
 ## 4. Gross Add (`raw/GA/` only; MOBO and GA BIOMETRIC are not used)
@@ -49,7 +49,8 @@ Caveats: 3ID outlets that the outlet sheets omit are carried through `data/catal
 |---|---|---|---|
 | Visit PJP | ✅ | ❌ | ❌ |
 | MOBII (SP, voucher isi, voucher blank, saldo) | ✅ | ✅ | ✅ |
-| MOBO (RLD, VCI, CVM, PKT, SPI, SAL) | ✅ | ❌ | ❌ |
+| MOBO (RLD, VCI, CVM, PKT, SPI) | ✅ | ✅ (1–16 Sep) | ✅ (30 days) |
+| MOBO SAL (SALMO) | ✅ | ❌ | ❌ |
 | GA outlet and site | ✅ (to 15 Oct) | ✅ | ✅ |
 
-To close the gaps: a September journey-plan export (Visit), and a September MOBO workbook with the same six sheets (RELOAD, VOUCHER, CVM, RECARGE, SP_INJECTION and the SALMO file). Without them these components show MTD only.
+To close the gaps: a September journey-plan export (Visit), and a September MOBO_SALMO workbook. Without them these components show MTD only.

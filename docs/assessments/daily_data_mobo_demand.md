@@ -91,3 +91,9 @@ Filter: Branch/HoA/MC, brand, komoditas, Outlet adhoc ikut/tanpa, cari. Band Are
 
 ## 8. CVM sheet carrying RECARGE rows (17 Oct 2026)
 The workbook saved 17 Oct 04:35 had 75,692 rows in both `CVM` and `RECARGE`. The CVM sheet held the real CVM rows (14,301 outlet × product keys, Rp 1.86 B) **plus** 61,391 rows that equal RECARGE rows on outlet, product and every day value (Rp 36.2 B). Built as is, CVM would have read Rp 38.1 B and total demand would have been overstated by about 60% (Paket Data counted twice). `build_demand_feed.py` now removes CVM rows that are exact copies of RECARGE rows (`drop_copied_rows`), prints a WARNING with the count and amount, and keeps the 14,301 genuine CVM rows (Rp 1.86 B, consistent with 16 Oct's Rp 1.77 B plus one day). If the sheets are ever swapped completely the warning shows a much larger count: check the file before using the result.
+
+
+## 9. September full close for LMTD and Last FM (18 Oct 2026)
+`DAILY_DATA_MOBO_202609.xlsb`: sheets SP INJECTION 12,774 / RELOAD 26,639 / VOUCHER 20,991 / CVM 38,127 / RECHARGE 114,789 rows, all 30 days non-zero, no CVM-RECHARGE overlap, no duplicate keys. Same layout as October (RECARGE is spelled RECHARGE). Attributed to master outlets ≈ file totals (SPI 1.88, RLD 12.37, VCI 22.12, CVM 6.22, PKT 65.79 Rp B); 32 ids (Rp 0.04 B) are unknown and kept in region totals only.
+Definitions: LMTD = September day 1 to the October cut day; Last FM = September 1–30; Gap vs FM = MTD − Last FM; Req RR / hari = max(0, FM − MTD) ÷ (31 − cut day).
+Observation: September Reload rises from about Rp 0.1–0.2 B/day (early Sep) to 1.2–1.5 B/day (late Sep), so Reload growth vs LMTD (+383%) is inflated by a low early-September base. SALMO has no September file, so SAL shows no LMTD / Last FM.

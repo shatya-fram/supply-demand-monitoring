@@ -1,5 +1,7 @@
 # Assessment · Gross Add (GA) / SSO per outlet (raw/GA)
 
+> **Updated 18 Oct 2026: see `ga_kro_deep_dive.md`** for the audit of the two GA definitions (tagging vs activating location), the SSO window fix, the Daily GA Trend and the KRO / Wholesaler catalogue.
+
 > **Updated 15 Oct 2026 (third pass): section 9 supersedes every September figure in sections 4–8 (September workbook re-issued 15 Oct 21:02).**
 >
 > **Updated 15 Oct 2026 (second pass): section 8 supersedes the 3ID figures in sections 4–6.** The outlet sheets lose part of the 3ID outlets in their formula lookup; the raw pivots do not. The feed now takes GA per outlet from the raw pivots.

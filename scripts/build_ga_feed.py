@@ -300,6 +300,9 @@ for brand in ("IM3", "3ID"):
         x["n"] = x["n"] or str(r.get(8) or "").strip()
         x["mc"] = x["mc"] or str(r.get(5) or "").strip()
         x["kec"] = x["kec"] or str(r.get(10) or "").strip()
+        x["fbr"] = x.get("fbr") or str(r.get(2) or "").strip().upper()          # location columns of the RGUGA file itself (Sep: Branch Name, Micro Cluster Name, Kecamatan Name)
+        x["fmc"] = x.get("fmc") or str(r.get(5) or "").strip()
+        x["fkec"] = x.get("fkec") or str(r.get(10) or "").strip().upper()
         x["dsec"] = x["dsec"] or norm_dse(r.get(11)) or norm_dse(r.get(6))
         fin = str(r.get(14) or "").strip().upper()
         x["sg"] = x["sg"] or (fin if fin in ("PJP", "NON", "KAM") else ("KAM" if str(r.get(13)) == "KAM" else ""))
@@ -322,6 +325,9 @@ for brand in ("IM3", "3ID"):
         x["mc"] = str(r.get(13) or "").strip() or x["mc"]
         x["kec"] = str(r.get(7) or "").strip() or x["kec"]
         x["kk"] = str(r.get(6) or "").strip() or x.get("kk", "")
+        x["fbr"] = str(r.get(11) or "").strip().upper() or x.get("fbr", "")        # October sheet: area, micro_cluster, kec_kabkot, kecamatan_nm (current month wins)
+        x["fmc"] = str(r.get(13) or "").strip() or x.get("fmc", "")
+        x["fkec"] = str(r.get(7) or "").strip().upper() or x.get("fkec", "")
         c15, c16 = r.get(15), r.get(16)
         dcode = norm_dse(c16 if str(c15).strip().upper() in ("IM3", "3ID") else c15)   # 3ID sheet has the two header labels swapped
         x["dsec"] = dcode or x["dsec"]
@@ -421,21 +427,12 @@ tot_ga = defaultdict(lambda: {"sep": 0, "oct": 0})
 matched_ga = defaultdict(lambda: {"sep": 0, "oct": 0})
 dropped = defaultdict(int)
 anomalies = []
-LOC_CUT = 26                        # the M2S kecamatan file is matched to GA BIOMETRIC up to about 26 Sep (IM3)
-kec_tag = defaultdict(lambda: {"s26": 0, "sf": 0, "o": 0, "sso26": 0})
-kk_mc = defaultdict(lambda: defaultdict(int))
+loc_index = {}                      # location key (kecamatan|kabupaten of the RGUGA file) -> index stored in row.lk
 tag_unmapped = defaultdict(int)
 for (brand, oid), x in rows_by.items():
     mk = (by_im3 if brand == "IM3" else by_3id).get(oid)
     qs, qo = sum(x["s"].values()), sum(x["o"].values())
-    if x.get("kk"):
-        kk_mc[x["kk"]][x["mc"]] += 1
-        kt = kec_tag[(x["kk"], brand)]
-        q26 = sum(q for d, q in x["s"].items() if d <= LOC_CUT)
-        kt["s26"] += q26; kt["sf"] += qs; kt["o"] += qo
-        if q26 > 0:
-            kt["sso26"] += 1
-    else:
+    if not (x.get("kk") or x.get("fkec")):
         tag_unmapped[brand] += qs
     tot_ga[brand]["sep"] += qs; tot_ga[brand]["oct"] += qo
     for per, arr in (("s", x["s"]), ("o", x["o"])):
@@ -461,6 +458,18 @@ for (brand, oid), x in rows_by.items():
         br = br or OUTSIDE
     stats[tier] += 1
     row = {"k": key, "i": oid, "b": brand, "t": tier, "n": name, "mc": mc, "br": br, "dse": dse, "sg": x["sg"]}
+    # LOCATION basis (owner, 18 Oct 2026): territory exactly as the RGUGA file states it (kecamatan, micro cluster, area); no NBS-outlet mapping
+    fmc = x.get("fmc") or mc
+    fbr = (mc_info.get(fmc) or {}).get("br") or ""      # the file's own micro cluster, named by the 7 master areas ("KOTA BEKASI" in the sheet = BEKASI)
+    lkey = x.get("kk") or x.get("fkec") or ""
+    if fmc and fmc != mc:
+        row["lm"] = fmc
+    if fbr and fbr != br:
+        row["la"] = fbr
+    if lkey:
+        if lkey not in loc_index:
+            loc_index[lkey] = len(loc_index)
+        row["lk"] = loc_index[lkey]
     if kec:
         row["kec"] = kec
     if site:
@@ -480,23 +489,7 @@ for b in ("IM3", "3ID"):
         t, m = tot_ga[b][per], matched_ga[b][per]
         print(f"   GA {b} {lab}: {t:>8,} pcs, di outlet master {m:>8,} ({m / t:.1%})" if t else f"   GA {b} {lab}: 0")
 
-# ---------------------------------------------------------------- control totals + validation
-print("[5/5] Kontrol GA BIOMETRIC dan #OUTLET ACTIVE GA...")
-control = {"bio": {}, "active": {}, "files": []}
-for p in pick(r"\.xlsx$"):
-    try:
-        brand, label, data = read_control_xlsx(p)
-    except Exception as e:      # noqa: BLE001
-        print("   lewati", os.path.basename(p), e)
-        continue
-    lab = label.upper()
-    kind = "bio" if "BIOMETRIC" in lab else ("active" if "OUTLET ACTIVE" in lab else None)
-    if not kind or brand not in ("IM3", "3ID"):
-        continue
-    control[kind][brand] = {mn[:3]: {str(d): v for d, v in days.items()} for mn, days in data.items()}
-    control["files"].append(os.path.basename(p))
-
-
+# ---------------------------------------------------------------- validation against the workbook's own summary rows (GA BIOMETRIC / OUTLET ACTIVE / M2S are no longer used, owner 18 Oct 2026)
 def summary_days(brand, per, name):
     s = summaries.get((brand, per), {}).get(name)
     return {d: v for d, v in (s or {}).items() if isinstance(v, (int, float))}
@@ -526,38 +519,13 @@ for brand in ("IM3", "3ID"):
                                    "abs_diff_qty": diffq, "abs_diff_sso": diffu}
         print(f"   {brand} {per}: GA feed {sum(mine[d] for d in range(1, ndays + 1)):,} vs ringkasan workbook {sum(int(round(ws.get(d, 0))) for d in range(1, ndays + 1)):,} (selisih harian absolut {diffq}); SSO harian selisih absolut {diffu}")
 
-# ---------------------------------------------------------------- activation LOCATION (kecamatan of the activating site), September only
-print("[6/6] Lokasi aktivasi (M2S KECAMATAN, September)...")
-location = {"kec": [], "source": None, "tag_cut": LOC_CUT}
-m2s_files = pick(r"M2S.*\.xlsb$")
-if m2s_files:
-    m2s = read_sheets(m2s_files[0], {"IM3-DATA", "3ID-DATA"})
-    location["source"] = m2s_files[0]
-    loc = defaultdict(dict)
-    for sh, brand in (("IM3-DATA", "IM3"), ("3ID-DATA", "3ID")):
-        for r in m2s.get(sh, []):
-            kk = r.get(1)
-            if r.get(0) == brand and isinstance(kk, str) and "|" in kk:
-                num = lambda v: int(round(v)) if isinstance(v, (int, float)) else 0
-                loc[kk][brand] = {"gl": num(r.get(2)), "gm": num(r.get(3)), "sl": num(r.get(4)), "sm": num(r.get(5))}
-    for kk, byb in sorted(loc.items()):
-        mcs = kk_mc.get(kk)
-        mc = max(mcs, key=mcs.get) if mcs else ""
-        row = {"kk": kk, "kec": kk.split("|")[0], "mc": mc, "br": (mc_info.get(mc) or {}).get("br", OUTSIDE)}
-        for b in ("IM3", "3ID"):
-            t = kec_tag.get((kk, b), {"s26": 0, "sf": 0, "o": 0, "sso26": 0})
-            row[b] = dict(byb.get(b, {"gl": 0, "gm": 0, "sl": 0, "sm": 0}), t26=t["s26"], tf=t["sf"], to=t["o"], ts=t["sso26"])
-        location["kec"].append(row)
-    print(f"   {len(location['kec'])} kecamatan; lokasi IM3 {sum(r['IM3']['gm'] for r in location['kec']):,} vs tagging 1-{LOC_CUT} Sep {sum(r['IM3']['t26'] for r in location['kec']):,}; 3ID {sum(r['3ID']['gm'] for r in location['kec']):,} vs {sum(r['3ID']['t26'] for r in location['kec']):,}")
-else:
-    print("   file M2S KECAMATAN tidak ditemukan: tampilan lokasi aktivasi hanya level region (GA BIOMETRIC)")
 tag = {"sep_outside_ij": {b: {str(d): q for d, q in sorted(sep_other[b].items())} for b in sep_other}, "sep_blank": {b: {str(d): q for d, q in sorted(sep_blank[b].items())} for b in sep_blank},
        "oct_outside_ij": {b: {str(d): q for d, q in sorted(oct_other[b].items())} for b in oct_other}, "oct_blank": {b: {str(d): q for d, q in sorted(oct_blank[b].items())} for b in oct_blank},
        "raw_stats": raw_stats, "sheet_totals": {"sep": sheet_sep_total, "oct": sheet_oct_total}, "unmapped_kec_ga_sep": dict(tag_unmapped)}
 
 meta = {
     "generated_at": datetime.now().isoformat(timespec="seconds"), "contract": "docs/assessments/ga_rguga_outlet.md",
-    "sources": {"sep": SEP_SRC, "oct": OCT_SRC, "control": control["files"]},
+    "sources": {"sep": SEP_SRC, "oct": OCT_SRC},
     "months": {"prev": "2026-09", "cur": "2026-10"}, "prev_days": 30, "cur_days": 31, "cut_day": cut_day,
     "definitions": {"GA": "qty_ga per outlet per hari (RGUGA, jumlah MSISDN gross add di outlet)", "SSO": "SIM Selling Outlet: outlet dengan >= 1 GA pada periode (baris UAR di workbook RGUGA)",
                     "segment": "PJP / NON / KAM = FINAL OUTLET di workbook"},
@@ -568,10 +536,10 @@ meta = {
     "ga_total": {b: dict(v) for b, v in tot_ga.items()}, "ga_in_master": {b: dict(v) for b, v in matched_ga.items()},
     "unknown_mc": {k: v for k, v in sorted(unknown_mc.items(), key=lambda kv: -kv[1])[:30]},
     "anomalies": sorted(anomalies, key=lambda a: -a["qty"])[:20], "anomaly_threshold": OUTLIER_DAY_QTY,
-    "workbook_check": recon, "tag": tag, "location": location, "control": {"bio": control["bio"], "active": control["active"]},
-    "notes": ["Dua sudut GA: TAGGING (outlet sell-in yang mencatat MSISDN, dasar insentif DSE) dan LOKASI AKTIVASI (site / kecamatan tempat GA terjadi, dasar kinerja HoA, Region, DSO). RGUGA per outlet = tagging; GA BIOMETRIC dan M2S KECAMATAN = lokasi.",
-              "Sumber angka per outlet adalah pivot raw (raw_im3 / raw_3id September, raw im3 / raw 3id Oktober); sheet outlet RGUGA hanya dipakai untuk atribut. Pivot raw Oktober berisi semua outlet nasional: yang bukan outlet Inner Jakarta dicatat sebagai total harian di metadata.tag.",
-              "Kontrol GA BIOMETRIC adalah total region per brand (bukan per outlet); selisih dengan GA per outlet RGUGA ditampilkan di tab Harian.",
+    "workbook_check": recon, "tag": tag, "loc_keys": [k for k, _ in sorted(loc_index.items(), key=lambda kv: kv[1])],
+    "notes": ["Dua dasar GA dari data RGUGA yang sama: TAGGING (outlet yang mencatat MSISDN; atribusi ke DSE, MC, Area; dasar insentif DSE) dan LOKASI / SITE (kecamatan, micro cluster dan area sebagaimana tertulis di file RGUGA sendiri, kolom row.lk / row.lm / row.la; tanpa mapping NBS-outlet; dasar KPI HoA, Region, DSO).",
+              "GA BIOMETRIC, #OUTLET ACTIVE GA dan M2S KECAMATAN tidak dipakai lagi (keputusan pemilik, 18 Okt 2026).",
+              "Sumber angka per outlet adalah pivot raw (raw_im3 / raw_3id September, raw im3 / raw 3id Oktober); sheet outlet RGUGA dipakai untuk atribut. Pivot raw Oktober berisi semua outlet nasional: yang bukan outlet Inner Jakarta dicatat sebagai total harian di metadata.tag.",
               "LMTD GA = September tanggal 1..cut. September penuh tersedia (30 hari).",
               "Outlet di luar master hanya disertakan bila punya GA > 0; outlet master selalu disertakan (tanpa deret harian bila nol)."],
 }

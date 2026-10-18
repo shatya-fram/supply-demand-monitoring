@@ -50,9 +50,16 @@ Tooling in the same commit: ENDBAL and GA join the daily command, stale-file war
 | GA / SSO | `GA/Daily_RGUGA_OUTLET_202609.xlsb` re-issued 21:02 | September full month IOH 218,257 → **252,195** pcs, LMTD (1–13 Sep) 81,004 → 92,596; October MTD vs LMTD **+12.6% → −1.5%** (IM3 +4.3% → −2.0%, 3ID +34.1% → −0.6%). 3ID outlets absent from the new sheets are kept through `data/catalogues/ga_ij_outlet_registry.csv` (without them 3ID would be −5.5%). `docs/assessments/ga_rguga_outlet.md` §9. |
 | Gross Add menu | — | Basis GA bar above the tabs, site NBS basis, scorecard with last full month, gap, run-rate and SSO gap, Overall Inner Jakarta table. |
 
+## 18 Oct 2026 (September MOBO full close)
+| Scope | Source | Change |
+|---|---|---|
+| Demand LMTD / Last FM | `DAILY_DATA_MOBO_202609.xlsb` (18 Oct 09:44; sheets SP INJECTION, RELOAD, VOUCHER, CVM, RECHARGE; 30 days, no duplicates) | Demand feed carries per outlet and product `l[cat] = [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp]`. Last FM (Rp B): Reload 12.37, Voucher Inj 22.12, CVM 6.22, Paket Data 65.75 → **106.47 B** (SP Injection 1.88 B outside total). LMTD 1–16 Sep 51.44 B vs October MTD 63.70 B (**+23.8%**; early-Oct is depressed by the migration, see CLAUDE.md). 32 unknown ids (Rp 0.04 B) are kept at region level only; 3,590 outlets had September activity only. |
+| Demand reports | `website/app.js` | Scorecard, Teritori, Outlet and Product tabs and the KPI boxes show LMTD, growth, Last FM, Gap vs FM and Req RR / hari. SAL (SALMO) shows "tanpa September". |
+| Daily update | `scripts/daily_update.py` | MOBO discovery is month-aware: the newest `DAILY_DATA_MOBO_YYYYMM` is the current month, the previous month is passed as `MOBO_LM_SRC`. |
+
 ## Open data items (17 Oct 2026)
 1. Reload (~Rp 247 Jt) and SP Injection are low on 15 and 16 Oct against 12–14 Oct (Rp 511–864 Jt); not restated by the later file, so validate at source whether this is real.
 2. Ask the MOBO owner why the CVM sheet carried RECARGE rows (the builder now removes exact copies).
-3. SALMO overlap with the other MOBO categories, and the 50 unresolved ids (Rp 6.62 B), are unconfirmed; no September SALMO file for LMTD / last full month.
+3. SALMO overlap with the other MOBO categories, and the 50 unresolved ids (Rp 6.62 B), are unconfirmed; no September SALMO file for LMTD / last full month (still open on 18 Oct).
 4. September full month in MOBII moves with every file (+0.34 B on 16 Oct, +0.12 B on 17 Oct); the source of the restatement is not explained.
 5. GA ends 15 Oct, one day behind MOBII, MOBO and PJP (16 Oct).

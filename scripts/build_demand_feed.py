@@ -41,6 +41,11 @@ PENJUALAN_JSON = "data/processed/penjualan_feed.json"
 OUT_JS = "website/data/demand_feed.js"
 OUT_JSON = "data/processed/demand_feed.json"
 MONTH = (2026, 10)
+_PY, _PM = (MONTH[0], MONTH[1] - 1) if MONTH[1] > 1 else (MONTH[0] - 1, 12)
+LM_TAG = f"{_PY}{_PM:02d}"
+LM_SRC = os.environ.get("MOBO_LM_SRC") or next(iter(sorted(
+    (os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBO_" + LM_TAG + r"[^A-Za-z]*\.xlsb$", f, re.I)),
+    key=os.path.getmtime, reverse=True)), None)      # newest MOBO workbook of the previous (closed) month, optional
 OUTSIDE = "OUTSIDE MASTER TERRITORY"
 
 SHEETS = {   # sheet -> (kode kategori, label, punya nilai rupiah)
@@ -168,7 +173,7 @@ def drop_copied_rows(sheets):
     """17 Oct 2026: the CVM sheet of the new workbook held the real CVM rows PLUS an exact copy of 61,391 RECARGE (Paket Data) rows (Rp 36.2 B),
     which would have inflated total demand by about 60%. Rows of CVM that are identical to a RECARGE row (same outlet, product and every day value) are dropped."""
     cvm_key = "CVM" if "CVM" in sheets else ("MTD_CVM" if "MTD_CVM" in sheets else None)
-    rcg_key = "RECARGE" if "RECARGE" in sheets else ("MTD_RECARGE" if "MTD_RECARGE" in sheets else None)
+    rcg_key = next((k for k in ("RECARGE", "RECHARGE", "MTD_RECARGE") if k in sheets), None)
     if not cvm_key or not rcg_key or len(sheets[cvm_key]) < 2 or len(sheets[rcg_key]) < 2:
         return
     ci, cp, cv = _sig_rows(sheets[cvm_key]); ri, rp, rv = _sig_rows(sheets[rcg_key])
@@ -217,8 +222,8 @@ def resolve(oid):
     return None, "", "", "unknown"
 
 
-SHEET_ALIASES = {   # file 14 Okt 18:12 mengganti nama sheet; terima nama lama dan baru
-    "MTD_SP_INJECTION": ["SP_INJECTION"], "MTD_RELOAD": ["RELOAD"], "VOUCHER_INJECTION": ["VOUCHER"],
+SHEET_ALIASES = {   # file 14 Okt 18:12 mengganti nama sheet; terima nama lama dan baru (file September: "SP INJECTION")
+    "MTD_SP_INJECTION": ["SP_INJECTION", "SP INJECTION"], "MTD_RELOAD": ["RELOAD"], "VOUCHER_INJECTION": ["VOUCHER"],
     "MTD_CVM": ["CVM"], "MTD_RECARGE": ["RECARGE", "RECHARGE"],
 }
 
@@ -320,17 +325,90 @@ else:
 print(f"   hari terakhir dengan data: {last_day} Okt; id tidak dikenal: {len(unknown_ids)} (Rp {sum(unknown_ids.values()) / 1e6:.1f} jt)")
 CUT_DAY = last_day
 
+
+# ---- previous month (September closing): LMTD (days <= CUT_DAY) and Last FM (full month) per outlet, category and product
+lm = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0, 0.0, 0.0]))                                  # key -> cat -> [lq, lv, fq, fv]
+lm_prod = defaultdict(lambda: {"lq": 0.0, "lv": 0.0, "fq": 0.0, "fv": 0.0, "lo": set(), "fo": set()})
+lm_daily = {c: [0.0] * 32 for c in CATS}                                                              # region total per day, Rp (SPI: also pcs in lm_dailyq)
+lm_dailyq = {c: [0.0] * 32 for c in CATS}
+lm_unknown = defaultdict(float)
+lm_meta = {"source": None, "month": f"{_PY}-{_PM:02d}", "cut_day": CUT_DAY, "days": 0, "unknown": {"ids": 0, "value": 0}, "totals": {}}
+if LM_SRC and os.path.exists(LM_SRC):
+    print("   Bulan lalu (Last FM / LMTD):", LM_SRC)
+    lsheets = read_xlsb(LM_SRC)
+    drop_copied_rows(lsheets)
+    lm_ids = set()
+    for sname, (code, label, has_val) in SHEETS.items():
+        rows = find_sheet(lsheets, sname)
+        if not rows or len(rows) < 2:
+            print(f"   lewati {sname} bulan lalu (kosong)")
+            continue
+        hdr = {c: str(v).strip() for c, v in rows[0].items()}
+        c_id = next(c for c, v in hdr.items() if v.lower() == "id_outlet")
+        c_pn = next(c for c, v in hdr.items() if v.lower() == "productname")
+        hits, amts = day_cols(hdr, "hits"), day_cols(hdr, "amt")
+        for r in rows[1:]:
+            oid = norm_id(r.get(c_id))
+            if not oid:
+                continue
+            pname = r.get(c_pn)
+            if code == "RLD":
+                try:
+                    pname = "Reload Rp {:,.0f}".format(float(pname)).replace(",", ".")
+                except (TypeError, ValueError):
+                    pname = str(pname)
+            pname = str(pname).strip()
+            key, brand, tier, cls = resolve(oid)
+            lq = lv = fq = fv = 0.0
+            for d in range(1, 32):
+                qq = float(r.get(hits[d]) or 0) if d in hits else 0.0
+                vv = float(r.get(amts[d]) or 0) if d in amts else 0.0
+                if not qq and not vv:
+                    continue
+                lm_daily[code][d] += vv; lm_dailyq[code][d] += qq
+                fq += qq; fv += vv
+                if d <= CUT_DAY:
+                    lq += qq; lv += vv
+                lm_meta["days"] = max(lm_meta["days"], d)
+            if not (fq or fv):
+                continue
+            if key is None:
+                lm_unknown[oid] += fv
+                continue
+            if key in master and key not in outlets:
+                outlets[key] = master[key]
+            outlet_brand.setdefault(key, brand)
+            e = lm[key][code]; e[0] += lq; e[1] += lv; e[2] += fq; e[3] += fv
+            P = lm_prod[(code, pname)]; P["lq"] += lq; P["lv"] += lv; P["fq"] += fq; P["fv"] += fv
+            if lv or lq: P["lo"].add(key)
+            P["fo"].add(key)
+    lm_meta["source"] = LM_SRC
+    lm_meta["unknown"] = {"ids": len(lm_unknown), "value": int(sum(lm_unknown.values()))}
+    for code in CATS:
+        att_l = sum(c[1] for k in lm for cc, c in lm[k].items() if cc == code)
+        att_f = sum(c[3] for k in lm for cc, c in lm[k].items() if cc == code)
+        lm_meta["totals"][code] = {"lmtd": int(att_l), "fm": int(att_f), "region_fm": int(sum(lm_daily[code])), "region_lmtd": int(sum(lm_daily[code][1:CUT_DAY + 1])), "outlets": sum(1 for k in lm if code in lm[k])}
+    print(f"   Bulan lalu: {len(lm):,} outlet, hari terakhir {lm_meta['days']}; id tidak dikenal {len(lm_unknown)} (Rp {sum(lm_unknown.values()) / 1e9:.2f} M)")
+    print("   Last FM per kategori (Rp M, dari baris file / teratribusi ke outlet): " + ", ".join(f"{c} {lm_meta['totals'][c]['region_fm'] / 1e9:.2f}/{lm_meta['totals'][c]['fm'] / 1e9:.2f}" for c in CATS))
+else:
+    print(f"   MOBO {LM_TAG} tidak ditemukan: LMTD dan Last FM demand dilewati")
+
 print("[3/4] Menyusun feed...")
 products = []
-for (code, pname), P in prod.items():
-    products.append({"cat": code, "n": pname, "mq": int(P["mq"]), "mv": int(P["mv"]), "mo": len(P["mo"]), "price": round(P["mv"] / P["mq"]) if P["mq"] and P["mv"] else None})
-products.sort(key=lambda p: -(p["mv"] or p["mq"]))
+for (code, pname) in set(prod) | set(lm_prod):
+    P = prod.get((code, pname)) or {"mq": 0.0, "mv": 0.0, "mo": set()}; L = lm_prod.get((code, pname))
+    pr = {"cat": code, "n": pname, "mq": int(P["mq"]), "mv": int(P["mv"]), "mo": len(P["mo"]), "price": round(P["mv"] / P["mq"]) if P["mq"] and P["mv"] else None}
+    if L:
+        pr.update({"lq": int(L["lq"]), "lv": int(L["lv"]), "fq": int(L["fq"]), "fv": int(L["fv"]), "lo": len(L["lo"]), "fo": len(L["fo"])})
+    products.append(pr)
+products.sort(key=lambda p: (-(p["mv"] or p["mq"]), -(p.get("fv") or 0), p["cat"], p["n"]))
 for i, p in enumerate(products):
     p["i"] = i
 pidx = {(p["cat"], p["n"]): p["i"] for p in products}
 
 outlet_rows = []
-for key, cats in facts.items():
+for key in list(facts) + [k for k in lm if k not in facts]:
+    cats = facts.get(key, {})
     dim = outlets[key]
     row = {k: dim[k] for k in ("k", "n", "tier", "mc", "kec", "site", "dse")}
     if dim["mc"] not in mc_info and dim.get("br"):
@@ -342,6 +420,8 @@ for key, cats in facts.items():
     for code, F in cats.items():
         md = sorted(F["md"].items())
         row["c"][code] = [int(F["mq"]), int(F["mv"]), md[-1][0] if md else None, len(md), [[d, int(c[1]), int(c[0])] for d, c in md]]
+    if key in lm:
+        row["l"] = {code: [int(e[0]), int(e[1]), int(e[2]), int(e[3])] for code, e in lm[key].items()}   # September: [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp]
     if key in sal_brand:
         row["sb"] = [int(sal_brand[key][0]), int(sal_brand[key][1])]          # SALMO Rp per brand id [IM3, 3ID]
     row["p"] = {str(pidx[k]): [int(v[0]), int(v[1])] for k, v in op[key].items() if k in pidx and (v[0] or v[1])}
@@ -353,9 +433,10 @@ feed = {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
         "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
-        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
+        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in CATS}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],
+        "lm_columns": "outlets[].l[cat] = [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp] (September, LMTD = days 1..cut_day); products[] carry lq, lv, fq, fv, lo, fo",
         "notes": ["MTD saja: tidak ada sheet LMTD di file MOBO, jadi tidak ada growth vs bulan lalu.",
                   "SP Injection berisi unit dan (sejak file 14 Okt 18:12) rupiah; tidak dijumlahkan ke total demand. Reload/Voucher/CVM/Paket Data berisi rupiah.",
                   "MTD_RECARGE (judul kolom RECHARGE) berisi penjualan paket data, bukan isi ulang pulsa; dimuat sebagai kategori PKT Paket Data.",

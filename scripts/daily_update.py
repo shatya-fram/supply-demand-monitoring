@@ -8,11 +8,11 @@ daily_update.py  ·  one command for the daily data refresh
 
 Refreshes, in dependency order:
   1. Supply  · Penjualan ke Outlet    DAILY_DATA_MOBII_*.xlsb  -> build_penjualan_feed.py
-  2. Demand  · Transaction ke Pelanggan DAILY_DATA_MOBO_*.xlsb (+ DAILY_DATA_MOBO_SALMO_*.xlsb) -> build_demand_feed.py
+  2. Demand  · Transaction ke Pelanggan DAILY_DATA_MOBO_<bulan berjalan>.xlsb (+ <bulan lalu> for LMTD / Last FM, + DAILY_DATA_MOBO_SALMO_*.xlsb) -> build_demand_feed.py
   3. PJP     · DSE visits             *_visit_dse_YYYYMM__DD_DD.zip (all ranges) -> generate_dse_visits_feed.py
   4. DSE KPI inputs (needs 1 + 3)     -> build_dse_kpi_feed.py
   +  ENDBAL stock balance (needs 2)   -> build_endbal_feed.py   (newest snapshot only)
-  +  GA / SSO (raw/GA)                -> build_ga_feed.py
+  +  GA / SSO (raw/GA)                -> build_ga_feed.py, then build_kro_feed.py (KRO / Wholesaler catalogue)
   5. Render check of every view       -> node scripts/render_check.js
 
 "Latest" = newest modified time under raw/ (any sub-folder, including OneDrive_* drops).
@@ -122,7 +122,16 @@ def run(label, cmd, env=None):
 
 def main():
     check_only = "--check" in sys.argv
-    mobii, mobo, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), find(r"^DAILY_DATA_MOBO_(?!SALMO).*\.xlsb$"), pick_visits()
+    mobii, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), pick_visits()
+    mobo_all = find(r"^DAILY_DATA_MOBO_\d{6}.*\.xlsb$")      # SALMO files do not match (no month right after MOBO_)
+    tags = sorted({re.match(r"^DAILY_DATA_MOBO_(\d{6})", os.path.basename(p)).group(1) for p in mobo_all})
+    cur_tag = tags[-1] if tags else None                      # the newest month in the file names is the running month, the one before it is the closed month
+    lm_tag = None
+    if cur_tag:
+        y, m = int(cur_tag[:4]), int(cur_tag[4:])
+        lm_tag = f"{y - 1}12" if m == 1 else f"{y}{m - 1:02d}"
+    mobo = [p for p in mobo_all if os.path.basename(p).startswith("DAILY_DATA_MOBO_" + cur_tag)] if cur_tag else []
+    mobo_lm = [p for p in mobo_all if lm_tag and os.path.basename(p).startswith("DAILY_DATA_MOBO_" + lm_tag)]
     print(f"Daily update · {datetime.now():%A %d %b %Y %H:%M} · project root {ROOT}\n")
     warn = []
 
@@ -140,7 +149,10 @@ def main():
             print("  " + extra)
 
     show("Supply  · Penjualan ke Outlet (DAILY_DATA_MOBII)", mobii[:3])
-    show("Demand  · Transaction ke Pelanggan (DAILY_DATA_MOBO)", mobo[:3])
+    show("Demand  · Transaction ke Pelanggan (DAILY_DATA_MOBO, bulan berjalan " + str(cur_tag) + ")", mobo[:3])
+    show("Demand  · MOBO bulan lalu " + str(lm_tag) + " (LMTD dan Last FM demand)", mobo_lm[:2])
+    if not mobo_lm:
+        warn.append(f"No MOBO workbook for {lm_tag}: LMTD and Last FM demand are not refreshed")
     show("Demand  · MOBO_SALMO (Saldo Mobo ke pelanggan; ikut demand feed, di luar total)", find(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$")[:2])
     show("PJP     · DSE visits (journey plan zip/csv, all ranges are merged)", visits)
     endbal = find(r"^(endbal_.*|.*Stock Balance Daily Report.*)\.csv$")
@@ -169,6 +181,8 @@ def main():
 
     py = sys.executable
     env = {"MOBII_SRC": mobii[0], "MOBO_SRC": mobo[0], "VISIT_ZIPS": os.pathsep.join(visits)}
+    if mobo_lm:
+        env["MOBO_LM_SRC"] = mobo_lm[0]
     ga_ok = bool(find(r"^Daily_RGUGA_OUTLET_\d{6}\.xlsb$"))
     steps = [
         ("1/5 Demand · demand feed (MOBO)", [py, "scripts/build_demand_feed.py"]),   # first: Sell-In feed merges SP Injection from it
@@ -179,6 +193,7 @@ def main():
     steps.append(("ENDBAL · Stock balance feed (latest snapshot)", [py, "scripts/build_endbal_feed.py"]))   # needs the penjualan feed (saldo sell-in)
     if ga_ok:   # Gross Add / SSO feed (raw/GA); needs no other feed
         steps.append(("GA · Gross Add / SSO feed (RGUGA)", [py, "scripts/build_ga_feed.py"]))
+        steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
     failed = []
