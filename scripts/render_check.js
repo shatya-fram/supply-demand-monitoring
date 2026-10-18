@@ -203,6 +203,15 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   for (const cl of ['all', 'W', 'K', 'R']) for (const per of ['fm', 'pr']) { state.view = 'mb_kro'; state.kroTab = 'katalog'; state.kroBasis = 'ga'; state.kroClass = cl; state.kroPer = per; check('kro/katalog/' + cl + '/' + per, VIEWS.mb_kro); }
   for (const fl of Object.keys(global.KRO_FEED.rows.reduce((a, r) => { r.fl.forEach(f => { a[f] = 1; }); return a; }, {}))) { state.kroClass = 'all'; state.kroFlag = fl; check('kro/katalog/flag=' + fl, VIEWS.mb_kro); }
   state.kroFlag = 'all'; state.kroSearch = 'cell'; state.kroPage = 3; check('kro/katalog/search-page3', VIEWS.mb_kro); state.kroSearch = ''; state.kroPage = 1; state.kroClass = 'all'; state.kroTab = 'ringkasan'; state.kroBasis = 'ga'; state.gaBasis = 'outlet'; }
+// GA target per kecamatan (M2S KECAMATAN), rolled up to MC and Area
+{ const mc0 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br0 = global.GA_FEED.metadata.mc_info[mc0].br;
+  for (const br of ['all', 'IM3', '3ID']) { state.view = 'mb_grossadd'; state.gaTab = 'target'; state.gaBrand = br; state.branch = ''; state.hoa = ''; state.kec = ''; check('grossadd/target/' + br, VIEWS.mb_grossadd);
+    state.branch = br0; check('grossadd/target/' + br + '/branch', VIEWS.mb_grossadd); state.kec = mc0; check('grossadd/target/' + br + '/mc', VIEWS.mb_grossadd); }
+  state.gaBrand = 'all'; state.gaTab = 'ringkasan'; state.branch = ''; state.kec = ''; }
+// GA target in the Overall Performance scorecard and Daily GA Trend (filters on and off)
+{ const mc1 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br1 = global.GA_FEED.metadata.mc_info[mc1].br;
+  state.view = 'mb_overall'; state.branch = ''; state.kec = ''; check('overall/ga-target/all', VIEWS.mb_overall); state.branch = br1; check('overall/ga-target/branch', VIEWS.mb_overall); state.kec = mc1; check('overall/ga-target/mc', VIEWS.mb_overall);
+  state.view = 'mb_gatrend'; state.gaBasis = 'outlet'; state.gtDay = 8; check('gatrend/target/mc/D8', VIEWS.mb_gatrend); state.gaBasis = 'site'; check('gatrend/target/site/mc', VIEWS.mb_gatrend); state.gaBasis = 'outlet'; state.gtDay = 0; state.branch = ''; state.kec = ''; }
 state.view = 'mb_ringkasan'; state.rkTab = 'demand'; check('ringkasan/demand', VIEWS.mb_ringkasan); for (const tb of ['ringkasan', 'dse', 'outlet', 'harian', 'slab']) { state.rkTab = 'grossadd'; state.gaTab = tb; check('ringkasan/grossadd/' + tb, VIEWS.mb_ringkasan); } state.gaTab = 'ringkasan';
 for (const sb of ['growth', 'slab', 'aktif', 'inaktif']) { state.view = 'mb_ringkasan'; state.rkTab = 'uar'; state.uarSub = sb; state.uarTab = 'sp'; check('ringkasan/uar/' + sb, VIEWS.mb_ringkasan); }
 state.rkTab = 'dse'; state.uarSub = 'growth'; state.view = 'mb_uar';

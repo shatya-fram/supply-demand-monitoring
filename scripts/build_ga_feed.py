@@ -519,6 +519,39 @@ for brand in ("IM3", "3ID"):
                                    "abs_diff_qty": diffq, "abs_diff_sso": diffu}
         print(f"   {brand} {per}: GA feed {sum(mine[d] for d in range(1, ndays + 1)):,} vs ringkasan workbook {sum(int(round(ws.get(d, 0))) for d in range(1, ndays + 1)):,} (selisih harian absolut {diffq}); SSO harian selisih absolut {diffu}")
 
+# ---------------------------------------------------------------- GA target per kecamatan and brand (raw/GA/M2S KECAMATAN*.xlsb, owner 18 Oct 2026)
+# Sheets IM3-Kec (column "TARGET RGUGA KEC") and 3ID-Kec (column "TARGET OCT") hold the October target per kecamatan; sheet DEMARKASI maps each kecamatan to branch and micro cluster.
+# Nothing else of the file is used (its GA / SSO / M2S figures were replaced by the RGUGA workbooks).
+print("[6/6] Target GA per kecamatan (M2S KECAMATAN)...")
+target = {"source": None, "month": "2026-10", "columns": {"IM3": "TARGET RGUGA KEC", "3ID": "TARGET OCT"}, "kec": []}
+m2s_files = pick(r"M2S.*\.xlsb$")
+if m2s_files:
+    tsh = read_sheets(m2s_files[0], {"DEMARKASI", "IM3-KEC", "3ID-KEC"})
+    target["source"] = os.path.basename(m2s_files[0])
+    dem = {r.get(4): r for r in tsh.get("DEMARKASI", [])[1:] if isinstance(r.get(4), str) and "|" in r.get(4)}
+    tv = {"IM3": {}, "3ID": {}}
+    for brand, sh in (("IM3", "IM3-KEC"), ("3ID", "3ID-KEC")):
+        rows = tsh.get(sh, [])
+        if not rows:
+            continue
+        hdr = rows[0]
+        tcol = next((c for c, v in hdr.items() if isinstance(v, str) and v.strip().upper() == target["columns"][brand]), None)
+        if tcol is None:
+            print(f"   kolom {target['columns'][brand]} tidak ditemukan di {sh}")
+            continue
+        for r in rows[1:]:
+            kk, v = r.get(6), r.get(tcol)
+            if isinstance(kk, str) and "|" in kk and isinstance(v, (int, float)):
+                tv[brand][kk] = round(float(v), 1)
+    for kk in sorted(set(tv["IM3"]) | set(tv["3ID"])):
+        d = dem.get(kk) or {}
+        mc = str(d.get(1) or "").strip()
+        row = {"kk": kk, "kec": kk.split("|")[0], "kab": kk.split("|")[1], "mc": mc, "br": (mc_info.get(mc) or {}).get("br") or str(d.get(0) or OUTSIDE), "IM3": tv["IM3"].get(kk, 0), "3ID": tv["3ID"].get(kk, 0)}
+        target["kec"].append(row)
+    unm = [r["kk"] for r in target["kec"] if not r["mc"]]
+    print(f"   {len(target['kec'])} kecamatan; target IM3 {sum(r['IM3'] for r in target['kec']):,.0f}, 3ID {sum(r['3ID'] for r in target['kec']):,.0f}; tanpa MC di DEMARKASI: {len(unm)}")
+else:
+    print("   file M2S KECAMATAN tidak ditemukan: tab Target Kecamatan kosong")
 tag = {"sep_outside_ij": {b: {str(d): q for d, q in sorted(sep_other[b].items())} for b in sep_other}, "sep_blank": {b: {str(d): q for d, q in sorted(sep_blank[b].items())} for b in sep_blank},
        "oct_outside_ij": {b: {str(d): q for d, q in sorted(oct_other[b].items())} for b in oct_other}, "oct_blank": {b: {str(d): q for d, q in sorted(oct_blank[b].items())} for b in oct_blank},
        "raw_stats": raw_stats, "sheet_totals": {"sep": sheet_sep_total, "oct": sheet_oct_total}, "unmapped_kec_ga_sep": dict(tag_unmapped)}
@@ -536,9 +569,9 @@ meta = {
     "ga_total": {b: dict(v) for b, v in tot_ga.items()}, "ga_in_master": {b: dict(v) for b, v in matched_ga.items()},
     "unknown_mc": {k: v for k, v in sorted(unknown_mc.items(), key=lambda kv: -kv[1])[:30]},
     "anomalies": sorted(anomalies, key=lambda a: -a["qty"])[:20], "anomaly_threshold": OUTLIER_DAY_QTY,
-    "workbook_check": recon, "tag": tag, "loc_keys": [k for k, _ in sorted(loc_index.items(), key=lambda kv: kv[1])],
+    "workbook_check": recon, "tag": tag, "loc_keys": [k for k, _ in sorted(loc_index.items(), key=lambda kv: kv[1])], "target": target,
     "notes": ["Dua dasar GA dari data RGUGA yang sama: TAGGING (outlet yang mencatat MSISDN; atribusi ke DSE, MC, Area; dasar insentif DSE) dan LOKASI / SITE (kecamatan, micro cluster dan area sebagaimana tertulis di file RGUGA sendiri, kolom row.lk / row.lm / row.la; tanpa mapping NBS-outlet; dasar KPI HoA, Region, DSO).",
-              "GA BIOMETRIC, #OUTLET ACTIVE GA dan M2S KECAMATAN tidak dipakai lagi (keputusan pemilik, 18 Okt 2026).",
+              "GA BIOMETRIC dan #OUTLET ACTIVE GA tidak dipakai lagi; M2S KECAMATAN hanya dipakai untuk kolom target per kecamatan (TARGET RGUGA KEC untuk IM3, TARGET OCT untuk 3ID) dan sheet DEMARKASI (keputusan pemilik, 18 Okt 2026).",
               "Sumber angka per outlet adalah pivot raw (raw_im3 / raw_3id September, raw im3 / raw 3id Oktober); sheet outlet RGUGA dipakai untuk atribut. Pivot raw Oktober berisi semua outlet nasional: yang bukan outlet Inner Jakarta dicatat sebagai total harian di metadata.tag.",
               "LMTD GA = September tanggal 1..cut. September penuh tersedia (30 hari).",
               "Outlet di luar master hanya disertakan bila punya GA > 0; outlet master selalu disertakan (tanpa deret harian bila nol)."],

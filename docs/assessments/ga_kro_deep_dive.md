@@ -4,10 +4,11 @@ Assessed 18 Oct 2026, before any app change (CLAUDE.md §2); revised the same da
 
 ## 1. Owner decisions (18 Oct 2026)
 
-1. **GA BIOMETRIC, #OUTLET ACTIVE GA and M2S KECAMATAN are not used any more.** The builder no longer reads them; the feed carries no `control` or `location` block.
+1. **GA BIOMETRIC and #OUTLET ACTIVE GA are not used any more**, and M2S KECAMATAN is used only for the GA target (decision 5). The feed carries no `control` or `location` block.
 2. **Location basis = the location columns of `Daily_RGUGA_OUTLET` itself** (kecamatan / kec_kabkot, micro cluster, area). No NBS-outlet mapping, no master site.
 3. **Standard slab ladder**, per outlet per month, for both GA (sell-out) and SP sell-in (supply): Retail 0 · 1–10 · 10–30; KRO 30–60 · 60–100; Wholesaler 100–200 · 200–500 · 500–1000 · > 1000. The upper bound belongs to the lower slab (the convention of the existing SG_PCS slabs). This replaces the first 60 / 100 / 200 proposal.
 4. **Visits:** highlight, for KRO and for Wholesaler, how many have a success visit and how many have not been visited so far.
+5. **GA target per kecamatan** comes from `raw/GA/M2S KECAMATAN - 202609 .xlsb` (the version of 18 Oct 2026, 15:05; the 15 Oct version had no target column): sheet `IM3-Kec` column AB `TARGET RGUGA KEC` and sheet `3ID-Kec` column AB `TARGET OCT`, 121 kecamatan, October. Sheet `DEMARKASI` maps each kecamatan to branch and micro cluster (branch "KOTA BEKASI" in the file = master area BEKASI). Totals: IM3 210,955, 3ID 102,556, IOH 313,511 (+37% on the September GA of the same kecamatan). Rolled up to MC and Area in the Gross Add tab "Target Kecamatan"; the same target feeds the Gross Add cards and territory tables, the Daily GA Trend (target line, cards, columns) and the Overall Performance KPI scorecard. Table rows (MC, Area) compare the GA of their outlets that have a target kecamatan with the DEMARKASI target of that MC / Area. Achievement uses the RGUGA GA whose kecamatan (`lk`) matches a target kecamatan: 97,707 of 108,369 GA MTD (9.8% sits at outlets without a kecamatan in the files and is shown separately). Three Sep-only location labels without kabupaten (MEDAN SATRIA, TANJUNG PRIOK, BANTARGEBANG) are matched to the single target kecamatan with the same name. Whether the column is a full-month target is taken from the header (TARGET OCT) and the IM3 / 3ID sums; pro-rata uses cut ÷ 31.
 
 ## 2. The two GA bases on the data that remains
 
