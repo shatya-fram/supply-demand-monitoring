@@ -3693,7 +3693,8 @@
     return { l: l, m: m };
   }
   function pjAutoLevel() { if (state.pjDse) return 'outlet'; if (state.kec) return 'dse'; if (state.branch || state.hoa) return 'mc'; return 'area'; }
-  function pjLevel() { return pjAutoLevel(); }   // grouping always follows the territory filter
+  var _pjForceLevel = null;   // set only while Overall Performance draws its second, outlet-level heatmap
+  function pjLevel() { return _pjForceLevel || pjAutoLevel(); }   // grouping follows the territory filter
   function pjRowsAt(F, level) {
     var rows = pjOutlets(F), groups = {}, mc = F.metadata.master_counts || {}, cat = pjCat();
     rows.forEach(function (o) {
@@ -8580,7 +8581,7 @@
       var rows = pjOutlets(F);
       var keepPj = state.pjLevel; state.pjLevel = 'auto';
       html += pjSelectionBand(F) + pjScorecard(F, rows) + pjHeat(F);
-      if (state.kec) { state.pjLevel = 'outlet'; html += pjHeat(F); }
+      if (state.kec && !state.pjDse) { _pjForceLevel = 'outlet'; try { html += pjHeat(F); } finally { _pjForceLevel = null; } }   // MC picked: DSE heatmap above, outlet heatmap below (with a DSE picked the first one is already per outlet)
       state.pjLevel = keepPj;
     }
     // 4. Top 20 lists
