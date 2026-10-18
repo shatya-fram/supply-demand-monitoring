@@ -41,25 +41,38 @@
     var z = ((feed && feed.daily_timeline) || []).filter(function (d) { return d.available !== false && !d.actual; }).map(function (d) { return parseInt(d.date, 10) + ' ' + MON_EN[new Date(parseDMY(d.date)).getUTCMonth()]; });
     return z.length ? ' ' + z.join(', ') + (z.length > 1 ? ' have' : ' has') + ' no check-ins.' : '';
   }
+  /* default date of the PJP sheets: the working day after the last PJP day in the feed (Sunday skipped) */
+  function defaultPjpDate() {
+    var e = pjpWin().end, d = new Date(e + 86400000); if (d.getUTCDay() === 0) d = new Date(e + 2 * 86400000);
+    return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2);
+  }
   function pjpCut() { return pjpPeriod('end') + ' ' + pjpPeriod('year'); }
   function cutDefault() { return 'Cut ' + pjpCut(); }
-  // Each view states the cut of the data it actually shows: Sell-In from DAILY_DATA_MOBII (refresh 14 Oct) runs to 13 Oct, PJP to its feed end, MOBI distribution to 10 Oct.
+  /* Cut labels follow each feed's own metadata, so a refresh moves them without a code change */
+  function feedMeta(name) { var f = (typeof window !== 'undefined') ? window[name] : null; return (f && f.metadata) || {}; }
+  function isoLbl(iso) { var t = Date.parse(iso); if (isNaN(t)) return '—'; var d = new Date(t); return d.getUTCDate() + ' ' + MON_EN[d.getUTCMonth()]; }
+  function cutSellIn() { var m = feedMeta('PENJUALAN_FEED'); return m.cut ? isoLbl(m.cut) : '—'; }
+  function cutDemand() { var m = feedMeta('DEMAND_FEED'); return m.cut ? isoLbl(m.cut) : '—'; }
+  function cutEndbal() { var m = feedMeta('ENDBAL_FEED'); return m.snapshot ? isoLbl(m.snapshot) : '—'; }
+  function cutGa() { var m = feedMeta('GA_FEED'), cur = (m.months || {}).cur || '2026-10'; return m.cut_day ? m.cut_day + ' ' + MON_EN[parseInt(cur.slice(5), 10) - 1] : '—'; }
+  function cutDist() { var m = feedMeta('SELLIN_FEED'); return m.period_end ? isoLbl(m.period_end) : '—'; }
+  function cutYear() { var m = feedMeta('PENJUALAN_FEED'); return m.cut ? m.cut.slice(0, 4) : pjpPeriod('year'); }
   function cutByView() {
-    var P = pjpPeriod('end') + ' ' + pjpPeriod('year');
+    var P = pjpPeriod('end') + ' ' + pjpPeriod('year'), S = cutSellIn(), D = cutDemand(), G = cutGa(), Y = cutYear();
     return {
-      mb_penjualan: 'Sell-In cut 13 Oct 2026 · PJP ' + pjpPeriod('end'),
-      mb_performance: 'Demand and Sell-In cut 13 Oct 2026',
-      mb_opportunity: 'Sell-In cut 13 Oct 2026 · PJP ' + pjpPeriod('end'),
-      mb_overall: 'Sell-In 13 Oct · PJP ' + P,
-      mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution 10 Oct 2026',
-      mb_endbal: 'ENDBAL 14 Oct · Sell-In saldo 13 Oct 2026',
-    cfg_target: 'Target Oktober 2026 · pencapaian cut 13 Oct',
-    cfg_pjp: 'Template PJP mingguan · mapping permanen',
-    mb_grossadd: 'RGUGA GA cut 13 Oct 2026 · GA BIOMETRIC to 7 Oct',
-    mb_uar: 'Sell-In cut 13 Oct · GA (SSO) cut 13 Oct 2026',
+      mb_penjualan: 'Sell-In cut ' + S + ' ' + Y + ' · PJP ' + pjpPeriod('end'),
+      mb_performance: 'Demand cut ' + D + ' · Sell-In cut ' + S + ' ' + Y,
+      mb_opportunity: 'Sell-In cut ' + S + ' ' + Y + ' · PJP ' + pjpPeriod('end'),
+      mb_overall: 'Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P + ' · GA ' + G,
+      mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution ' + cutDist() + ' ' + Y,
+      mb_endbal: 'ENDBAL ' + cutEndbal() + ' · Sell-In saldo ' + S + ' ' + Y,
+      cfg_target: 'Target Oktober ' + Y + ' · pencapaian cut ' + S,
+      cfg_pjp: 'Template PJP mingguan · mapping permanen',
+      mb_grossadd: 'RGUGA GA cut ' + G + ' ' + Y,
+      mb_uar: 'Sell-In cut ' + S + ' · GA (SSO) cut ' + G + ' ' + Y,
       mb_pjp: 'PJP cut ' + P,
       visits: 'PJP cut ' + P,
-      sellin: 'MOBI distribution cut 10 Oct 2026'
+      sellin: 'MOBI distribution cut ' + cutDist() + ' ' + Y
     };
   }
   function cutLabel() {
@@ -71,8 +84,7 @@
       if (state.rkTab === 'demand') return C.mb_performance || C.mb_ringkasan;
       if (state.rkTab === 'grossadd') return C.mb_grossadd || C.mb_ringkasan;
       if (state.rkTab === 'endbal') return C.mb_endbal || C.mb_ringkasan;
-      var pf = (typeof window !== 'undefined' && window.PENJUALAN_FEED) ? window.PENJUALAN_FEED.metadata : null;
-      return 'Sell-In ' + (pf ? pf.cut_day : 13) + ' Oct · PJP ' + pjpCut();
+      return 'Sell-In ' + cutSellIn() + ' · PJP ' + pjpCut();
     }
     return C[state.view] || cutDefault();
   }
@@ -328,7 +340,7 @@
     uarPage: 1,
     uarSearch: '',
     pmTab: 'ringkasan',      // PJP Mapping: ringkasan | dse | harian | pengecualian
-    pmDate: '2026-10-15',
+    pmDate: defaultPjpDate(),
     pmSearch: '',
     cfTab: 'ringkasan',      // Target Setting: ringkasan | dse | rebalancing
     cfBasis: 'prorata',
@@ -6398,7 +6410,7 @@
       '<p class="note">Satu baris = satu DSE di satu MC (DSE yang melayani dua MC muncul dua kali). "Outlet di file" = jumlah di Weekly_PJP asli; selisih muncul karena outlet yang DSE-nya beda dengan operator beat plan MOBI dipindah ke DSE terdekat (merah = kehilangan lebih dari separuh outlet). Kolom hari = outlet yang dikunjungi DSE itu pada hari tersebut. "TANPA DSE" = outlet PJP yang belum punya DSE.</p>');
   }
   function pmHarian(P, list) {
-    var M = P.src.metadata, iso = state.pmDate || '2026-10-15', dow = pmDow(iso), nm = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][dow] || '—';
+    var M = P.src.metadata, iso = state.pmDate || defaultPjpDate(), dow = pmDow(iso), nm = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][dow] || '—';
     var picker = '<div class="map-toolbar" style="margin-top:10px;"><div class="map-toolbar-group"><span class="map-label">Tanggal PJP:</span><input type="date" id="pmDateInput" value="' + esc(iso) + '" class="map-select" aria-label="Tanggal PJP"></div><div class="map-toolbar-group"><span class="note">' + nm + ' · teritori mengikuti filter Branch / HoA / MC / DSE di atas</span></div></div>';
     if (dow < 0) return picker + card('PJP harian', '<p class="note">Pilih tanggal.</p>');
     if (dow > 5) return picker + card('PJP harian · ' + nm, '<p class="note">Hari Minggu tidak ada jadwal PJP dalam template (Senin sampai Sabtu).</p>');
@@ -7552,7 +7564,7 @@
     prEnrich(B);
     var P = pmPrep();
     if (!P) return card('Focus Daily · PJP', '<p class="note">Feed PJP Mapping belum dibangun. Taruh <code>Weekly_PJP_*_ALL_MC.xlsx</code> di <code>raw/PJP Weekly/</code> lalu jalankan <code>python3 scripts/build_pjp_mapping_feed.py</code>.</p>');
-    var iso = state.prDate || state.pmDate || '2026-10-15', dow = pmDow(iso);
+    var iso = state.prDate || state.pmDate || defaultPjpDate(), dow = pmDow(iso);
     var picker = '<div class="map-toolbar" style="margin-top:10px;"><div class="map-toolbar-group"><span class="map-label">Mode:</span>' + [['preview', '👁️ PREVIEW (lengkap + LMTD)'], ['print', '🖨️ PRINT (MTD + Gap vs Last FM)']].map(function (m) { return '<button type="button" class="map-btn' + ((state.prMode || 'preview') === m[0] ? ' active' : '') + '" data-pr-mode="' + m[0] + '">' + m[1] + '</button>'; }).join('') + '</div><div class="map-toolbar-group"><span class="map-label">Tanggal PJP:</span><input type="date" id="prDateInput" value="' + esc(iso) + '" class="map-select" aria-label="Tanggal PJP"></div><span class="note">Teritori / DSE mengikuti filter Branch · HoA · MC · DSE di header (' + esc(scopeText()) + ')</span></div>';
     if (dow < 0 || dow > 5) return picker + card('Focus Daily · PJP', '<p class="note">' + (dow === 6 ? 'Hari Minggu tidak ada jadwal PJP dalam template (Senin sampai Sabtu).' : 'Pilih tanggal.') + '</p>');
     var list = P.rows.filter(pmIn), g = {};
@@ -8630,7 +8642,7 @@
     var t = $('#title'), p = $('#purpose'), c = $('#cut'), s = $('#scope'), v = $('#view');
     if (t) t.textContent = META[state.view][0];
     if (p) p.textContent = META[state.view][1];
-    if (c) { c.textContent = cutLabel() + ' · Governed Local Feed'; c.title = 'PJP visits and balance exports end ' + pjpCut() + '; DAILY_DATA_MOBII Sell-In (refresh 14 Oct) ends 13 Oct 2026; MOBI physical distribution ends 10 Oct 2026. Feeds rebuilt from the latest raw files on 14 Oct 2026.'; }
+    if (c) { c.textContent = cutLabel() + ' · Governed Local Feed'; c.title = 'PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
     if (s) s.textContent = scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : '');
     if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); dseCoverEnhance(v); }
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
@@ -9276,6 +9288,7 @@
   }
   if (typeof module !== 'undefined') {
     module.exports = {
+      cutByView: cutByView, defaultPjpDate: defaultPjpDate,
       state: state,
       VIEWS: VIEWS,
       KEC: KEC,

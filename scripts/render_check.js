@@ -287,5 +287,19 @@ for (const m of ['s_mtd', 's_7d', 'o_mtd', 'o_3d', 'f0', 'f2', 'f8', 'f12']) { s
 state.mxSel = { key: 'A|' + fb.branch, metric: 's_mtd' }; check('mb_pjp/matrix/area', VIEWS.mb_pjp); state.mxCollapsed = { [fb.branch]: true }; check('mb_pjp/matrix/collapsed', VIEWS.mb_pjp); state.mxCollapsed = {};
 state.mxSel = { key: 'M|' + fm.micro_cluster, metric: 'o_7d' }; state.branch = fm.branch; state.kec = fm.micro_cluster; check('mb_pjp/matrix/mc-filtered', VIEWS.mb_pjp); state.mxSel = null; check('mb_pjp/matrix/dse-rows', VIEWS.mb_pjp); const dk = Object.keys(global.dseVisitsFeed ? {} : {}); state.kec = ''; check('mb_pjp/matrix/mc-rows', VIEWS.mb_pjp); state.kec = fm.micro_cluster; state.branch = ''; state.kec = ''; state.mxSel = null;
 state.view = 'mb_pjp'; state.pjpTab = 'map'; check('mb_pjp/tab=map', VIEWS.mb_pjp); state.kec = fm.micro_cluster; check('mb_pjp/tab=map/mc', VIEWS.mb_pjp); state.kec = ''; state.pjpTab = 'heat';
+
+// Dynamic labels: the header cut labels and the default PJP date must follow the feeds, not fixed text
+{
+  const meta = (n) => (global[n] && global[n].metadata) || {};
+  const keep = [meta('PENJUALAN_FEED').cut, meta('DEMAND_FEED').cut, meta('ENDBAL_FEED').snapshot, meta('GA_FEED').cut_day, global.dseVisitsFeed.metadata.period_end];
+  meta('PENJUALAN_FEED').cut = '2026-10-25'; meta('DEMAND_FEED').cut = '2026-10-24'; meta('ENDBAL_FEED').snapshot = '2026-10-23'; meta('GA_FEED').cut_day = 22; global.dseVisitsFeed.metadata.period_end = '26-Oct-2026';
+  const C = app.cutByView();
+  const checks = [[/25 Oct/, C.mb_penjualan], [/24 Oct/, C.mb_performance], [/23 Oct/, C.mb_endbal], [/22 Oct/, C.mb_grossadd], [/26 Oct/, C.mb_pjp], [/25 Oct.*24 Oct.*26 Oct.*22 Oct/, C.mb_overall]];
+  const bad = checks.filter(([rx, txt]) => !rx.test(txt));
+  if (app.defaultPjpDate() !== '2026-10-27') bad.push(['defaultPjpDate', app.defaultPjpDate()]);
+  console.log(bad.length ? '✗ cut labels do not follow the feeds: ' + JSON.stringify(bad) : '✓ cut labels and default PJP date follow the feeds (simulated cut 25 Oct)');
+  if (bad.length) failures++;
+  meta('PENJUALAN_FEED').cut = keep[0]; meta('DEMAND_FEED').cut = keep[1]; meta('ENDBAL_FEED').snapshot = keep[2]; meta('GA_FEED').cut_day = keep[3]; global.dseVisitsFeed.metadata.period_end = keep[4];
+}
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
