@@ -9182,6 +9182,7 @@
     if (c) { c.setAttribute('role', 'button'); c.setAttribute('tabindex', '0'); c.style.cursor = 'pointer'; c.textContent = cutLabel() + ' · Governed Local Feed ▾'; c.title = 'Klik untuk checklist kelengkapan data. PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
     if (s) s.textContent = scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : '');
     if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); dseCoverEnhance(v); }
+    rtSync();
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
     if (typeof document !== 'undefined' && document.querySelectorAll) {
       Array.prototype.forEach.call(document.querySelectorAll('.nav button'), function (b) {
@@ -9207,6 +9208,7 @@
   }
   function onClick(e) {
     if (e.target.closest && e.target.closest('#cut')) { dcOpen(); return; }
+    if (e.target.closest && e.target.closest('#shareLink')) { rtCopy(); return; }
     var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-basis], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-spi], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxslab], [data-pj-slabtog], [data-pj-slaball], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-ov-close')) { ovClose(); return; }
@@ -9904,12 +9906,57 @@
     el.addEventListener('click', function (ev) { if (ev.target === el || (ev.target.closest && ev.target.closest('[data-dc-close]'))) ovClose(); });
     document.body.appendChild(el);
   }
+
+  /* ================= SHAREABLE LINKS =================
+     Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
+     Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
+  var RT_VIEW_TABS = {
+    mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
+    mb_kro: ['kroTab'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
+    mb_performance: ['poTab'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
+  };
+  var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
+  var RT_DEFAULTS = null, RT_LAST_VIEW = null;
+  function rtSnapshot() { RT_DEFAULTS = {}; Object.keys(RT_VIEW_TABS).forEach(function (v) { RT_VIEW_TABS[v].forEach(function (k) { RT_DEFAULTS[k] = state[k]; }); }); }
+  function rtBuild() {
+    var p = [];
+    (RT_VIEW_TABS[state.view] || []).forEach(function (k) { if (typeof state[k] === 'string' && state[k] !== RT_DEFAULTS[k]) p.push(k + '=' + encodeURIComponent(state[k])); });
+    RT_FILTERS.forEach(function (f) { if (state[f[1]]) p.push(f[0] + '=' + encodeURIComponent(state[f[1]])); });
+    return '#/' + state.view + (p.length ? '?' + p.join('&') : '');
+  }
+  function rtApply(hash) {
+    var m = /^#\/?([A-Za-z0-9_]+)(?:\?(.*))?$/.exec(hash || '');
+    if (!m || !VIEWS[m[1]]) return false;
+    state.view = m[1]; state.sel = null;
+    var q = {}; (m[2] || '').split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* ignore a malformed value */ } } });
+    (RT_VIEW_TABS[m[1]] || []).forEach(function (k) { state[k] = (q[k] != null && q[k].length < 40) ? q[k] : RT_DEFAULTS[k]; });
+    RT_FILTERS.forEach(function (f) { state[f[1]] = q[f[0]] || ''; });
+    if (!state.dse) { state.pjDse = null; state.poDse = null; state.visitsDse = null; }
+    return true;
+  }
+  function rtSync() {
+    if (typeof window === 'undefined' || !window.history || !window.location || !RT_DEFAULTS) return;
+    var h = rtBuild();
+    if (window.location.hash !== h) { try { window.history[RT_LAST_VIEW && RT_LAST_VIEW !== state.view ? 'pushState' : 'replaceState'](null, '', h); } catch (e) { /* file:// or sandboxed frame */ } }
+    RT_LAST_VIEW = state.view;
+    if (document.title !== undefined && META[state.view]) document.title = META[state.view][0] + ' · Inner Jakarta';
+    var c = document.getElementById('cut');
+    if (c && !document.getElementById('shareLink')) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.id = 'shareLink'; b.style.cssText = 'cursor:pointer; background:#fff; margin-left:6px;'; b.textContent = '🔗 Salin link'; b.title = 'Salin link halaman dan filter ini untuk dibagikan'; c.parentNode.insertBefore(b, c.nextSibling); }
+  }
+  function rtCopy() {
+    var b = document.getElementById('shareLink'), url = window.location.href, done = function (ok) { if (b) { b.textContent = ok ? '✓ Link tersalin' : 'Salin manual: ' + url; setTimeout(function () { b.textContent = '🔗 Salin link'; }, ok ? 2200 : 6000); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { done(true); }, function () { done(false); });
+    else { var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } document.body.removeChild(ta); done(ok); }
+  }
   function init() {
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') ovClose(); else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.id === 'cut') { ev.preventDefault(); dcOpen(); } else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-ov')) { ev.preventDefault(); ovOpen(ev.target.getAttribute('data-ov')); } });
     document.addEventListener('change', onChange);
     document.addEventListener('input', onInput);
     document.addEventListener('keydown', onKey);
+    rtSnapshot();
+    rtApply(window.location.hash);
+    window.addEventListener('hashchange', function () { if (window.location.hash !== rtBuild() && rtApply(window.location.hash)) render(); });
     render();
   }
 
