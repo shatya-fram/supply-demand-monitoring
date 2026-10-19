@@ -131,6 +131,16 @@ state.pjBrand = 'all';
 for (const com of ['SP', 'VC', 'SALMO']) { state.pjTab = 'slab'; state.pjSlabCom = com; state.pjSlabProd = com === 'SP' ? 'ZERO_ORI3GB' : 'all'; check('penjualan/slab/' + com, VIEWS.mb_penjualan); }
 { state.pjSlabCom = 'SP'; for (const pr of ['ZERO', 'ORI3GB', 'all']) { state.pjSlabProd = pr; check('penjualan/slab/SP/' + pr, VIEWS.mb_penjualan); }
   const vp = global.PENJUALAN_FEED.products.find(p => p.cat === 'VCF'); if (vp) { state.pjSlabCom = 'VC'; state.pjSlabProd = String(vp.i); check('penjualan/slab/VC/product', VIEWS.mb_penjualan); }
+  // slab matrix drill-down: open every MC, then resolve clickable cells into popup entries (outlet and DSE lists with MTD, LMTD, Last FM)
+  for (const ent of ['outlet', 'dse']) { for (const com of ['SP', 'VC', 'SALMO', 'SPI']) {
+    state.pjSlabEntity = ent; state.pjSlabCom = com; state.pjSlabProd = com === 'SP' ? 'ZERO_ORI3GB' : 'all'; state.pjSlabMAll = true; state.pjSlabOpenM = {};
+    let html = ''; check('penjualan/slab-drill/' + ent + '/' + com, () => (html = VIEWS.mb_penjualan()));
+    const keys = [...new Set([...html.matchAll(/data-ov="(sl\|[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))];
+    const pick = keys.filter((k, i) => i % Math.max(1, Math.floor(keys.length / 12)) === 0).slice(0, 14);
+    let n = 0; for (const k of pick) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ slab popup ' + k); continue; } const t = app.ovText(e); if (/undefined|NaN/.test(t)) { failures++; console.log('⚠ slab popup text ' + k); } n++; }
+    console.log((n === pick.length && keys.length ? '✓ ' : '✗ ') + ('slab popups ' + ent + '/' + com).padEnd(32) + String(n).padStart(9) + ' of ' + keys.length + ' cells resolved'); if (!keys.length) failures++;
+    state.pjSlabMAll = null;
+  } } state.pjSlabCom = 'SP'; state.pjSlabEntity = 'outlet';
   state.pjSlabEntity = 'dse'; for (const com of ['SP', 'VC', 'SALMO']) { state.pjSlabCom = com; state.pjSlabProd = com === 'SP' ? 'ZERO_ORI3GB' : 'all'; check('penjualan/slab-dse/' + com, VIEWS.mb_penjualan); } state.pjSlabEntity = 'outlet';
   state.branch = global.PENJUALAN_FEED.metadata.mc_info[Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0]].br; state.pjSlabCom = 'SALMO'; check('penjualan/slab/SALMO/branch', VIEWS.mb_penjualan); state.branch = ''; state.pjSlabCom = 'SP'; state.pjSlabProd = 'ZERO_ORI3GB'; }
 for (const cat of ['SP', 'VCF', 'VCB', 'SALMO']) { state.pjCat = cat; state.pjTab = 'heat'; check('penjualan/heat/cat=' + cat, VIEWS.mb_penjualan); state.pjTab = 'outlet'; check('penjualan/outlet/cat=' + cat, VIEWS.mb_penjualan); }
@@ -254,6 +264,8 @@ state.view = 'mb_ringkasan'; for (const pr of ['uar', 'rabu', 'kotkab']) { state
 state.rkTab = 'peta'; check('rk/peta-redirect', VIEWS.mb_ringkasan); state.rkTab = 'opp'; state.opdSec = 'peta'; state.opdLayers = { nv: true, nvs: true, sga: true, gasp: true, sal: true, ebn: true, ebl: true, ebs: true, heat: true }; check('rk/opportunity/map-all-layers', VIEWS.mb_ringkasan); state.opdLayers = {}; state.rkTab = 'dse'; state.opdSec = 'visit';
 for (const sp of ['target', 'policy']) { state.dkSp = sp; state.view = 'mb_ringkasan'; state.rkTab = 'dse'; check('dse-productivity/sp=' + sp, VIEWS.mb_ringkasan); }
 state.dkSp = 'target';
+for (const sv of ['on', 'off']) { state.dkSpi = sv; state.view = 'mb_ringkasan'; state.rkTab = 'dse'; check('dse-productivity/spi=' + sv, VIEWS.mb_ringkasan); state.view = 'cfg_target'; check('target-setting/spi=' + sv, VIEWS.cfg_target); state.view = 'mb_overall'; check('overall/spi=' + sv, VIEWS.mb_overall); }
+state.dkSpi = 'on';
 for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) for (const bs of ['stock', 'all']) { state.view = 'mb_endbal'; state.ebTab = tb; state.ebBasis = bs; state.ebPage = 1; check('endbal/' + tb + '/' + bs, VIEWS.mb_endbal); }
 state.ebBasis = 'stock';
 for (const sg of ['all', 'demand', 'sep', 'dormant']) { state.ebTab = 'zero'; state.ebSeg = sg; check('endbal/zero/seg=' + sg, VIEWS.mb_endbal); }
@@ -265,7 +277,7 @@ state.ebTab = 'site'; { const so = global.ENDBAL_FEED.outlets.find(o => o.s && o
 state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
 for (const tb of ['dse', 'pjp', 'jual', 'demand', 'peta']) { state.view = 'mb_ringkasan'; state.rkTab = tb; check('mb_ringkasan/tab=' + tb, VIEWS.mb_ringkasan); }
 for (const by of ['nilai', 'outlet', 'qty']) for (const cat of ['all', 'SP', 'VCF', 'SALMO']) for (const br of ['all', 'IM3']) { state.view = 'mb_penjualan'; state.pjTab = 'produk'; state.pjProdView = 'top'; state.pjTopBy = by; state.pjCat = cat; state.pjBrand = br; check('penjualan/produk/top/' + by + '/' + cat + '/' + br, VIEWS.mb_penjualan); }
-for (const br of ['IM3', '3ID']) { const o0 = global.PENJUALAN_FEED.outlets.find(o => o.b === br && o.p && Object.keys(o.p).length); state.view = 'mb_penjualan'; state.pjTab = 'produk'; state.pjProdView = 'matrix'; state.pjMxBrand = br; state.pjMxPage = 1; state.pjMxSel = null; check('penjualan/produk/matrix/' + br, VIEWS.mb_penjualan); state.pjMxSel = o0 ? o0.k : null; check('penjualan/produk/matrix/' + br + '/selected', VIEWS.mb_penjualan); state.pjMxSel = null; state.pjMxMcAll = true; check('penjualan/produk/matrix/' + br + '/mc-open', VIEWS.mb_penjualan); state.pjMxAreaClosed = { BEKASI: true }; check('penjualan/produk/matrix/' + br + '/area-closed', VIEWS.mb_penjualan); state.pjMxAreaClosed = {}; state.pjMxMcAll = null; }
+for (const br of ['IM3', '3ID']) { const o0 = global.PENJUALAN_FEED.outlets.find(o => o.b === br && o.p && Object.keys(o.p).length); state.view = 'mb_penjualan'; state.pjTab = 'produk'; state.pjProdView = 'matrix'; state.pjMxBrand = br; state.pjMxPage = 1; state.pjMxSel = null; check('penjualan/produk/matrix/' + br, VIEWS.mb_penjualan); state.pjMxSel = o0 ? o0.k : null; check('penjualan/produk/matrix/' + br + '/selected', VIEWS.mb_penjualan); state.pjMxSel = null; state.pjMxMcAll = true; check('penjualan/produk/matrix/' + br + '/mc-open', VIEWS.mb_penjualan); state.pjMxAreaClosed = { BEKASI: true }; check('penjualan/produk/matrix/' + br + '/area-closed', VIEWS.mb_penjualan); state.pjMxAreaClosed = {}; for (const sb of ['fm', 'lm', 'mtd', 'pr']) { state.pjMxSlab = sb; check('penjualan/produk/matrix/' + br + '/slab-' + sb, VIEWS.mb_penjualan); } state.pjMxSlab = 'fm'; state.pjMxMcAll = null; }
 state.pjProdView = 'list'; state.pjTopBy = 'nilai'; state.pjCat = 'all'; state.pjBrand = 'all';
 for (const pt of ['ringkasan', 'teritori', 'heat', 'slab', 'produk', 'outlet']) { state.view = 'mb_ringkasan'; state.rkTab = 'jual'; state.pjTab = pt; check('mb_ringkasan/jual/pjTab=' + pt, VIEWS.mb_ringkasan); }
 state.pjTab = 'ringkasan';

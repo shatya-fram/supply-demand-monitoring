@@ -13,7 +13,7 @@ Columns used (0-based) in the rebalancing sheet:
   25-27 REBALANCED Sell-In SP (IM3, 3ID, IOH)   29-31 REBALANCED OSA in Rp (IM3, 3ID, IOH)   <- the targets used
 Target period is the month (October 2026); achievement is prorated MTD in the app.
 """
-import csv, glob, json, os, re, zipfile
+import csv, glob, json, os, re, struct, sys, zipfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime
@@ -31,6 +31,30 @@ def find_file():
     if not cands:
         raise SystemExit('target workbook not found in raw/')
     return max(cands, key=os.path.getmtime)
+
+
+def find_dse_workbook():
+    """Newest SELL-IN_TAG_RGUGA_OSA_OUTLET_*.xlsb (owner, 19 Oct 2026): its sheet 'DSE' carries the target per DSE, IM3 / 3ID / IOH."""
+    c = [p for p in glob.glob(os.path.join(ROOT, 'raw', '**', '*SELL-IN_TAG*.xlsb'), recursive=True) if not os.path.basename(p).startswith('~$')]
+    return max(c, key=os.path.getmtime) if c else None
+
+
+def read_dse_sheet(path):
+    """Rows of sheet DSE (cols 3 / 4 DSE id IM3 / 3ID, 7-9 Sell-In SP target IM3 / 3ID / IOH, 10-12 OSA target IM3 / 3ID / IOH)."""
+    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+    src = open(os.path.join(ROOT, 'scripts', 'build_ga_feed.py'), encoding='utf-8').read()
+    ns = {'__file__': os.path.join(ROOT, 'scripts', 'build_ga_feed.py')}
+    exec(compile(src[:src.index('# ---------------------------------------------------------------- control files')], 'xlsb_reader', 'exec'), ns)
+    rows = ns['read_sheets'](path, {'DSE'}).get('DSE', [])
+    out = {}
+    for r in rows:
+        if not r.get(0) or r.get(0) == 'BRANCH' or r.get(3) is None or not isinstance(r.get(7), float):
+            continue
+        out[norm(str(int(r[3])) if isinstance(r[3], float) else r[3])] = {
+            'id': str(int(r[3])) if isinstance(r[3], float) else str(r[3]).strip(), 'id3': str(int(r[4])) if isinstance(r[4], float) else str(r.get(4) or '').strip(),
+            'br': r[0], 'mc': r.get(1, ''), 'sp': [round(r[7]), round(r[8]), round(r[7]) + round(r[8])],
+            'osa': [round(r.get(10, 0)), round(r.get(11, 0)), round(r.get(10, 0)) + round(r.get(11, 0))]}
+    return out
 
 
 def col(ref):
@@ -118,6 +142,28 @@ def main():
             unmatched.append(r[7])
         dses.append(d)
 
+    new_path = find_dse_workbook()
+    src_note = os.path.relpath(path, ROOT)
+    if new_path:
+        new = read_dse_sheet(new_path)
+        have = {norm(d['id']) for d in dses}
+        changed = 0
+        for d in dses:                              # IM3 / 3ID targets from the new file; IOH = IM3 + 3ID (blended)
+            n = new.get(norm(d['id']))
+            if n:
+                if n['sp'] != d['sp'] or n['osa'] != d['osa']:
+                    changed += 1
+                d['sp'], d['osa'] = n['sp'], n['osa']
+        for k, n in new.items():
+            if k not in have:                       # DSE only in the new file: no original / outlet data, names from the master
+                t = terr.get(k) or terr.get(norm(n['id3']))
+                dses.append({'id': n['id'], 'id3': n['id3'], 'n': str((t or {}).get('dse_name') or '').replace('.0', ''), 'br': n['br'], 'mc': n['mc'],
+                             'dso': (t or {}).get('dso_leader', ''), 'hoa': (t or {}).get('hoa_leader', ''), 'o': [0, 0, 0, 0], 'out': 0,
+                             'sp': n['sp'], 'osa': n['osa'], 'sp0': [0, 0, 0], 'osa0': [0, 0, 0]})
+                changed += 1
+        src_note = os.path.relpath(new_path, ROOT) + " (sheet DSE; outlets and original target from " + os.path.basename(path) + ")"
+        print(f"target source: {os.path.basename(new_path)} sheet DSE | DSEs in sheet {len(new)} | DSEs whose target changed or were added {changed}")
+
     def roll(keyf):
         g = defaultdict(blank)
         for d in dses:
@@ -129,7 +175,7 @@ def main():
     mc_meta = {(d['br'], d['mc']): (d['dso'], d['hoa']) for d in dses}
     feed = {
         'metadata': {
-            'generated_at': datetime.now().isoformat(timespec='seconds'), 'source': os.path.relpath(path, ROOT), 'sheet': SHEET_NAME,
+            'generated_at': datetime.now().isoformat(timespec='seconds'), 'source': src_note, 'sheet': SHEET_NAME,
             'period': 'Oktober 2026 (target bulanan)', 'dses': len(dses), 'mcs': len(mcs), 'areas': len(areas), 'unmatched_ids': unmatched,
             'rules': {
                 'sp': 'Sell-In SP target in pcs per DSE, split IM3 / 3ID; IOH = IM3 + 3ID (rebalanced columns)',

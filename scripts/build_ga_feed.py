@@ -145,7 +145,7 @@ def read_control_xlsx(path):
 
 
 def find_dir():
-    for d in GA_DIRS:
+    for d in GA_DIRS + sorted(glob.glob("raw/GA*")):   # the owner renames the upload folders (e.g. "GA (for upload by ...)")
         if os.path.isdir(d):
             return d
     raise SystemExit("Folder GA tidak ditemukan (raw/GA). Taruh Daily_RGUGA_OUTLET_*.xlsb di sana.")

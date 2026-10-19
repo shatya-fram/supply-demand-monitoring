@@ -276,7 +276,7 @@
     pjTab: 'ringkasan',
     pjBrand: 'all',
     pjProdView: 'list',       // Produk tab: list | top (Top Produk, September penuh) | matrix (Outlet × Produk voucher)
-    pjMxBrand: 'IM3', pjMxSel: null, pjMxPage: 1, pjMxAreaClosed: {}, pjMxMc: {}, pjMxMcAll: null,   // Matrix Outlet × Produk: brand, selected outlet key, page
+    pjSlabClosedA: {}, pjSlabOpenM: {}, pjSlabMAll: null, pjMxBrand: 'IM3', pjMxSlab: 'fm', pjMxSel: null, pjMxPage: 1, pjMxAreaClosed: {}, pjMxMc: {}, pjMxMcAll: null,   // Matrix Outlet × Produk: brand, selected outlet key, page
     pjTopBy: 'nilai',         // Top Produk ranking: nilai | outlet | qty
     pjGroupBy: 'bc',          // product mix grouping: bc = Brand → Kategori, cb = Kategori → Brand, none = flat
     pjCat: 'all',
@@ -3864,6 +3864,56 @@
 
   /* ===== Matrix Outlet × Produk voucher: 7 produk voucher teratas bulan lalu (September penuh) per brand; klik outlet = top produk yang dibeli outlet itu ===== */
   var PJ_MX_N = 7;
+  /* ===== Slab Matrix voucher Sell-In: tiering per outlet on the voucher qty (isi + blank, all products of the brand) with the standard ladder (owner, 18 Oct 2026):
+     Retail 0 | 1-10 | 10-30 · KRO 30-60 | 60-100 · Wholesaler 100-200 | 200-500 | 500-1000 | > 1000, upper bound in the lower slab. Thresholds are the GA ladder; voucher-specific ones are not given yet. ===== */
+  var PJ_VC_ORDER = ['N', 'R1', 'R2', 'K1', 'K2', 'W1', 'W2', 'W3', 'W4'];
+  var PJ_VC_BASIS = [['fm', 'Sep penuh (FM)'], ['lm', 'LMTD Sep'], ['mtd', 'Okt MTD'], ['pr', 'Proyeksi Okt']];
+  function pjVcCls(q) { return q <= 0 ? 'N' : q <= 10 ? 'R1' : q <= 30 ? 'R2' : q <= 60 ? 'K1' : q <= 100 ? 'K2' : q <= 200 ? 'W1' : q <= 500 ? 'W2' : q <= 1000 ? 'W3' : 'W4'; }
+  function pjVcQty(F, o, basis) {   // voucher qty of one outlet on a basis; products of the outlet's own brand only
+    var prods = F.products || [], n = F.metadata.cut_day, mdays = F.metadata.mtd_month_days || 31, t = 0;
+    Object.keys(o.p || {}).forEach(function (i) {
+      var pr = prods[+i]; if (!pr || (pr.cat !== 'VCF' && pr.cat !== 'VCB')) return;
+      var x = o.p[i]; t += basis === 'fm' ? x[4] : basis === 'lm' ? x[2] : x[0];
+    });
+    return basis === 'pr' ? t / n * mdays : t;
+  }
+  function pjMxSlabCard(F, brand) {
+    var basis = state.pjMxSlab || 'fm', n = F.metadata.cut_day, mi = F.metadata.mc_info || {};
+    var rows = pjOutlets(F).filter(function (o) { return o.b === brand && o.tier === 'M'; });
+    var bl = (PJ_VC_BASIS.filter(function (b) { return b[0] === basis; })[0] || PJ_VC_BASIS[0])[1];
+    function blank() { return { n: 0, q: 0, c: PJ_VC_ORDER.map(function () { return 0; }), cq: PJ_VC_ORDER.map(function () { return 0; }) }; }
+    function add(a, q) { var k = PJ_VC_ORDER.indexOf(pjVcCls(q)); a.n++; a.q += q; a.c[k]++; a.cq[k] += q; }
+    var area = {}, tot = blank();
+    rows.forEach(function (o) {
+      var q = pjVcQty(F, o, basis), a = (mi[o.mc] || {}).br || '—', A = area[a] || (area[a] = { s: blank(), mc: {} }), M = A.mc[o.mc] || (A.mc[o.mc] = blank());
+      add(A.s, q); add(M, q); add(tot, q);
+    });
+    var KC = { N: 'none', R1: 'none', R2: 'none', K1: 'warn', K2: 'ok', W1: 'top', W2: 'top', W3: 'top', W4: 'top' };
+    function cell(x, k) {
+      var c = x.c[k]; if (!c) return '<td class="num" style="color:var(--ij-muted); text-align:center;">·</td>';
+      var sh = x.n ? c / x.n : 0, col = DK_COL[KC[PJ_VC_ORDER[k]]];
+      return '<td class="num" style="text-align:center; background:' + col[0] + (sh > 0.5 ? '' : '') + '; color:' + col[1] + ';" title="' + fmtCount(c) + ' outlet · ' + pctOf(c, x.n) + '% · ' + fmtCount(Math.round(x.cq[k])) + ' unit"><b>' + fmtCount(c) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(c, x.n) + '%</span></td>';
+    }
+    function row(label, ket, x, kind) {
+      var kro = x.c.slice(3).reduce(function (a, b) { return a + b; }, 0), who = x.c.slice(5).reduce(function (a, b) { return a + b; }, 0);
+      var bg = kind === 'tot' ? TOT_ST : kind === 'area' ? 'background:var(--ij-wash); font-weight:800;' : 'background:#fff;';
+      return '<tr style="' + bg + '"><td class="cur"' + (kind === 'mc' ? ' style="padding-left:22px;"' : '') + '>' + label + (ket ? '<br><span class="note">' + ket + '</span>' : '') + '</td><td class="num">' + fmtCount(x.n) + '</td>' +
+        PJ_VC_ORDER.map(function (c, k) { return cell(x, k); }).join('') +
+        '<td class="num"><b>' + fmtCount(kro) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(kro, x.n) + '%</span></td><td class="num"><b>' + fmtCount(who) + '</b></td><td class="num cur"><b>' + fmtCount(Math.round(x.q)) + '</b></td><td class="num">' + (x.n - x.c[0] ? fmtCount(Math.round(x.q / (x.n - x.c[0]))) : '—') + '</td></tr>';
+    }
+    var body = '';
+    Object.keys(area).sort(function (a, b) { return area[b].s.n - area[a].s.n; }).forEach(function (a) {
+      body += row(esc(a), 'Area · ' + Object.keys(area[a].mc).length + ' MC', area[a].s, 'area');
+      Object.keys(area[a].mc).sort(function (x, y) { return area[a].mc[y].q - area[a].mc[x].q; }).forEach(function (m) { body += row(esc(m), 'DSO ' + esc((mi[m] || {}).dso || '—'), area[a].mc[m], 'mc'); });
+    });
+    if (rows.length) body += row('<b>TOTAL ' + esc(brand) + '</b>', '', tot, 'tot');
+    var head = PJ_VC_ORDER.map(function (c) { var x = KRO_CLS[c], col = DK_COL[KC[c]]; return '<th class="num" style="text-align:center; background:' + col[0] + '; color:' + col[1] + '; vertical-align:bottom;">' + esc(x[0].replace('Tanpa volume', '0 unit')) + '</th>'; }).join('');
+    var bar = '<div class="map-toolbar-group"><span class="map-label">Basis qty:</span>' + PJ_VC_BASIS.map(function (b) { return '<button type="button" class="map-btn' + (basis === b[0] ? ' active' : '') + '" data-pj-mxslab="' + b[0] + '">' + b[1] + '</button>'; }).join('') + '</div>';
+    return card('Slab Matrix voucher Sell-In · ' + esc(brand) + ' · ' + bl,
+      '<div class="map-toolbar" style="margin-bottom:8px;">' + bar + '</div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area / MC') + th('Outlet PJP', 1) + head + th('KRO +', 1) + th('Wholesaler', 1) + th('Qty voucher', 1) + th('Qty / outlet aktif', 1) + '</tr></thead><tbody>' + (body || '<tr><td colspan="15" class="note">Tidak ada outlet pada filter ini.</td></tr>') + '</tbody></table></div>' +
+      '<p class="note">Tiering per outlet PJP pada qty voucher (isi + blank, semua produk ' + esc(brand) + ') untuk basis ' + bl.toLowerCase() + ': <b>Retail</b> 1–10 · 10–30, <b>KRO</b> 30–60 · 60–100, <b>Wholesaler</b> 100–200 · 200–500 · 500–1000 · &gt; 1000 (batas atas masuk slab bawah); 0 unit = tidak membeli voucher. Sel = jumlah outlet dan % dari outlet PJP di baris itu. KRO + = KRO dan Wholesaler. Proyeksi Okt = MTD ÷ ' + n + ' × ' + (F.metadata.mtd_month_days || 31) + ' hari. Batas slab memakai tangga standar GA / SP; belum ada batas khusus voucher dari owner. Mengikuti filter teritori dan brand; kotak cari tidak berlaku di tabel ini.</p>');
+  }
   function pjMatrixProduk(F) {
     var brand = state.pjMxBrand || 'IM3', q = (state.pjSearch || '').toLowerCase(), fdays = F.metadata.lmtd_full_days || 30, n = F.metadata.cut_day;
     var cols = (F.products || []).filter(function (p) { return p.b === brand && (p.cat === 'VCF' || p.cat === 'VCB') && p.fv > 0; })
@@ -3897,12 +3947,14 @@
     function grpRow(label, ket, list, kind) {
       var S = sums(list), bg = kind === 'area' ? 'background:var(--ij-wash); font-weight:800;' : 'background:#fff; font-weight:700;';
       return '<tr style="' + bg + '"><td class="cur"' + (kind === 'area' ? '' : ' style="padding-left:22px;"') + '>' + label + '<br><span class="note">' + ket + ' · ' + fmtCount(list.length) + ' outlet</span></td><td style="font-weight:500; font-size:13px;">' + topTxt(topOf(list)) + '</td>' +
-        S.c.map(function (q) { return '<td class="num">' + (q ? fmtCount(q) : '<span style="color:var(--ij-muted);">·</span>') + '</td>'; }).join('') + '<td class="num cur"><b>' + pjRp(S.v) + '</b></td></tr>';
+        S.c.map(function (q) { return '<td class="num">' + (q ? fmtCount(q) : '<span style="color:var(--ij-muted);">·</span>') + '</td>'; }).join('') + '<td class="num">' + fmtCount(Math.round(list.reduce(function (a, o) { return a + pjVcQty(F, o, slBasis); }, 0))) + '</td><td class="num cur"><b>' + pjRp(S.v) + '</b></td></tr>';
     }
+    var slBasis = state.pjMxSlab || 'fm';
+    function vcSlab(o) { var q = pjVcQty(F, o, slBasis); return '<td class="num">' + (q ? fmtCount(Math.round(q)) : '·') + '<br>' + kroTag(pjVcCls(q)) + '</td>'; }
     function outRow(o) {
       var sel = state.pjMxSel === o.k, t = topOf([o]);
       return '<tr data-pj-mx="' + esc(o.k) + '" style="cursor:pointer;' + (sel ? ' outline:2px solid var(--ij-ink); outline-offset:-2px;' : '') + '"><td class="cur" style="padding-left:40px;"><b>' + esc(o.n || o.id) + '</b><br><span class="note"><code>' + esc(o.id) + '</code> · </span>' + dseHtml(o.dse) +
-        '<br><span style="font-size:12.5px;">' + topTxt(t) + '</span></td><td>' + esc(o.mc) + '<br><span class="note">' + esc(o.site || '') + '</span></td>' + cols.map(function (p, ci) { return cell(o, ci); }).join('') + '<td class="num cur"><b>' + pjRp(o._mxv) + '</b></td></tr>';
+        '<br><span style="font-size:12.5px;">' + topTxt(t) + '</span></td><td>' + esc(o.mc) + '<br><span class="note">' + esc(o.site || '') + '</span></td>' + cols.map(function (p, ci) { return cell(o, ci); }).join('') + vcSlab(o) + '<td class="num cur"><b>' + pjRp(o._mxv) + '</b></td></tr>';
     }
     var byArea = {}; rows.forEach(function (o) { var a = (mi[o.mc] || {}).br || '—'; ((byArea[a] || (byArea[a] = {}))[o.mc] || (byArea[a][o.mc] = [])).push(o); });
     var body = '', cap = 30;
@@ -3914,17 +3966,17 @@
       Object.keys(byArea[a]).sort(function (x, y) { return byArea[a][y].length - byArea[a][x].length; }).forEach(function (m) {
         var mOpen = mcOv[m] != null ? !!mcOv[m] : mcAll, list = byArea[a][m];
         body += grpRow('<button type="button" class="btn" data-pj-mxmc="' + esc(m) + '" aria-expanded="' + mOpen + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (mOpen ? '－' : '＋') + '</button>' + esc(m), 'DSO ' + esc((mi[m] || {}).dso || '—'), list, 'mc');
-        if (mOpen) body += list.slice(0, cap).map(outRow).join('') + (list.length > cap ? '<tr><td colspan="' + (cols.length + 3) + '" class="note" style="padding-left:40px;">' + cap + ' dari ' + fmtCount(list.length) + ' outlet ditampilkan (nilai 7 produk terbesar dulu); persempit dengan filter atau kotak cari.</td></tr>' : '');
+        if (mOpen) body += list.slice(0, cap).map(outRow).join('') + (list.length > cap ? '<tr><td colspan="' + (cols.length + 4) + '" class="note" style="padding-left:40px;">' + cap + ' dari ' + fmtCount(list.length) + ' outlet ditampilkan (nilai 7 produk terbesar dulu); persempit dengan filter atau kotak cari.</td></tr>' : '');
       });
     });
-    if (rows.length) { var GS = sums(rows); body += '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL · ' + fmtCount(rows.length) + ' outlet · ' + fmtCount(Object.keys(byArea).length) + ' area</b></td><td style="font-weight:500; font-size:13px;">' + topTxt(topOf(rows)) + '</td>' + GS.c.map(function (q) { return '<td class="num">' + (q ? fmtCount(q) : '·') + '</td>'; }).join('') + '<td class="num"><b>' + pjRp(GS.v) + '</b></td></tr>'; }
+    if (rows.length) { var GS = sums(rows); body += '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL · ' + fmtCount(rows.length) + ' outlet · ' + fmtCount(Object.keys(byArea).length) + ' area</b></td><td style="font-weight:500; font-size:13px;">' + topTxt(topOf(rows)) + '</td>' + GS.c.map(function (q) { return '<td class="num">' + (q ? fmtCount(q) : '·') + '</td>'; }).join('') + '<td class="num">' + fmtCount(Math.round(rows.reduce(function (a, o) { return a + pjVcQty(F, o, slBasis); }, 0))) + '</td><td class="num"><b>' + pjRp(GS.v) + '</b></td></tr>'; }
     var brandBar = '<div class="map-toolbar-group"><span class="map-label">Brand:</span>' + ['IM3', '3ID'].map(function (b) { return '<button type="button" class="map-btn' + (brand === b ? ' active' : '') + '" data-pj-mxbrand="' + b + '">' + b + '</button>'; }).join('') + '</div>';
     var sel = state.pjMxSel ? rows.filter(function (o) { return o.k === state.pjMxSel; })[0] || (F.outlets || []).filter(function (o) { return o.k === state.pjMxSel; })[0] : null;
-    return pjMxDetail(F, sel, cols, fdays, n) +
+    return pjMxDetail(F, sel, cols, fdays, n) + pjMxSlabCard(F, brand) +
       card('Matrix Outlet × Produk voucher · ' + esc(brand) + ' · qty September penuh (1–' + fdays + ' Sep 2026)',
         '<div class="map-toolbar" style="margin-bottom:8px;">' + brandBar + '<div class="map-toolbar-group"><span class="map-label">Grup:</span><button type="button" class="map-btn" data-pj-mxall="open">＋ Buka semua MC</button><button type="button" class="map-btn" data-pj-mxall="close">－ Tutup semua MC</button></div></div>' +
-        '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area / MC / Outlet') + th('Top produk · MC') + head + th('Nilai 7 produk', 1) + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + (cols.length + 3) + '" class="note">Tidak ada outlet pada filter ini.</td></tr>') + '</tbody></table></div>' +
-        '<p class="note">Kolom = ' + cols.length + ' produk voucher (isi + blank) ' + esc(brand) + ' dengan nilai penjualan terbesar di September penuh, se-Inner Jakarta. Sel = unit yang dibeli outlet di September; · = tidak dibeli. Baris diurut menurut nilai 7 produk itu. Baris Area dan MC menjumlahkan outlet di dalamnya; klik ＋ untuk membuka MC. Di bawah nama outlet tampil top produk (voucher bernilai terbesar di September). Klik baris outlet untuk melihat top produk yang dibeli outlet tersebut di September. Mengikuti filter teritori, brand, dan kotak cari di atas; outlet yang baru aktif setelah tanggal ' + n + ' September tidak ada di feed per-outlet.</p>');
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area / MC / Outlet') + th('Top produk · MC') + head + th('Qty voucher · slab ' + (PJ_VC_BASIS.filter(function (b) { return b[0] === slBasis; })[0] || ['', ''])[1], 1) + th('Nilai 7 produk', 1) + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + (cols.length + 4) + '" class="note">Tidak ada outlet pada filter ini.</td></tr>') + '</tbody></table></div>' +
+        '<p class="note">Kolom = ' + cols.length + ' produk voucher (isi + blank) ' + esc(brand) + ' dengan nilai penjualan terbesar di September penuh, se-Inner Jakarta. Sel = unit yang dibeli outlet di September; · = tidak dibeli. Baris diurut menurut nilai 7 produk itu. Baris Area dan MC menjumlahkan outlet di dalamnya; klik ＋ untuk membuka MC. Di bawah nama outlet tampil top produk (voucher bernilai terbesar di September). Klik baris outlet untuk melihat top produk yang dibeli outlet tersebut di September. Kolom Qty voucher · slab = total qty semua voucher outlet pada basis yang dipilih di Slab Matrix di atas, dengan tier Retail / KRO / Wholesaler. Mengikuti filter teritori, brand, dan kotak cari di atas; outlet yang baru aktif setelah tanggal ' + n + ' September tidak ada di feed per-outlet.</p>');
   }
   function pjMxDetail(F, o, cols, fdays, n) {
     if (!o) return '';
@@ -4323,11 +4375,11 @@
     }
     return false;
   }
-  function pjSlabMeasure(F, o) {
-    var com = state.pjSlabCom || 'SP';
-    if (com === 'SALMO') return o.c.SALMO ? o.c.SALMO[1] : 0;
-    if (com === 'SPI') return o.c.SPI ? o.c.SPI[0] : 0;
-    var q = 0; Object.keys(o.p || {}).forEach(function (pi) { if (pjSlabProductOk(F, pi)) q += o.p[pi][0]; });
+  function pjSlabMeasure(F, o, which) {   // which: 'mtd' (default), 'lm' (LMTD Sep), 'fm' (September penuh); SP Injection has MTD only (null for lm / fm)
+    var com = state.pjSlabCom || 'SP', w = which || 'mtd';
+    if (com === 'SALMO') return o.c.SALMO ? o.c.SALMO[w === 'lm' ? 3 : w === 'fm' ? 5 : 1] : 0;
+    if (com === 'SPI') return w === 'mtd' ? (o.c.SPI ? o.c.SPI[0] : 0) : null;
+    var ix = w === 'lm' ? 2 : w === 'fm' ? 4 : 0, q = 0; Object.keys(o.p || {}).forEach(function (pi) { if (pjSlabProductOk(F, pi)) q += o.p[pi][ix]; });
     return q;
   }
   function pjSlabMatrix(F) {
@@ -4340,7 +4392,7 @@
     function ensure(area, m) {
       var A = groups[area] || (groups[area] = { area: area, hoa: '—', mcs: {}, base: 0 });
       if (!m) return A;
-      var M = A.mcs[m] || (A.mcs[m] = { mc: m, dso: (mi[m] || {}).dso || '—', base: (mc.mc || {})[m] || 0, buyersM: 0, buyersA: 0, slabs: slabs.map(function () { return 0; }), tot: 0 });
+      var M = A.mcs[m] || (A.mcs[m] = { mc: m, dso: (mi[m] || {}).dso || '—', base: (mc.mc || {})[m] || 0, buyersM: 0, buyersA: 0, slabs: slabs.map(function () { return 0; }), tot: 0, items: [] });
       return M;
     }
     // every master MC in filter appears even with no buyer
@@ -4354,9 +4406,14 @@
     rows.forEach(function (o) {
       var d = pjDim(o, F), m = o.mc || 'OUTSIDE MASTER TERRITORY';
       var v = pjSlabMeasure(F, o);
-      if (v <= 0) return;
+      if (v <= 0) {   // zero slab: PJP outlets of the feed without Sell-In MTD (listed for drill-down; the zero count itself comes from the master base)
+        if (o.tier === 'M' && groups[d.br] && groups[d.br].mcs[m]) groups[d.br].mcs[m].items.push({ o: o, v: 0, l: pjSlabMeasure(F, o, 'lm'), f: pjSlabMeasure(F, o, 'fm'), si: 0, m: m });
+        return;
+      }
       var A = ensure(d.br); if (A.hoa === '—') A.hoa = d.hoa; var M = ensure(d.br, m);
-      M.slabs[pjSlabIdx(v, slabs)]++; M.tot += v; if (o.tier === 'M') M.buyersM++; else M.buyersA++;
+      var si = pjSlabIdx(v, slabs);
+      M.slabs[si]++; M.tot += v; if (o.tier === 'M') M.buyersM++; else M.buyersA++;
+      M.items.push({ o: o, v: v, l: pjSlabMeasure(F, o, 'lm'), f: pjSlabMeasure(F, o, 'fm'), si: si, m: m });
     });
     var areas = Object.keys(groups).map(function (k) {
       var A = groups[k]; A.list = Object.keys(A.mcs).map(function (m) { var M = A.mcs[m]; M.slabs[0] = Math.max(0, M.base - M.buyersM); return M; });
@@ -4374,7 +4431,7 @@
     function ensure(area, m) {
       var A = groups[area] || (groups[area] = { area: area, hoa: '—', mcs: {}, base: 0 });
       if (!m) return A;
-      var M = A.mcs[m] || (A.mcs[m] = { mc: m, dso: (mi[m] || {}).dso || '—', base: (DB.byMc[m] || []).length, buyersM: 0, buyersA: 0, slabs: slabs.map(function () { return 0; }), tot: 0, dses: {} });
+      var M = A.mcs[m] || (A.mcs[m] = { mc: m, dso: (mi[m] || {}).dso || '—', base: (DB.byMc[m] || []).length, buyersM: 0, buyersA: 0, slabs: slabs.map(function () { return 0; }), tot: 0, dses: {}, items: [] });
       return M;
     }
     Object.keys(mi).forEach(function (m) {
@@ -4385,9 +4442,11 @@
       var A = ensure(d.br); A.hoa = d.hoa || '—'; ensure(d.br, m);
     });
     // total per DSE (outlet PJP saja; outlet non-PJP tidak punya DSE)
-    var perDse = {};
+    var perDse = {}, dseAll = {};   // perDse: MTD of DSEs with Sell-In; dseAll: MTD, LMTD, Last FM and PJP outlets of every DSE in scope
     rows.forEach(function (o) {
       if (o.tier !== 'M' || !o.dse || o.dse === 'UNASSIGNED') return;
+      var D = dseAll[o.dse] || (dseAll[o.dse] = { v: 0, l: 0, f: 0, n: 0 }), lm = pjSlabMeasure(F, o, 'lm'), fm = pjSlabMeasure(F, o, 'fm');
+      D.n++; D.v += pjSlabMeasure(F, o) || 0; D.l = lm == null ? null : D.l + lm; D.f = fm == null ? null : D.f + fm;
       var v = pjSlabMeasure(F, o); if (v <= 0) return;
       perDse[o.dse] = (perDse[o.dse] || 0) + v;
     });
@@ -4398,8 +4457,13 @@
       if (state.hoa && info.hoa !== state.hoa) return;
       if (state.kec && m !== state.kec) return;
       var A = ensure(area); if (A.hoa === '—') A.hoa = info.hoa || '—'; var M = ensure(area, m);
-      M.slabs[pjSlabIdx(perDse[d], slabs)]++; M.tot += perDse[d]; M.buyersM++;
+      var si = pjSlabIdx(perDse[d], slabs), D = dseAll[d] || { v: perDse[d], l: 0, f: 0, n: 0 };
+      M.slabs[si]++; M.tot += perDse[d]; M.buyersM++;
+      M.items.push({ d: d, n: D.n, v: perDse[d], l: D.l, f: D.f, si: si, m: m });
     });
+    Object.keys(groups).forEach(function (a) { Object.keys(groups[a].mcs).forEach(function (m) {   // DSEs without Sell-In MTD (zero slab)
+      (DB.byMc[m] || []).forEach(function (d) { if (perDse[d] > 0) return; var D = dseAll[d] || { n: 0, l: 0, f: 0 }; groups[a].mcs[m].items.push({ d: d, n: D.n, v: 0, l: D.l, f: D.f, si: 0, m: m }); });
+    }); });
     var areas = Object.keys(groups).map(function (k) {
       var A = groups[k]; A.list = Object.keys(A.mcs).map(function (m) { var M = A.mcs[m]; M.slabs[0] = Math.max(0, M.base - M.buyersM); return M; });
       A.base = A.list.reduce(function (s, M) { return s + M.base; }, 0);
@@ -4429,28 +4493,68 @@
         opts.map(function (p) { return '<option value="' + p.i + '"' + (String(sel) === String(p.i) ? ' selected' : '') + '>' + esc(p.b + ' · ' + p.n + ' (' + fmtCount(p.mq) + ' pcs MTD)') + '</option>'; }).join('') + '</select></div>';
     }
     var selLabel = com === 'SALMO' ? 'Saldo Mobo' : com === 'SPI' ? 'SP Injection' : (com === 'SP' ? ({ ZERO_ORI3GB: 'SP ZERO + ORI 3GB', ZERO: 'SP ZERO', ORI3GB: 'SP ORI 3GB', all: 'Semua SP' }[sel] || ((F.products[+sel] || {}).n || 'produk')) : (sel === 'all' ? 'Semua voucher isi' : ((F.products[+sel] || {}).n || 'produk')));
-    function cells(S, base) {
+    var fmtV = isRp ? pjRp : function (v) { return fmtCount(Math.round(v)); }, fmtN = function (v) { return v == null ? '—' : fmtV(v); };
+    var gTxt = function (v, l) { return l > 0 ? (v >= l ? '+' : '−') + (Math.abs(v / l - 1) * 100).toFixed(1) + '%' : '—'; };
+    var scopeLbl = function (sk) { var q = sk.split('|'); return q[0] === 'T' ? scopeText() : q[0] === 'A' ? 'Area ' + q[1] : 'MC ' + q[1]; };
+    function scopeItems(sk) { var q = sk.split('|'), out = []; R.areas.forEach(function (A) { if (q[0] === 'A' && A.area !== q[1]) return; A.list.forEach(function (M) { if (q[0] === 'M' && M.mc !== q[1]) return; out = out.concat(M.items); }); }); return out; }
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('sl|') === 0) delete _ovReg[k]; });
+    _ovScope = scopeText() + ' · ' + selLabel + ' · MTD 1–' + F.metadata.cut_day + ' Okt · LMTD 1–' + F.metadata.cut_day + ' Sep · Last FM = September penuh';
+    var mi2 = F.metadata.mc_info || {};
+    _ovLazyFn = function (key) {   // sl|<T | A|area | M|mc>|<all | buy | slab index>
+      var m = key.match(/^sl\|(T|A\|[^|]+|M\|[^|]+)\|(all|buy|\d+)$/); if (!m) return null;
+      var sk = m[1], w = m[2], items = scopeItems(sk).filter(function (it) { return w === 'all' ? true : (w === 'buy' ? it.si > 0 : it.si === +w); });
+      items.sort(function (x, y) { return (y.v - x.v) || ((y.l || 0) - (x.l || 0)) || String(x.d || x.o.n).localeCompare(String(y.d || y.o.n)); });
+      var tv = 0, tl = 0, tf = 0; items.forEach(function (it) { tv += it.v; tl += it.l || 0; tf += it.f || 0; });
+      var nm = w === 'all' ? (isDse ? 'Semua DSE master' : 'Semua outlet PJP') : (w === 'buy' ? (isDse ? 'DSE dengan Sell-In MTD' : 'Outlet beli MTD') : 'Slab ' + slabs[+w][2] + (isRp ? '' : ' pcs'));
+      var rowsOut = items.map(function (it) {
+        if (isDse) { var mm = mi2[it.m] || {}; return [it.d, mm.br || '—', it.m, mm.dso || '—', fmtCount(it.n), fmtV(it.v), fmtN(it.l), fmtN(it.f), gTxt(it.v, it.l)]; }
+        var o = it.o; return [o.n || o.id, o.id + ' · ' + o.b + (o.tier === 'M' ? '' : ' · non-PJP'), o.dse || '—', o.mc || '—', fmtV(it.v), fmtN(it.l), fmtN(it.f), gTxt(it.v, it.l)];
+      });
+      var lines = [fmtCount(items.length) + (isDse ? ' DSE' : ' outlet') + ' · MTD ' + fmtV(tv) + ' · LMTD ' + (com === 'SPI' ? 'n/a (SP Injection hanya MTD)' : fmtV(tl)) + ' · Last FM ' + (com === 'SPI' ? 'n/a' : fmtV(tf))];
+      if (w === '0' || w === 'all') { var cnt = 0; R.areas.forEach(function (A) { A.list.forEach(function (M) { var q = sk.split('|'); if ((q[0] === 'A' && A.area !== q[1]) || (q[0] === 'M' && M.mc !== q[1])) return; cnt += M.slabs[0]; }); }); var zl = items.filter(function (it) { return it.si === 0; }).length; if (w === '0' && cnt > zl) lines.push((cnt - zl) + ' ' + (isDse ? 'DSE' : 'outlet master') + ' di slab 0 belum punya baris di feed Sell-In (tidak pernah bertransaksi), jadi tidak tercantum di daftar.'); }
+      return { title: 'Detail ' + nm + ' · ' + scopeLbl(sk), cols: isDse ? ['DSE', 'Area', 'MC', 'DSO', 'Outlet PJP', 'MTD', 'LMTD', 'Last FM', 'Growth vs LMTD'] : ['Outlet', 'ID · brand', 'DSE', 'MC', 'MTD', 'LMTD', 'Last FM', 'Growth vs LMTD'], rows: rowsOut, lines: lines };
+    };
+    var sOpenM = state.pjSlabOpenM || (state.pjSlabOpenM = {}), sClosedA = state.pjSlabClosedA || (state.pjSlabClosedA = {});
+    function ck(sk, w, inner, extra) { return '<td class="num" data-ov="sl|' + esc(sk) + '|' + w + '" role="button" tabindex="0" title="Klik: daftar ' + (isDse ? 'DSE' : 'outlet') + ' dengan MTD, LMTD dan Last FM (bisa disalin sebagai teks, gambar, PNG)" style="cursor:pointer; ' + (extra || '') + '">' + inner + '</td>'; }
+    function cells(S, base, sk) {
       return S.map(function (n, i) {
         var share = base ? n / base : 0;
         var bg = !n ? 'transparent' : (i === 0 ? 'rgba(220,38,38,' + (0.08 + 0.5 * Math.min(1, share)).toFixed(2) + ')' : 'rgba(22,163,74,' + (0.08 + 0.7 * Math.min(1, share * 2)).toFixed(2) + ')');
-        return '<td class="num" style="text-align:center; background:' + bg + ';"><b>' + (n ? fmtCount(n) : '·') + '</b>' + (n && base ? '<br><span style="font-size:10px; color:var(--ij-muted);">' + pctOf(n, base) + '%</span>' : '') + '</td>';
+        var inner = '<b style="text-decoration:' + (n ? 'underline dotted' : 'none') + ';">' + (n ? fmtCount(n) : '·') + '</b>' + (n && base ? '<br><span style="font-size:10px; color:var(--ij-muted);">' + pctOf(n, base) + '%</span>' : '');
+        return n ? ck(sk, i, inner, 'text-align:center; background:' + bg + ';') : '<td class="num" style="text-align:center;">' + inner + '</td>';
       }).join('');
     }
+    function tog(k, open) { return '<button type="button" class="btn" data-pj-slabtog="' + esc(k) + '" aria-expanded="' + open + '" style="font-size:11px; padding:2px 8px; margin-right:8px;">' + (open ? '&#9660;' : '&#9654;') + '</button>'; }
+    function child(it, indent) {
+      var lab = isDse ? '<b>' + esc(it.d) + '</b><br><span class="note">' + fmtCount(it.n) + ' outlet PJP</span>' : '<b>' + esc(it.o.n || it.o.id) + '</b><br><span class="note"><code>' + esc(it.o.id) + '</code> · ' + esc(it.o.b) + (it.o.tier === 'M' ? '' : ' · non-PJP') + ' · ' + esc(it.o.dse || '—') + '</span>';
+      return '<tr style="font-size:13px;"><td class="cur" style="padding-left:' + indent + 'px;">' + lab + '</td><td colspan="3" style="text-align:right;" class="note">MTD <b>' + fmtV(it.v) + '</b> · LMTD ' + fmtN(it.l) + ' · Last FM ' + fmtN(it.f) + ' · ' + gTxt(it.v, it.l) + '</td>' +
+        slabs.map(function (sl, i) { return i === it.si ? '<td class="num" style="text-align:center; background:rgba(17,17,17,0.12);"><b>' + fmtV(it.v) + '</b></td>' : '<td></td>'; }).join('') + '<td class="num">' + fmtV(it.v) + '</td></tr>';
+    }
+    var CAP = 80;
     var body = '';
     var G = { base: 0, buyers: 0, tot: 0, slabs: slabs.map(function () { return 0; }) };
+    function numCells(base, buyers, sk) { return ck(sk, 'all', fmtCount(base)) + ck(sk, 'buy', '<b>' + fmtCount(buyers) + '</b>') + '<td class="num">' + pctOf(buyers, base) + '%</td>'; }
     R.areas.forEach(function (A) {
       G.base += A.base; G.buyers += A.buyers; G.tot += A.tot; A.slabs.forEach(function (n, i) { G.slabs[i] += n; });
-      if (R.areas.length > 1 || A.list.length > 1) body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">' + esc(A.area) + '<br><span class="note" style="font-weight:500;">HoA ' + esc(A.hoa) + ' · ' + A.list.length + ' MC</span></td><td class="num">' + fmtCount(A.base) + '</td><td class="num">' + fmtCount(A.buyers) + '</td><td class="num">' + pctOf(A.buyers, A.base) + '%</td>' + cells(A.slabs, A.base) + '<td class="num">' + (isRp ? pjRp(A.tot) : fmtCount(A.tot)) + '</td></tr>';
+      var aClosed = !!sClosedA[A.area], showA = R.areas.length > 1 || A.list.length > 1, sa = 'A|' + A.area;
+      if (showA) body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">' + tog(sa, !aClosed) + esc(A.area) + '<br><span class="note" style="font-weight:500;">HoA ' + esc(A.hoa) + ' · ' + A.list.length + ' MC</span></td>' + numCells(A.base, A.buyers, sa) + cells(A.slabs, A.base, sa) + '<td class="num">' + (isRp ? pjRp(A.tot) : fmtCount(A.tot)) + '</td></tr>';
+      if (aClosed) return;
       A.list.forEach(function (M) {
-        var buyers = M.buyersM + M.buyersA;
-        body += '<tr><td class="cur" style="padding-left:24px;">' + esc(M.mc) + '<br><span class="note">DSO ' + esc(M.dso) + (M.buyersA ? ' · ' + M.buyersA + ' outlet non-PJP' : '') + (isDse && M.base ? ' · ' + M.base + ' DSE' : '') + '</span></td><td class="num">' + fmtCount(M.base) + '</td><td class="num"><b>' + fmtCount(buyers) + '</b></td><td class="num">' + pctOf(buyers, M.base) + '%</td>' + cells(M.slabs, M.base) + '<td class="num">' + (isRp ? pjRp(M.tot) : fmtCount(M.tot)) + '</td></tr>';
+        var buyers = M.buyersM + M.buyersA, sm = 'M|' + M.mc, mOpen = sOpenM[M.mc] != null ? !!sOpenM[M.mc] : (state.pjSlabMAll != null ? state.pjSlabMAll : false);
+        body += '<tr><td class="cur" style="padding-left:24px;">' + tog(sm, mOpen) + esc(M.mc) + '<br><span class="note">DSO ' + esc(M.dso) + (M.buyersA ? ' · ' + M.buyersA + ' outlet non-PJP' : '') + (isDse && M.base ? ' · ' + M.base + ' DSE' : '') + '</span></td>' + numCells(M.base, buyers, sm) + cells(M.slabs, M.base, sm) + '<td class="num">' + (isRp ? pjRp(M.tot) : fmtCount(M.tot)) + '</td></tr>';
+        if (mOpen) {
+          var its = M.items.slice().sort(function (x, y) { return (y.v - x.v) || ((y.l || 0) - (x.l || 0)); });
+          body += its.slice(0, CAP).map(function (it) { return child(it, 48); }).join('') + (its.length > CAP ? '<tr><td colspan="' + (5 + slabs.length) + '" class="note" style="padding-left:48px;">Menampilkan ' + CAP + ' dari ' + fmtCount(its.length) + ' ' + (isDse ? 'DSE' : 'outlet') + ' (urut MTD); klik angka slab untuk daftar lengkap.</td></tr>' : '');
+        }
       });
     });
-    if (R.areas.length > 1 || (R.areas[0] && R.areas[0].list.length > 1)) body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800; border-top:2px solid var(--ij-ink);"><td class="cur">TOTAL · ' + esc(scopeText()) + '</td><td class="num">' + fmtCount(G.base) + '</td><td class="num">' + fmtCount(G.buyers) + '</td><td class="num">' + pctOf(G.buyers, G.base) + '%</td>' + cells(G.slabs, G.base) + '<td class="num">' + (isRp ? pjRp(G.tot) : fmtCount(G.tot)) + '</td></tr>';
+    if (R.areas.length > 1 || (R.areas[0] && R.areas[0].list.length > 1)) body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800; border-top:2px solid var(--ij-ink);"><td class="cur">TOTAL · ' + esc(scopeText()) + '</td>' + numCells(G.base, G.buyers, 'T') + cells(G.slabs, G.base, 'T') + '<td class="num">' + (isRp ? pjRp(G.tot) : fmtCount(G.tot)) + '</td></tr>';
     var head = th('Area › Micro Cluster') + th(isDse ? 'DSE master' : 'Outlet PJP', 1) + th(isDse ? 'DSE dengan Sell-In MTD' : 'Outlet beli MTD', 1) + th(isDse ? '% DSE' : '% beli', 1) + slabs.map(function (s) { return '<th class="num" style="text-align:center;">' + esc(s[2]) + (isRp ? '' : ' pcs') + '</th>'; }).join('') + th(isRp ? 'Total saldo MTD' : 'Total pcs MTD', 1);
     var note = isDse
       ? 'Sel = jumlah DSE di Area/MC yang <b>total Sell-In MTD seluruh outlet PJP binaannya</b> jatuh di slab itu (persen = terhadap DSE master di baris itu; DSE ditempatkan di MC tempat outletnya paling banyak). Slab 0 (zero) = DSE yang outlet binaannya tidak membeli produk terpilih sama sekali. Outlet non-PJP tidak punya DSE sehingga tidak ikut. Slab SP dan voucher untuk DSE: 0, 1, 2–10, 11–20, 21–30, 31–50, > 50 pcs; saldo dalam rupiah.'
       : 'Sel = jumlah outlet di Area/MC yang total Sell-In MTD-nya jatuh di slab itu (persen = terhadap outlet PJP di baris itu). Slab 0 (zero) = outlet PJP tanpa Sell-In MTD pada produk terpilih. Outlet non-PJP yang membeli dihitung di slab ≥ 1 dan ditambahkan ke "Outlet beli". Filter Brand dan bar Branch/HoA/MC berlaku; slab SP dan voucher dalam pcs, saldo dalam rupiah.';
+    comBar += '<div class="map-toolbar-group"><span class="map-label">Rincian:</span><button type="button" class="map-btn" data-pj-slaball="open">＋ Buka semua MC</button><button type="button" class="map-btn" data-pj-slaball="close">－ Tutup semua MC</button></div>';
+    note += ' <b>Klik angka</b> (jumlah ' + (isDse ? 'DSE' : 'outlet') + ' atau slab) untuk daftar ' + (isDse ? 'DSE' : 'outlet') + ' di dalamnya dengan MTD, LMTD (1–' + F.metadata.cut_day + ' Sep) dan Last FM (September penuh); daftar bisa diurutkan dan disalin sebagai teks, gambar atau PNG. Klik ▶ di baris Area / MC untuk membuka ' + (isDse ? 'DSE' : 'outlet') + ' per MC.';
     return card('Matriks slab Sell-In ke outlet · ' + (isDse ? 'jumlah DSE' : 'jumlah outlet') + ' per slab · ' + esc(selLabel) + ' · MTD 1–' + F.metadata.cut_day + ' Okt',
       '<div class="map-toolbar" style="margin-bottom:8px;">' + comBar + prodBar + '</div>' +
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
@@ -6660,7 +6764,7 @@
     T.dses.filter(cfIn).forEach(function (d) {
       var k = keyf(d), a = g[k] || (g[k] = cfEmpty()); cfAdd(a, d);
       var r = kmap[String(d.n).toUpperCase() + '|' + d.mc];
-      if (r && !seen[r.k]) { seen[r.k] = 1; a.spA += r.sp_pcs; a.osaA += r.osa_amt; }
+      if (r && !seen[r.k]) { seen[r.k] = 1; a.spA += dkSpPcs(r); a.osaA += r.osa_amt; }
     });
     return g;
   }
@@ -6716,7 +6820,7 @@
     var body = '', last = null;
     list.slice((page - 1) * ps, page * ps).forEach(function (d) {
       if (d.mc !== last) { last = d.mc; body += '<tr style="background:var(--ij-ink); color:#fff; font-weight:800;"><td colspan="14">' + esc(d.br) + ' · ' + esc(d.mc) + ' · DSO ' + esc(d.dso || '—') + '</td></tr>'; }
-      var r = kmap[String(d.n).toUpperCase() + '|' + d.mc], a = cfEmpty(); cfAdd(a, d); a.spA = r ? r.sp_pcs : null; a.osaA = r ? r.osa_amt : null;
+      var r = kmap[String(d.n).toUpperCase() + '|' + d.mc], a = cfEmpty(); cfAdd(a, d); a.spA = r ? dkSpPcs(r) : null; a.osaA = r ? r.osa_amt : null;
       body += cfRow('<b>' + esc(d.n) + '</b><div class="note"><code>' + esc(d.id) + '</code></div>', 'DSE', a, f, '');
     });
     return card('Target per DSE · ' + esc(scopeText()) + ' · ' + fmtCount(list.length) + ' DSE',
@@ -7103,7 +7207,9 @@
   /* ================= DSE PRODUCTIVITY · KPI DSE Oct 2026 ================= */
   var DK_COL = { bad: ['#fee2e2', '#991b1b'], flat: ['#ffedd5', '#9a3412'], warn: ['#fef3c7', '#92400e'], ok: ['#dcfce7', '#166534'], top: ['#86efac', '#14532d'], none: ['#f3f4f6', '#4b5563'] };
   function dkFeed() { return (typeof window !== 'undefined' && window.DSE_KPI_FEED) ? window.DSE_KPI_FEED : null; }
-  function dkOpt() { return { basis: state.dkBasis || 'prorata', osa: state.dkOsa || 'all', ec: state.dkEc || 'prod', sp: 'target' }; }
+  function dkOpt() { return { basis: state.dkBasis || 'prorata', osa: state.dkOsa || 'all', ec: state.dkEc || 'prod', sp: 'target', spi: state.dkSpi !== 'off' }; }
+  function dkSpiOn() { return state.dkSpi !== 'off'; }   // SP Injection (MOBO, digital) counts as SP Sell-In achievement (owner, 19 Oct 2026)
+  function dkSpPcs(r) { return (r.sp_pcs || 0) + (dkSpiOn() ? (r.spi_pcs || 0) : 0); }
   function dkTag(kind, text) { var c = DK_COL[kind]; return '<span style="display:inline-block; padding:2px 7px; font:700 13px var(--ij-font); background:' + c[0] + '; color:' + c[1] + '; border:1px solid ' + c[1] + '33; white-space:nowrap;">' + text + '</span>'; }
   function dkScore(r, F, opt) {
     var P = F.policy, M = F.metadata, f = opt.basis === 'full' ? 1 : M.cut_day / M.month_days, o = { f: f };
@@ -7112,10 +7218,10 @@
     var slab = -1, rate = 0;
     if (o.osaAch != null) P.osa.slabs.forEach(function (sl, i) { if (o.osaAch >= sl.sla - 1e-9) { slab = i; rate = sl.rate; } });
     o.osaSlab = slab; o.osaRate = rate; o.osaInc = Math.min(P.osa.max_rp, rate * amt);
-    var T = P.sp.tiers; o.spT = [T[0].pcs * f, T[1].pcs * f]; o.sp = r.sp_pcs; o.spOfficial = false;
+    var T = P.sp.tiers; o.spT = [T[0].pcs * f, T[1].pcs * f]; o.sp1 = r.sp_pcs; o.spiAll = r.spi_pcs || 0; o.spi = opt.spi ? o.spiAll : 0; o.sp = o.sp1 + o.spi; o.spOfficial = false;
     if (opt.sp !== 'policy' && r.sp_tgt > 0) { o.spOfficial = true; o.spTgt = r.sp_tgt * f; o.spT = [0.9 * o.spTgt, o.spTgt]; }
-    o.spAch = o.spOfficial && o.spTgt > 0 ? r.sp_pcs / o.spTgt : null;
-    o.spSlab = r.sp_pcs >= o.spT[1] - 1e-9 ? 1 : (r.sp_pcs >= o.spT[0] - 1e-9 ? 0 : -1);
+    o.spAch = o.spOfficial && o.spTgt > 0 ? o.sp / o.spTgt : null;
+    o.spSlab = o.sp >= o.spT[1] - 1e-9 ? 1 : (o.sp >= o.spT[0] - 1e-9 ? 0 : -1);
     o.spInc = o.spSlab < 0 ? 0 : P.sp.max_rp * T[o.spSlab].payout;
     var U = P.compliance.uar, E = P.compliance.ec, cap = P.compliance.cap;
     o.uarTgt = (r.cls === 'R' ? U.target_rural : U.target_urban) * f; o.uar = r.sp_uar5;
@@ -7170,7 +7276,7 @@
       'Insentif: ' + (o.osaSlab < 0 ? '<b>Rp 0</b> (di bawah SLA 90%)' : (o.osaRate * 100).toFixed(1) + '% × ' + pjRp(o.osaAmt) + ' = ' + (o.osaRate * o.osaAmt > P.osa.max_rp ? pjRp(o.osaRate * o.osaAmt) + ' → dibatasi <b>' + pjRp(P.osa.max_rp) + '</b>' : '<b>' + pjRp(o.osaInc) + '</b>'))
     ];
     var spRows = [
-      'SP terjual: <b>' + fmtCount(o.sp) + ' pcs</b> di ' + fmtCount(r.sp_out) + ' outlet',
+      'SP terjual: <b>' + fmtCount(o.sp) + ' pcs</b> = Sell-In ' + fmtCount(o.sp1) + ' pcs (' + fmtCount(r.sp_out) + ' outlet)' + (o.spi ? ' + Injection ' + fmtCount(o.spi) + ' pcs (' + fmtCount(r.spi_out || 0) + ' outlet)' : (o.spiAll ? ' <span class="note">(Injection ' + fmtCount(o.spiAll) + ' pcs tidak dihitung)</span>' : '')),
       'Tier 1 (90%): ≥ <b>' + fmtCount(Math.round(o.spT[0])) + '</b> pcs → ' + pjRp(P.sp.max_rp * T[0].payout),
       'Tier 2 (100%): ≥ <b>' + fmtCount(Math.round(o.spT[1])) + '</b> pcs → ' + pjRp(P.sp.max_rp * T[1].payout),
       'Slab: ' + dkSlabSpTag(o) + ' → insentif <b>' + pjRp(o.spInc) + '</b>' + (o.spSlab < 0 ? ' <span class="note">(kurang ' + fmtCount(Math.max(0, Math.round(o.spT[0] - o.sp))) + ' pcs ke tier 1)</span>' : '')
@@ -7190,12 +7296,13 @@
     return '<tr><td colspan="' + cols + '" style="background:var(--ij-ground); padding:10px 12px;"><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap:12px;">' +
       box('OSA · bobot 40%', 'osa', osaRows) + box('SP Data Sell In · bobot 60%', 'sp', spRows) + box('Compliance', 'cmp', cmpRows) + box('Insentif', 'inc', incRows) + '</div></td></tr>';
   }
+  function dkSpiNote(sell, spi) { return spi ? '<div class="note" style="font-weight:500;">' + fmtCount(sell) + ' sell-in + ' + fmtCount(spi) + ' inject</div>' : ''; }
   function dkAgg(list, F, opt) {
-    var A = { n: list.length, withVis: 0, amt: 0, tgt: 0, osaInc: 0, osaSl: [0, 0, 0, 0], sp: 0, spTgt: 0, spOf: 0, spInc: 0, spSl: [0, 0, 0], uar: 0, uarTgt: 0, ecNum: 0, ecDen: 0, comp: 0, idx: { '1': 0, '0.97': 0, '0.95': 0, '0': 0 }, total: 0, final: 0, rows: [] };
+    var A = { n: list.length, withVis: 0, amt: 0, tgt: 0, osaInc: 0, osaSl: [0, 0, 0, 0], sp: 0, sp1: 0, spi: 0, spTgt: 0, spOf: 0, spInc: 0, spSl: [0, 0, 0], uar: 0, uarTgt: 0, ecNum: 0, ecDen: 0, comp: 0, idx: { '1': 0, '0.97': 0, '0.95': 0, '0': 0 }, total: 0, final: 0, rows: [] };
     list.forEach(function (r) {
       var o = dkScore(r, F, opt); A.rows.push({ r: r, o: o });
       A.amt += o.osaAmt; A.tgt += o.osaTgt; A.osaInc += o.osaInc; A.osaSl[o.osaAch == null ? 3 : o.osaSlab + 1]++;
-      A.sp += o.sp; A.spInc += o.spInc; A.spSl[o.spSlab + 1]++; if (o.spOfficial) { A.spTgt += o.spTgt; A.spOf += o.sp; }
+      A.sp += o.sp; A.sp1 += o.sp1; A.spi += o.spi; A.spInc += o.spInc; A.spSl[o.spSlab + 1]++; if (o.spOfficial) { A.spTgt += o.spTgt; A.spOf += o.sp; }
       A.uar += o.uar; A.uarTgt += o.uarTgt;
       if (r.vis) { A.withVis++; A.ecNum += o.ecNum; A.ecDen += o.ecDen; }
       A.comp += o.comp; A.idx[String(o.idx)]++; A.total += o.total; A.final += o.final;
@@ -7309,14 +7416,14 @@
     var slabO = function (s) { return s < 0 ? '<90%' : (s === 0 ? '90%' : '100%'); };
     var out = [];
     if (kind === 'grp' && M.groups) {
-      out.push(['Level', 'Grup', 'Area', 'DSO / MC', 'Jumlah DSE', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Insentif', 'SP Pcs', 'SP Target', 'SP Ach (%)', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance rata-rata (%)', 'Insentif Total', 'Insentif Final']);
-      var walk = function (gs, lv) { gs.forEach(function (g) { var a = g.a; out.push([lv, g.label, g.br || '', g.sub || '', a.n, rp(a.amt), rp(a.tgt), pc(a.osaAch), rp(a.osaInc), rp(a.sp), a.spTgt > 0 ? rp(a.spTgt) : '', a.spTgt > 0 ? pc(a.spOfAch) : '', rp(a.spInc), a.uar, rp(a.uarTgt), pc(a.ec), pc(a.compAvg), rp(a.total), rp(a.final)]); if (g.children) walk(g.children, 'MC'); }); };
+      out.push(['Level', 'Grup', 'Area', 'DSO / MC', 'Jumlah DSE', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Insentif', 'SP Pcs (Sell-In + Injection)', 'SP Pcs Sell-In', 'SP Pcs Injection', 'SP Target', 'SP Ach (%)', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance rata-rata (%)', 'Insentif Total', 'Insentif Final']);
+      var walk = function (gs, lv) { gs.forEach(function (g) { var a = g.a; out.push([lv, g.label, g.br || '', g.sub || '', a.n, rp(a.amt), rp(a.tgt), pc(a.osaAch), rp(a.osaInc), rp(a.sp), rp(a.sp1), rp(a.spi), a.spTgt > 0 ? rp(a.spTgt) : '', a.spTgt > 0 ? pc(a.spOfAch) : '', rp(a.spInc), a.uar, rp(a.uarTgt), pc(a.ec), pc(a.compAvg), rp(a.total), rp(a.final)]); if (g.children) walk(g.children, 'MC'); }); };
       walk(M.groups, M.gb === 'mc' ? 'MC' : (M.gb === 'dso' ? 'DSO' : 'Area'));
     } else {
-      out.push(['Area', 'Head of Area', 'Micro Cluster', 'DSO', 'DSE', 'Kelas', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Slab', 'OSA Insentif', 'SP Pcs', 'SP Target', 'SP Ach (%)', 'SP Slab', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance (%)', 'Index', 'Insentif Total', 'Insentif Final']);
+      out.push(['Area', 'Head of Area', 'Micro Cluster', 'DSO', 'DSE', 'Kelas', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Slab', 'OSA Insentif', 'SP Pcs (Sell-In + Injection)', 'SP Pcs Sell-In', 'SP Pcs Injection', 'SP Target', 'SP Ach (%)', 'SP Slab', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance (%)', 'Index', 'Insentif Total', 'Insentif Final']);
       var flat = M.groups ? [] : M.rows;
       if (M.groups) { var addG = function (gs) { gs.forEach(function (g) { if (g.children) addG(g.children); else flat = flat.concat(g.items); }); }; addG(M.groups); }
-      flat.forEach(function (x) { var r = x.r, o = x.o; out.push([r.br, r.hoa || '', r.mc, r.dso || '', r.n, r.cls === 'R' ? 'Rural' : 'Urban', rp(o.osaAmt), rp(o.osaTgt), pc(o.osaAch), o.osaAch == null ? 'tanpa target' : slabO(o.osaSlab), rp(o.osaInc), rp(o.sp), o.spOfficial ? rp(o.spTgt) : '', pc(o.spAch), slabO(o.spSlab), rp(o.spInc), o.uar, Math.round(o.uarTgt * 10) / 10, pc(o.ec), pc(o.comp), o.idx, rp(o.total), rp(o.final)]); });
+      flat.forEach(function (x) { var r = x.r, o = x.o; out.push([r.br, r.hoa || '', r.mc, r.dso || '', r.n, r.cls === 'R' ? 'Rural' : 'Urban', rp(o.osaAmt), rp(o.osaTgt), pc(o.osaAch), o.osaAch == null ? 'tanpa target' : slabO(o.osaSlab), rp(o.osaInc), rp(o.sp), rp(o.sp1), rp(o.spi), o.spOfficial ? rp(o.spTgt) : '', pc(o.spAch), slabO(o.spSlab), rp(o.spInc), o.uar, Math.round(o.uarTgt * 10) / 10, pc(o.ec), pc(o.comp), o.idx, rp(o.total), rp(o.final)]); });
     }
     var blob = new Blob(['﻿sep=,\r\n' + dkCsv(out)], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a'), d = new Date(), stamp = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
@@ -7344,7 +7451,7 @@
     if (tot) name = '<b>TOTAL</b> <span style="font-weight:500;">' + fmtCount(a.n) + ' DSE' + (g.sub ? ' · ' + esc(g.sub) : '') + '</span>';
     return '<tr' + (tot ? ' class="tot-row" style="' + TOT_ST + '"' : ' style="background:' + bg + '; font-weight:600;"') + '>' + dkStickyTd('<span style="margin-left:' + (tot ? 0 : ind) + 'px;' + (tot ? ' color:#fff;' : '') + '">' + name + '</span>', bg) + (showMc ? '<td></td>' : '') +
       dkTd(pjRp(a.amt), true, 'num') + dkTd(a.tgt > 0 ? pjRp(a.tgt) : '—', false, 'num') + dkTd((a.osaAch == null ? '—' : dkPctTag(a.osaAch, 1, 0.9)) + osaMini, false, 'num') + dkTd(pjRp(a.osaInc), false, 'num') +
-      dkTd('<b>' + fmtCount(a.sp) + '</b>', true, 'num') + dkTd(a.spTgt > 0 ? fmtCount(Math.round(a.spTgt)) : '—', false, 'num') + dkTd((a.spTgt > 0 ? dkPctTag(a.spOfAch, 1, 0.9) : '') + spMini, false, 'num') + dkTd(pjRp(a.spInc), false, 'num') +
+      dkTd('<b>' + fmtCount(a.sp) + '</b>' + dkSpiNote(a.sp1, a.spi), true, 'num') + dkTd(a.spTgt > 0 ? fmtCount(Math.round(a.spTgt)) : '—', false, 'num') + dkTd((a.spTgt > 0 ? dkPctTag(a.spOfAch, 1, 0.9) : '') + spMini, false, 'num') + dkTd(pjRp(a.spInc), false, 'num') +
       dkTd(fmtCount(a.uar) + ' / ' + fmtCount(Math.round(a.uarTgt)), true, 'num') + dkTd(a.ec == null ? '—' : dkPctTag(a.ec, 0.5, 0.4), false, 'num') + dkTd('<b>' + (a.compAvg * 100).toFixed(0) + '%</b>' + idxMini, false, 'num') +
       dkTd(pjRp(a.total), true, 'num') + dkTd('<b>' + pjRp(a.final) + '</b>', false, 'num') + '<td></td></tr>';
   }
@@ -7359,7 +7466,7 @@
       var main = '<tr>' + dkStickyTd(nm) + (showMc ? '<td>' + esc(r.mc) + '</td>' : '') +
         dkTd(pjRp(o.osaAmt), true, 'num') + dkTd(pjRp(o.osaTgt) + (r.osa_tgt_src === 'proxy' ? '<span title="target proxy = September aktual" style="color:var(--ij-muted);"> *</span>' : ''), false, 'num') +
         dkTd(dkPctTag(o.osaAch, 1, 0.9) + '<div style="margin-top:3px;">' + dkSlabOsaTag(o) + '</div>', false, 'num') + dkTd(pjRp(o.osaInc), false, 'num') +
-        dkTd('<b>' + fmtCount(o.sp) + '</b>', true, 'num') + dkTd(o.spOfficial ? fmtCount(Math.round(o.spTgt)) : '<span class="note">—</span>', false, 'num') + dkTd((o.spAch == null ? '' : dkPctTag(o.spAch, 1, 0.9) + '<div style="margin-top:3px;">') + dkSlabSpTag(o) + (o.spAch == null ? '' : '</div>'), false, '') + dkTd(pjRp(o.spInc), false, 'num') +
+        dkTd('<b>' + fmtCount(o.sp) + '</b>' + dkSpiNote(o.sp1, o.spi), true, 'num') + dkTd(o.spOfficial ? fmtCount(Math.round(o.spTgt)) : '<span class="note">—</span>', false, 'num') + dkTd((o.spAch == null ? '' : dkPctTag(o.spAch, 1, 0.9) + '<div style="margin-top:3px;">') + dkSlabSpTag(o) + (o.spAch == null ? '' : '</div>'), false, '') + dkTd(pjRp(o.spInc), false, 'num') +
         dkTd(fmtCount(o.uar) + ' / ' + (Math.round(o.uarTgt * 10) / 10) + '<div style="margin-top:3px;">' + dkPctTag(o.uarAch, 1, 0.9) + '</div>', true, 'num') +
         dkTd((r.vis ? (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : '<span class="note">tanpa data</span>') + '<div style="margin-top:3px;">' + dkPctTag(o.ecAch, 1, 0.9) + '</div>', false, 'num') +
         dkTd('<b>' + (o.comp * 100).toFixed(0) + '%</b><div style="margin-top:3px;">' + dkIdxTag(o.idx) + '</div>', false, 'num') +
@@ -7429,12 +7536,13 @@
     var tool = '<div class="map-toolbar" style="margin-top:8px;">' +
       sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD (' + M.cut_day + '/' + M.month_days + ')'], ['full', 'Target penuh bulan']], opt.basis) +
       sellinBtnGroup('Amount OSA', 'dk-osa', [['all', 'Semua outlet'], ['q', 'Outlet ≥ Rp 300K']], opt.osa) +
+      sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') +
       sellinBtnGroup('Effective call', 'dk-ec', [['prod', 'Visit produktif'], ['exec', 'Visit terlaksana']], opt.ec) + '</div>';
     // cards
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('DSE dalam cakupan', fmtCount(A.n), fmtCount(A.withVis) + ' punya data PJP', 'up', scope) +
       kpi('OSA · pencapaian vs target', A.osaAch == null ? '—' : (A.osaAch * 100).toFixed(1) + '%', pjRp(A.amt) + ' dari target ' + pjRp(A.tgt), A.osaAch != null && A.osaAch >= 0.9 ? 'up' : 'down', fmtCount(A.osaSl[2]) + ' DSE 100% · ' + fmtCount(A.osaSl[1]) + ' DSE 90% · ' + fmtCount(A.osaSl[0]) + ' di bawah 90%') +
-      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', 'rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
+      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', (A.spi ? fmtCount(A.sp1) + ' sell-in + ' + fmtCount(A.spi) + ' injection · ' : '') + 'rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
       kpi('Compliance index', (A.compAvg * 100).toFixed(1) + '% skor rata-rata', fmtCount(A.idx['1']) + ' DSE × 1 · ' + fmtCount(A.idx['0.97'] + A.idx['0.95']) + ' DSE × 0.97/0.95 · ' + fmtCount(A.idx['0']) + ' DSE × 0', A.idx['1'] > 0 ? 'up' : 'down', 'UAR ≥ 5 pcs ' + fmtCount(A.uar) + ' outlet · effective call ' + (A.ec == null ? '—' : (A.ec * 100).toFixed(1) + '%')) +
       kpi('Insentif total (sebelum index)', pjRp(A.total), 'OSA ' + pjRp(A.osaInc) + ' · SP ' + pjRp(A.spInc), 'up', 'maksimum Rp 1 Jt per KPI per DSE') +
       kpi('Insentif final', pjRp(A.final), 'total × compliance index', A.final > 0 ? 'up' : 'down', A.total > 0 ? 'index memotong ' + pjRp(A.total - A.final) + ' (' + ((1 - A.final / A.total) * 100).toFixed(0) + '%)' : 'belum ada DSE yang mencapai slab') +
@@ -8410,6 +8518,8 @@
   }
   function ovKpiGroup(title, kpis) { return '<h3 style="font:800 12px var(--ij-font); letter-spacing:.06em; text-transform:uppercase; margin:14px 0 0; padding-bottom:3px; border-bottom:2px solid var(--ij-ink);">' + title + '</h3><div class="kpis kpis-s" style="margin-top:6px;">' + kpis.join('') + '</div>'; }
   var _ovReg = {};   // popup registry, refilled on every render: key -> { title, cols, rows, lines }
+  var _ovLazyFn = null;   // resolver for entries built on demand (slab matrix cells: key 'sl|...')
+  function ovEntry(key) { if (!_ovReg[key] && _ovLazyFn && String(key).indexOf('sl|') === 0) { var e = _ovLazyFn(key); if (e) _ovReg[key] = e; } return _ovReg[key]; }
   function ovAdd(key, title, cols, rows, lines) { _ovReg[key] = { title: title, cols: cols, rows: rows, lines: lines || [] }; }
   function ovK(key, label, value, delta, cls, note) { return kpi(label, value, delta, cls, note).replace('<div class="card kpi">', '<div class="card kpi" data-ov="' + key + '" role="button" tabindex="0" title="Klik untuk daftar detail dan tombol salin">'); }
   function ovN(v) { return fmtCount(Math.round(v)); }
@@ -8430,7 +8540,7 @@
     /* DSE identity = person id (KPI feed pid = visits feed person_id). Names alone are not unique (two DSEs are called SUSANTO) and 69 DSEs carry their login code as name in the territory, KPI, sell-in and GA feeds but their person name in the PJP feed. */
     var kByName = {}; if (K) (K.dses || []).forEach(function (d) { (kByName[dseNorm(d.n)] = kByName[dseNorm(d.n)] || []).push(d); });
     var pidOf = function (name, mc) { var L = kByName[dseNorm(name)]; if (!L) return null; if (L.length === 1) return L[0].pid; for (var i = 0; i < L.length; i++) if (L[i].mc === mc) return L[i].pid; return L[0].pid; };
-    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
+    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, spi: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
     var li = V ? ovVisitDay(V) : 0;
     if (V) (V.dses || []).forEach(function (d) {
       if (d.is_promotor || !ovIn(d.branch, d.micro_cluster, d.hoa_leader)) return;
@@ -8438,7 +8548,7 @@
       r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true; r.inM = !!d.in_master;
       r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0;
     });
-    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; });
+    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; r.spi += dkSpiOn() ? (d.spi_pcs || 0) : 0; });
     if (F && LD) pjOutlets(F).forEach(function (o) {
       if (o.tier !== 'M') return; var key = pidOf(o.dse, o.mc); if (!key || !T[key]) return; var r = T[key], sp = o.c.SP, sa = o.c.SALMO, dd = LD.W.day, pd = LD.W.prevDay, i;
       var day = function (c, d) { var v = 0, q = 0; ((o.c[c] || [])[10] || []).forEach(function (e) { if (e[0] === d) { v += e[1]; q += e[2]; } }); return [v, q]; };
@@ -8509,11 +8619,11 @@
     }
     // ---------------- Sell-In SP and SALMO
     if (F) {
-      var sp = A.SP, sa = A.SALMO, gSp = ovGrowth(sp.mq, sp.lq), gSa = ovGrowth(sa.mv, sa.lv), spPro = spTgt * n / md, spD = LD.D.SP, saD = LD.D.SALMO, mN = pjMasterInScope(F);
+      var sp = A.SP, sa = A.SALMO, gSp = ovGrowth(sp.mq, sp.lq), gSa = ovGrowth(sa.mv, sa.lv), spI = T.reduce(function (t, r) { return t + r.spi; }, 0), spAct = sp.mq + spI, spPro = spTgt * n / md, spD = LD.D.SP, saD = LD.D.SALMO, mN = pjMasterInScope(F);
       var dseSP = T.filter(function (r) { return r.sp || r.spL || r.spT; }), dseSA = T.filter(function (r) { return r.sa || r.saL; }), remD2 = md - n;
-      var lSp = ovFmLine('Sell-In SP vs target FM', sp.mq, spTgt, remD2, n, 'n'), lSa = ovFmLine('SALMO vs September penuh', sa.mv, sa.fv, remD2, n, 'r');
+      var lSp = ovFmLine('Sell-In SP' + (spI ? ' (incl. injection)' : '') + ' vs target FM', spAct, spTgt, remD2, n, 'n'), lSa = ovFmLine('SALMO vs September penuh', sa.mv, sa.fv, remD2, n, 'r');
       ovAdd('sp_mtd', 'Sell-In SP MTD vs LMTD dan September penuh · penurunan terbesar dulu', ['DSE', 'MC', 'SP MTD', 'SP LMTD', 'Δ vs LMTD', 'Growth', 'SP Sep (FM)', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari'], ovRows(dseSP.slice().sort(function (a, b) { return (a.sp - a.spL) - (b.sp - b.spL); }), function (r) { var f = ovFm(r.sp, r.spF, remD2, n, 'n'); return [r.name, r.mc, ovN(r.sp), ovN(r.spL), ovSN(r.sp - r.spL), r.spL ? ovSg(ovGrowth(r.sp, r.spL)) : 'baru', f[0], f[1], f[2], f[3]]; }), ['Total MTD ' + ovN(sp.mq) + ' pcs vs LMTD ' + ovN(sp.lq) + ' pcs · Δ ' + ovSN(sp.mq - sp.lq) + ' (' + ovSg(gSp) + ')', ovFmLine('Terhadap September penuh', sp.mq, sp.fq, remD2, n, 'n')]);
-      ovAdd('sp_ach', 'Achievement SP vs target FM · gap terbesar dulu', ['DSE', 'MC', 'SP MTD', 'Target FM', '% FM', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari', '% prorata'], ovRows(T.filter(function (r) { return r.spT > 0; }).sort(byGap(function (r) { return r.spT - r.sp; })), function (r) { var f = ovFm(r.sp, r.spT, remD2, n, 'n'); return [r.name, r.mc, ovN(r.sp), f[0], ovP(r.sp / r.spT * 100), f[1], f[2], f[3], ovP(r.sp / (r.spT * n / md) * 100)]; }), [lSp, 'Prorata ' + n + '/' + md + ': target ' + ovN(spPro) + ' pcs (' + ovP(ovPct(sp.mq, spPro)) + ')']);
+      ovAdd('sp_ach', 'Achievement SP vs target FM · gap terbesar dulu', ['DSE', 'MC', 'SP MTD', 'Target FM', '% FM', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari', '% prorata'], ovRows(T.filter(function (r) { return r.spT > 0; }).sort(byGap(function (r) { return r.spT - r.sp - r.spi; })), function (r) { var sx = r.sp + r.spi, f = ovFm(sx, r.spT, remD2, n, 'n'); return [r.name, r.mc, ovN(sx) + (r.spi ? ' (' + ovN(r.spi) + ' inject)' : ''), f[0], ovP(sx / r.spT * 100), f[1], f[2], f[3], ovP(sx / (r.spT * n / md) * 100)]; }), [lSp, 'Prorata ' + n + '/' + md + ': target ' + ovN(spPro) + ' pcs (' + ovP(ovPct(sp.mq, spPro)) + ')']);
       ovAdd('sp_d1', 'Sell-In SP D-1 ' + LD.W.short + ' vs ' + LD.W.prevShort + ' dan kebutuhan harian', ['DSE', 'MC', 'D-1 pcs', LD.W.prevShort + ' pcs', 'Δ pcs', 'Req RR/hari (target FM)', 'D-1 vs Req'], ovRows(dseSP.slice().sort(function (a, b) { return (a.spD - a.spP) - (b.spD - b.spP); }), function (r) { var req = remD2 > 0 && r.spT ? Math.max(0, r.spT - r.sp) / remD2 : null; return [r.name, r.mc, ovN(r.spD), ovN(r.spP), ovSN(r.spD - r.spP), req == null ? '—' : ovN(req), req == null ? '—' : ovSN(r.spD - req)]; }), ['Total D-1 ' + ovN(spD.q) + ' pcs vs ' + ovN(LD.P.SP.q) + ' pcs · Δ ' + ovSN(spD.q - LD.P.SP.q), lSp]);
       ovAdd('sp_uar', 'UAR Sell-In SP · cakupan terendah dulu', ['DSE', 'MC', 'Outlet binaan', 'UAR MTD', '% UAR', 'UAR D-1'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.spU / a.asg - b.spU / b.asg; }), function (r) { return [r.name, r.mc, ovN(r.asg), ovN(r.spU), ovP(r.spU / r.asg * 100), ovN(r.spUD)]; }), ['UAR MTD ' + ovN(sp.om) + ' dari ' + ovN(mN) + ' outlet PJP (' + ovP(ovPct(sp.om, mN)) + ') · LMTD ' + ovN(sp.ol) + ' · Δ ' + ovSN(sp.om - sp.ol), 'D-1: ' + ovN(spD.u) + ' outlet beli SP']);
       ovAdd('sal_mtd', 'SALMO MTD vs LMTD dan September penuh · penurunan terbesar dulu', ['DSE', 'MC', 'SALMO MTD', 'SALMO LMTD', 'Δ vs LMTD', 'Growth', 'SALMO Sep (FM)', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari'], ovRows(dseSA.slice().sort(function (a, b) { return (a.sa - a.saL) - (b.sa - b.saL); }), function (r) { var f = ovFm(r.sa, r.saF, remD2, n, 'r'); return [r.name, r.mc, pjRp(r.sa), pjRp(r.saL), ovSR(r.sa - r.saL), r.saL ? ovSg(ovGrowth(r.sa, r.saL)) : 'baru', f[0], f[1], f[2], f[3]]; }), ['Total MTD ' + pjRp(sa.mv) + ' vs LMTD ' + pjRp(sa.lv) + ' · Δ ' + ovSR(sa.mv - sa.lv) + ' (' + ovSg(gSa) + ')', lSa]);
@@ -8523,7 +8633,7 @@
       ovAdd('sal_uar_d1', 'UAR SALMO D-1 ' + LD.W.short, ['DSE', 'MC', 'Outlet binaan', 'UAR MTD', '% UAR', 'UAR D-1'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.saUD - b.saUD; }), rUar), ['D-1 ' + ovN(saD.u) + ' outlet menerima saldo vs ' + ovN(LD.P.SALMO.u) + ' pada ' + LD.W.prevShort + ' · Δ ' + ovSN(saD.u - LD.P.SALMO.u)]);
       out.push(ovKpiGroup('Sell-In SP · ' + scope, [
         ovK('sp_mtd', 'Sell-In SP MTD', ovN(sp.mq) + ' pcs', ovSg(gSp) + ' · Δ ' + ovSN(sp.mq - sp.lq) + ' vs LMTD ' + ovN(sp.lq), ovCls(gSp, 2), 'September penuh ' + ovN(sp.fq) + ' pcs'),
-        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(sp.mq, spTgt)) : '—', spTgt ? ovP(ovPct(sp.mq, spPro)) + ' prorata · gap ' + ovSN(sp.mq - spPro) + ' pcs' : 'tanpa target', ovCls(ovPct(sp.mq, spPro), 100), spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - sp.mq) / Math.max(1, md - n)) + '/hari (kini ' + ovN(sp.mq / n) + ')' : ''),
+        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(spAct, spTgt)) : '—', spTgt ? ovP(ovPct(spAct, spPro)) + ' prorata · gap ' + ovSN(spAct - spPro) + ' pcs' + (spI ? ' · incl. ' + ovN(spI) + ' injection' : '') : 'tanpa target', ovCls(ovPct(sp.mq, spPro), 100), spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - sp.mq) / Math.max(1, md - n)) + '/hari (kini ' + ovN(sp.mq / n) + ')' : ''),
         ovK('sp_d1', 'D-1 Sell-In SP · ' + LD.W.short, ovN(spD.q) + ' pcs', ovSg(ovGrowth(spD.q, LD.P.SP.q)) + ' · Δ ' + ovSN(spD.q - LD.P.SP.q) + ' vs ' + LD.W.prevShort, spD.q >= LD.P.SP.q ? 'up' : 'down', 'Rata-rata harian MTD ' + ovN(sp.mq / n) + ' pcs'),
         ovK('sp_uar', 'UAR Sell-In SP', ovN(sp.omM), ovP(ovPct(sp.omM, mN)) + ' dari ' + ovN(mN) + ' outlet PJP · Δ ' + ovSN(sp.omM - sp.olM) + ' vs LMTD', sp.omM >= sp.olM ? 'up' : 'down', 'LMTD ' + ovN(sp.olM) + ' outlet PJP · +' + ovN(sp.om - sp.omM) + ' non-PJP di luar master · D-1: ' + ovN(spD.u) + ' outlet (termasuk non-PJP)')]));
       out.push(ovKpiGroup('Saldo Mobo (SALMO) Sell-In · ' + scope, [
@@ -8592,7 +8702,7 @@
   }
   function ovText(e, rows) { return [e.title + ' · ' + _ovScope].concat(e.lines || [], [''], [e.cols.join('\t')], (rows || e.rows).map(function (r) { return r.join('\t'); })).join('\n'); }
   function ovRender(el) {
-    var e = _ovReg[el._key], st = el._s, rows = st.col >= 0 ? ovSortRows(e.rows, st.col, st.dir) : e.rows, shown = rows.slice(0, 200), numFrom = e.cols.length > 6 ? 4 : 3;
+    var e = ovEntry(el._key), st = el._s, rows = st.col >= 0 ? ovSortRows(e.rows, st.col, st.dir) : e.rows, shown = rows.slice(0, 200), numFrom = e.cols.length > 6 ? 4 : 3;
     el._rows = rows;
     el.innerHTML = '<div class="ov-box" role="dialog" aria-label="' + esc(e.title) + '"><div class="ov-head"><div><div class="ov-title">' + esc(e.title) + '</div><div class="ov-scope">' + esc(_ovScope) + ' · ' + fmtCount(e.rows.length) + ' baris · klik judul kolom untuk mengurutkan · gambar memuat 60 baris pertama</div></div><div class="ov-actions"><button type="button" class="btn" data-ov-copy="' + el._key + '" title="Salin tabel sebagai teks (tempel ke chat, email atau Excel)">📋 Salin tabel</button><button type="button" class="btn" data-ov-img="' + el._key + '" title="Salin laporan sebagai gambar (tempel ke chat atau dokumen)">🖼️ Salin gambar</button><button type="button" class="btn" data-ov-png="' + el._key + '" title="Unduh laporan sebagai PNG">⬇️ PNG</button><button type="button" class="btn" data-ov-close="1" aria-label="Tutup">✕</button></div></div>' +
       (e.lines.length ? '<ul class="ov-lines">' + e.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
@@ -8600,20 +8710,20 @@
       (shown.map(function (r, i) { return '<tr><td class="num">' + (i + 1) + '</td>' + r.map(function (c, j) { return '<td' + (j >= numFrom ? ' class="num"' : '') + '>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="' + (e.cols.length + 1) + '" class="note">Tidak ada data pada teritori ini.</td></tr>') + '</tbody></table>' + (rows.length > shown.length ? '<p class="note">Menampilkan ' + shown.length + ' dari ' + fmtCount(rows.length) + ' baris; tombol Salin membawa semua baris dengan urutan yang sedang tampil.</p>' : '') + '</div></div>';
   }
   function ovOpen(key) {
-    var e = _ovReg[key]; if (!e || typeof document === 'undefined') return;
+    var e = ovEntry(key); if (!e || typeof document === 'undefined') return;
     ovClose();
     var el = document.createElement('div'); el.id = 'ovPop'; el._key = key; el._s = { col: -1, dir: 1 };
     ovRender(el);
     el.addEventListener('click', function (ev) {
       var th = ev.target.closest ? ev.target.closest('th[data-col]') : null;
-      if (th) { var c = +th.getAttribute('data-col'), numeric = _ovReg[el._key].rows.some(function (r) { return ovNum(r[c]) != null; }); el._s = { col: c, dir: el._s.col === c ? -el._s.dir : (numeric ? -1 : 1) }; ovRender(el); return; }
+      if (th) { var c = +th.getAttribute('data-col'), numeric = ovEntry(el._key).rows.some(function (r) { return ovNum(r[c]) != null; }); el._s = { col: c, dir: el._s.col === c ? -el._s.dir : (numeric ? -1 : 1) }; ovRender(el); return; }
       if (ev.target === el) ovClose();
     });
     document.body.appendChild(el);
   }
   function ovClose() { if (typeof document === 'undefined') return; var el = document.getElementById('ovPop'); if (el) el.parentNode.removeChild(el); }
   function ovCopy(key, btn) {
-    var e = _ovReg[key]; if (!e) return; var pop = typeof document !== 'undefined' ? document.getElementById('ovPop') : null, txt = ovText(e, pop && pop._key === key ? pop._rows : null), done = function () { if (btn) { var o = btn.textContent; btn.textContent = '✓ Tersalin'; setTimeout(function () { btn.textContent = o; }, 1500); } };
+    var e = ovEntry(key); if (!e) return; var pop = typeof document !== 'undefined' ? document.getElementById('ovPop') : null, txt = ovText(e, pop && pop._key === key ? pop._rows : null), done = function () { if (btn) { var o = btn.textContent; btn.textContent = '✓ Tersalin'; setTimeout(function () { btn.textContent = o; }, 1500); } };
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { ovCopyFallback(txt); done(); });
     else { ovCopyFallback(txt); done(); }
   }
@@ -8662,7 +8772,7 @@
     return cv;
   }
   function ovImage(key, btn, download) {
-    var e = _ovReg[key]; if (!e || typeof document === 'undefined') return;
+    var e = ovEntry(key); if (!e || typeof document === 'undefined') return;
     var pop = document.getElementById('ovPop'), cv = ovCanvas(e, pop && pop._key === key && pop._rows ? pop._rows : e.rows), label = btn ? btn.textContent : '';
     var flash = function (t) { if (btn) { btn.textContent = t; setTimeout(function () { btn.textContent = label; }, 1800); } };
     var save = function (blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = key + '_' + (new Date()).toISOString().slice(0, 10) + '.png'; document.body.appendChild(a); a.click(); document.body.removeChild(a); };
@@ -9096,7 +9206,7 @@
     }
   }
   function onClick(e) {
-    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-basis], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
+    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-basis], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-spi], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxslab], [data-pj-slabtog], [data-pj-slaball], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-ov-close')) { ovClose(); return; }
     if (t.hasAttribute('data-ov-copy')) { ovCopy(t.getAttribute('data-ov-copy'), t); return; }
@@ -9257,6 +9367,7 @@
     else if (t.hasAttribute('data-pj-mxmc')) { var mxm = t.getAttribute('data-pj-mxmc'), mxo = state.pjMxMc || (state.pjMxMc = {}), mxcur = mxo[mxm] != null ? !!mxo[mxm] : (state.pjMxMcAll != null ? state.pjMxMcAll : !!state.kec); mxo[mxm] = !mxcur; }
     else if (t.hasAttribute('data-pj-mxall')) { state.pjMxMcAll = t.getAttribute('data-pj-mxall') === 'open'; state.pjMxMc = {}; }
     else if (t.hasAttribute('data-pj-mx')) { var mxk = t.getAttribute('data-pj-mx'); state.pjMxSel = (state.pjMxSel === mxk) ? null : mxk; }
+    else if (t.hasAttribute('data-pj-mxslab')) { state.pjMxSlab = t.getAttribute('data-pj-mxslab'); }
     else if (t.hasAttribute('data-pj-mxbrand')) { state.pjMxBrand = t.getAttribute('data-pj-mxbrand'); state.pjMxSel = null; state.pjMxPage = 1; }
     else if (t.hasAttribute('data-pj-mxpage')) { var mxd = t.getAttribute('data-pj-mxpage'); if (mxd === 'prev' && (state.pjMxPage || 1) > 1) state.pjMxPage--; else if (mxd === 'next') state.pjMxPage = (state.pjMxPage || 1) + 1; }
     else if (t.hasAttribute('data-pjp-tab')) { state.pjpTab = t.getAttribute('data-pjp-tab'); }
@@ -9308,6 +9419,7 @@
     else if (t.hasAttribute('data-pr-mode')) { state.prMode = t.getAttribute('data-pr-mode'); }
     else if (t.hasAttribute('data-dk-basis')) { state.dkBasis = t.getAttribute('data-dk-basis'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-osa')) { state.dkOsa = t.getAttribute('data-dk-osa'); state.dkPage = 1; }
+    else if (t.hasAttribute('data-dk-spi')) { state.dkSpi = t.getAttribute('data-dk-spi'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-ec')) { state.dkEc = t.getAttribute('data-dk-ec'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-sort')) { state.dkSort = t.getAttribute('data-dk-sort'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-sortcol')) { state.dkSortCol = t.getAttribute('data-dk-sortcol'); state.dkSortDir = t.getAttribute('data-dir') === 'asc' ? 'asc' : 'desc'; state.dkPage = 1; }
@@ -9426,6 +9538,8 @@
     else if (t.hasAttribute('data-pj-tab')) { state.pjTab = t.getAttribute('data-pj-tab'); state.pjPage = 1; }
     else if (t.hasAttribute('data-pj-slabcom')) { state.pjSlabCom = t.getAttribute('data-pj-slabcom'); state.pjSlabProd = state.pjSlabCom === 'SP' ? 'ZERO_ORI3GB' : 'all'; }
     else if (t.hasAttribute('data-pj-slabprod')) { state.pjSlabProd = t.getAttribute('data-pj-slabprod'); }
+    else if (t.hasAttribute('data-pj-slabtog')) { var sgk = t.getAttribute('data-pj-slabtog').split('|'); if (sgk[0] === 'A') { state.pjSlabClosedA = state.pjSlabClosedA || {}; state.pjSlabClosedA[sgk[1]] = !state.pjSlabClosedA[sgk[1]]; } else { state.pjSlabOpenM = state.pjSlabOpenM || {}; var sgc = state.pjSlabOpenM[sgk[1]] != null ? !!state.pjSlabOpenM[sgk[1]] : (state.pjSlabMAll != null ? state.pjSlabMAll : false); state.pjSlabOpenM[sgk[1]] = !sgc; } }
+    else if (t.hasAttribute('data-pj-slaball')) { state.pjSlabMAll = t.getAttribute('data-pj-slaball') === 'open'; state.pjSlabOpenM = {}; state.pjSlabClosedA = {}; }
     else if (t.hasAttribute('data-pj-slabent')) { state.pjSlabEntity = t.getAttribute('data-pj-slabent'); }
     else if (t.hasAttribute('data-op-tab')) { state.opTab = t.getAttribute('data-op-tab'); state.opPage = 1; }
     else if (t.hasAttribute('data-op-program')) { state.opProgram = t.getAttribute('data-op-program'); state.opPage = 1; }
@@ -9727,7 +9841,7 @@
   }
   if (typeof module !== 'undefined') {
     module.exports = {
-      cutByView: cutByView, defaultPjpDate: defaultPjpDate,
+      cutByView: cutByView, defaultPjpDate: defaultPjpDate, ovEntry: function (k) { return ovEntry(k); }, ovText: function (e) { return ovText(e); },
       state: state,
       VIEWS: VIEWS,
       KEC: KEC,

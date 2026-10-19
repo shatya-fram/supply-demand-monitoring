@@ -117,7 +117,7 @@ def main():
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
     # ---- sell-in per master outlet, rolled up to its DSE
-    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_out': 0,
+    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_out': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
                                 'osa_amt': 0, 'osa_all': 0, 'sep_all': 0, 'osa_out': 0, 'sep_saldo': 0, 'sep_osa_amt': 0, 'sep_osa_out': 0, 'sp_sep_pcs': 0, 'outlets_seen': 0})
     qmin = POLICY['osa']['qualify_min_rp']
     unmatched = 0
@@ -144,6 +144,10 @@ def main():
             a['sp_uar5'] += 1
         if sp_q > 0:
             a['sp_out'] += 1
+        spi_q = g('SPI', 0)                           # SP Injection (digital, MOBO), MTD pcs; part of Sell-In SP achievement (owner, 19 Oct 2026)
+        a['spi_pcs'] += spi_q; a['spi_amt'] += g('SPI', 1)
+        if spi_q > 0:
+            a['spi_out'] += 1
         tot_m = sal_m + sp_v + vc_m                   # OSA value = SP + voucher + saldo Mobo sell-in value
         tot_f = sal_f + g('SP', 5) + vc_f
         a['osa_all'] += tot_m; a['sep_all'] += tot_f
@@ -224,7 +228,7 @@ def main():
             'osa_tgt': round(osa_tgt), 'osa_tgt_all': round(a['sep_all']), 'osa_tgt_src': tgt_src,
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
-            'sp_uar5': a['sp_uar5'], 'sp_out': a['sp_out'],
+            'sp_uar5': a['sp_uar5'], 'sp_out': a['sp_out'], 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
             'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))
@@ -242,7 +246,7 @@ def main():
                 'osa_amount': 'value (Rp) of SP + voucher (isi and blank) + saldo Mobo sell-in to DSE-mapped outlets whose combined value reaches Rp 300K in the period (GAPLOK OSA productivity rule); toggle: all outlets',
                 'osa_target': 'official individual OSA target (IOH = IM3 + 3ID, rebalanced) from the target workbook; proxy = September full month only where a DSE has no official target',
                 'sp_target': 'official Sell-In SP target in pcs per DSE (rebalanced), prorated MTD in the app',
-                'sp_pcs': 'SP pcs sold in (all brands, all SP products) to DSE-mapped outlets; SP injection (digital, MOBO) not included',
+                'sp_pcs': 'SP pcs sold in (all brands, all SP products) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
                 'uar': 'DSE-mapped outlets with >= 5 SP pcs in the period',
                 'effective_call': 'productive visits (executed visit with SP/VC qty > 0 or saldo > Rp 50K) / planned visits (fix PJP); toggle: executed visits',
                 'class': 'urban/rural by branch rule (KARAWANG, KAB BEKASI = rural) unless the targets file gives U|R',

@@ -48,7 +48,7 @@ DSE identity: the master roster (272 DSEs, from the outlet mapping) is the key. 
 3. **Weights 40% / 60%** on the slide are shown as information. They are not applied as rupiah multipliers, because the slide gives each KPI its own Rp 1 Mn maximum. If they should scale the incentive, the OSA maximum becomes Rp 400K and the SP maximum Rp 600K.
 4. **Individual OSA targets** are not in any file we hold. The September proxy is a placeholder; supply `dse_kpi_targets.csv` (template: `data/catalogues/dse_kpi_targets_template.csv`, one row per DSE, already filled with the proxy) and rerun the builder.
 5. **Effective call** uses planned PJP stops as the denominator ("based on fix PJP"). Ad-hoc visits outside the PJP are not in the visits data, so they cannot be added to the numerator yet.
-6. **SP injection** (digital SP from the MOBO file) is not included in SP pcs. The MOBO file ends on 11 Oct while MOBII ends on 13 Oct.
+6. **SP injection** (digital SP from the MOBO file) is part of SP achievement since 19 Oct 2026 (owner): DSE SP pcs = SP sell-in (MOBII) + SP injection (MOBO, MTD, `spi_pcs` in the KPI feed). It counts against the Sell-In SP target and the 90% / 100% slab, and rolls up to DSO, MC, Area and Region; a switch in DSE Productivity ("SP Injection") shows the sell-in-only view. Open point: whether the SP target was set to include injection. The MOBO file ends on 11 Oct while MOBII ends on 13 Oct.
 7. **Cuts differ by source:** sell-in 13 Oct, PJP visits 11 Oct. The page header states both.
 
 ## 5. What the data says today (14 Oct, default options)

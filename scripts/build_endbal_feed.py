@@ -21,7 +21,7 @@ from collections import defaultdict, Counter
 from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, 'raw', 'ENDBAL', '*.csv')
+RAW = os.path.join(ROOT, 'raw', 'ENDBAL*', '*.csv')   # folder name may carry a suffix, e.g. "ENDBAL (for Upload by ...)"
 TERR = os.path.join(ROOT, 'website', 'data', 'territory_feed.json')
 PENJ = os.path.join(ROOT, 'data', 'processed', 'penjualan_feed.json')
 OUT_JS = os.path.join(ROOT, 'website', 'data', 'endbal_feed.js')
@@ -42,7 +42,7 @@ def norm(s):
 def read_rows():
     rows, files = [], []
     for p in sorted(glob.glob(RAW)):
-        hdr, n = None, 0
+        hdr, n, dts = None, 0, set()
         with open(p, encoding='utf-8-sig', errors='replace', newline='') as f:
             for r in csv.reader(f):
                 if hdr is None:
@@ -50,15 +50,15 @@ def read_rows():
                         hdr = r
                     continue
                 if len(r) == len(hdr):
-                    rows.append(dict(zip(hdr, r))); n += 1
-        files.append({'file': os.path.relpath(p, ROOT), 'rows': n})
+                    rows.append(dict(zip(hdr, r))); n += 1; dts.add(r[0])
+        files.append({'file': os.path.relpath(p, ROOT), 'rows': n, 'snapshot': ','.join(sorted(dts))})
     # Every export is a full snapshot of one day: summing several days would double every balance, so only the latest snapshot is used.
     latest = max((r['Date'] for r in rows), default=None)
     if latest:
         skipped = sorted({r['Date'] for r in rows if r['Date'] != latest})
         rows = [r for r in rows if r['Date'] == latest]
         for f in files:
-            f['snapshot'] = latest
+            f['used'] = f['snapshot'] == latest
         if skipped:
             print(f"  ENDBAL: using snapshot {latest} only; older snapshot(s) ignored: {', '.join(skipped)}")
     return rows, files
