@@ -438,6 +438,10 @@ print(f"   {n_stub} id master tanpa baris RGUGA ditambahkan sebagai baris tanpa 
 # ---------------------------------------------------------------- resolve to master and territory
 print("[4/5] Memetakan ke master...")
 out_rows, stats = [], defaultdict(int)
+full_keys = defaultdict(set)
+for _x in rows_by.values():
+    if _x.get("kk") and "|" in _x["kk"]:
+        full_keys[_x["kk"].split("|")[0]].add(_x["kk"])
 tot_ga = defaultdict(lambda: {"sep": 0, "oct": 0})
 matched_ga = defaultdict(lambda: {"sep": 0, "oct": 0})
 dropped = defaultdict(int)
@@ -477,6 +481,8 @@ for (brand, oid), x in rows_by.items():
     fmc = x.get("fmc") or mc
     fbr = (mc_info.get(fmc) or {}).get("br") or ""      # the file's own micro cluster, named by the 7 master areas ("KOTA BEKASI" in the sheet = BEKASI)
     lkey = x.get("kk") or x.get("fkec") or ""
+    if lkey and "|" not in lkey and len(full_keys.get(lkey, ())) == 1:     # a September-only row names the kecamatan without the kabupaten: use the one full label of that kecamatan
+        lkey = next(iter(full_keys[lkey]))
     if fmc and fmc != mc:
         row["lm"] = fmc
     if fbr and fbr != br:

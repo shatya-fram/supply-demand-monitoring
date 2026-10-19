@@ -197,6 +197,7 @@ def main():
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
         steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))
+        steps.append(("Audit · Gross Add page vs feed", ["node", "scripts/audit_ga.js"]))
     failed = []
     for label, cmd in steps:
         if run(label, cmd, env) != 0:
