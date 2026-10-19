@@ -60,12 +60,12 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   const html = VIEWS.mb_grossadd(), C = cards(html);
   const inScope = o => basis === 'site' ? ((!state.branch || (o.la || (mi[o.lm] || {}).br || o.br) === state.branch) && (!state.kec || o.lm === state.kec)) : ((!state.branch || o.br === state.branch) && (!state.kec || o.mc === state.kec));
   const { A } = model(basis, brand, sg, onlyM, inScope), R = k => C[Object.keys(C).find(x => x.startsWith(k))];
-  let c = R('GA MTD (1'); eq(tag, 'GA MTD', num(c.value), A.q); eq(tag, 'GA LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.p); if (A.p) eq(tag, 'growth GA %', num(c.delta.match(/^([\-+\d.]+)%/)[1]), (A.q / A.p - 1) * 100, 0.06); eq(tag, 'GA di luar master', num((c.note.match(/master outlet ([\d,]+) pcs/) || [, 0])[1]), A.qg);
+  let c = R('GA MTD (1'); eq(tag, 'GA MTD', num(c.value), A.q); eq(tag, 'GA LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.p); if (A.p) eq(tag, 'growth GA %', num(c.delta.match(/^([\-+\d.]+)%/)[1]), (A.q / A.p - 1) * 100, 0.06); eq(tag, 'GA di luar master', num((c.note.match(/PJP outlet ([\d,]+) pcs/) || [, 0])[1]), A.qg);
   c = R('GA LAST FULL MONTH'); eq(tag, 'GA Last FM', num(c.value), A.f);
   c = R('GAP MTD VS LAST FM'); eq(tag, 'Gap MTD vs FM', num(c.value.replace('−', '-')), A.q - A.f); eq(tag, 'Gap LMTD vs FM', num(c.delta.match(/Sep penuh ([\-−+\d,]+)/)[1].replace('−', '-')), A.p - A.f);
   c = R('RUN-RATE HARIAN'); eq(tag, 'run-rate MTD', num(c.value), A.q / cut, 0.51); eq(tag, 'run-rate LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.p / cut, 0.51);
   c = R('PROYEKSI AKHIR OKTOBER'); eq(tag, 'proyeksi', num(c.value), A.q / cut * days, 0.6);
-  c = R('SSO MTD (SEMUA'); eq(tag, 'SSO MTD', num(c.value), A.u); eq(tag, 'SSO LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.up); eq(tag, 'SSO master', num((c.note.match(/master ([\d,]+) =/) || [, 0])[1]), A.um); eq(tag, 'outlet master (penyebut)', num((c.note.match(/dari ([\d,]+) outlet/) || [, 0])[1]), A.n);
+  c = R('SSO MTD (SEMUA'); eq(tag, 'SSO MTD', num(c.value), A.u); eq(tag, 'SSO LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.up); eq(tag, 'SSO master', num((c.note.match(/PJP ([\d,]+) =/) || [, 0])[1]), A.um); eq(tag, 'outlet master (penyebut)', num((c.note.match(/dari ([\d,]+) outlet/) || [, 0])[1]), A.n);
   c = R('RATA-RATA SSO PER HARI'); eq(tag, 'rata-rata SSO/hari', num(c.value), A.ad / cut, 0.51); eq(tag, 'rata-rata SSO/hari LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), A.adp / cut, 0.51);
   c = R('GA PER SSO ·'); if (A.u) eq(tag, 'GA per SSO', num(c.value), A.q / A.u, 0.06); eq(tag, 'SSO baru', num((c.delta.match(/([\d,]+) baru/) || [, 0])[1]), A.nw); eq(tag, 'SSO hilang', num((c.delta.match(/([\d,]+) hilang/) || [, 0])[1]), A.lp);
   if (basis === 'outlet') { c = R('GA BER-DSE'); eq(tag, 'GA ber-DSE', num(c.value), A.qd); eq(tag, 'SSO ber-DSE', num((c.delta.match(/SSO ber-DSE ([\d,]+)/) || [, 0])[1]), A.ud); }
@@ -83,7 +83,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   // territory table: every Area / MC row against the model of that Area / MC
   const T = table(html, basis === 'site' ? 'REGION / AREA / MC' : 'REGION / AREA / MC') || table(html, 'KECAMATAN') || table(html, 'DSE');
   if (T && !f.kec) {
-    const ig = T.head.indexOf('GA MTD (PCS)'), iu = T.head.indexOf('SSO MTD (SEMUA OUTLET)'), im = T.head.indexOf('OUTLET MASTER');
+    const ig = T.head.indexOf('GA MTD (PCS)'), iu = T.head.indexOf('SSO MTD (SEMUA OUTLET)'), im = T.head.indexOf('OUTLET PJP');
     T.rows.forEach(r => {
       const lab = (r[0] || '').replace(/^[＋－\s]+/, ''), isArea = Object.values(mi).some(m => m.br === lab), isMc = !!mi[lab], isReg = /^REGION INNER JAKARTA/.test(lab); if (!(isArea || isMc || isReg)) return;
       const sc = o => inScope(o) && (isReg || (isArea ? (basis === 'site' ? (o.la || (mi[o.lm] || {}).br || o.br) : o.br) === lab : (basis === 'site' ? o.lm : o.mc) === lab));
@@ -105,7 +105,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
 state.gaTab = 'ringkasan';
 // per-brand growth table (no territory filter)
 state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gaSg = 'all'; state.gaCover = 'all'; state.branch = ''; state.hoa = ''; state.kec = '';
-{ const T = table(VIEWS.mb_grossadd(), 'BRAND'); if (T) { const ig = T.head.indexOf('GA MTD (PCS)'), ip = T.head.indexOf('GA LMTD (PCS)'), iu = T.head.indexOf('SSO MTD (SEMUA OUTLET)'), iw = T.head.indexOf('OUTLET MASTER');
+{ const T = table(VIEWS.mb_grossadd(), 'BRAND'); if (T) { const ig = T.head.indexOf('GA MTD (PCS)'), ip = T.head.indexOf('GA LMTD (PCS)'), iu = T.head.indexOf('SSO MTD (SEMUA OUTLET)'), iw = T.head.indexOf('OUTLET PJP');
   [['IM3', 'IM3'], ['3ID', '3ID'], ['IOH (IM3 + 3ID)', 'all']].forEach(([lab, br]) => { const r = T.rows.find(x => x[0] === lab); if (!r) return; const A = model('outlet', br, 'all', false, () => true).A; eq('brand-tabel/' + lab, 'GA MTD', num(r[ig]), A.q); eq('brand-tabel/' + lab, 'GA LMTD', num(r[ip]), A.p); eq('brand-tabel/' + lab, 'SSO', num(r[iu]), A.u); eq('brand-tabel/' + lab, 'outlet master', num(r[iw]), A.n); }); } }
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);

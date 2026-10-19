@@ -9179,7 +9179,7 @@
     var t = $('#title'), p = $('#purpose'), c = $('#cut'), s = $('#scope'), v = $('#view');
     if (t) t.textContent = META[state.view][0];
     if (p) p.textContent = META[state.view][1];
-    if (c) { c.textContent = cutLabel() + ' · Governed Local Feed'; c.title = 'PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
+    if (c) { c.setAttribute('role', 'button'); c.setAttribute('tabindex', '0'); c.style.cursor = 'pointer'; c.textContent = cutLabel() + ' · Governed Local Feed ▾'; c.title = 'Klik untuk checklist kelengkapan data. PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
     if (s) s.textContent = scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : '');
     if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); dseCoverEnhance(v); }
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
@@ -9206,6 +9206,7 @@
     }
   }
   function onClick(e) {
+    if (e.target.closest && e.target.closest('#cut')) { dcOpen(); return; }
     var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-basis], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-spi], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxslab], [data-pj-slabtog], [data-pj-slaball], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-ov-close')) { ovClose(); return; }
@@ -9827,9 +9828,85 @@
     }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr[tabindex], tr[data-key], tr[data-unvis-sel]')) { e.preventDefault(); onClick(e); }
   }
+
+  /* ================= DATA COMPLETENESS POPUP (opens from the cut badge in the header) =================
+     Komponen x MTD / LMTD / FM, computed from the loaded feeds so a daily refresh updates it without a code change. */
+  function dcDow(iso) { return new Date(Date.parse(iso + 'T00:00:00Z')).getUTCDay(); }
+  function dcDayLbl(day, mon) { return day + ' ' + mon; }
+  function dcMtdCell(vals, cut, mon, y, m0) {
+    /* vals[i] = value of day i+1 (i < cut). Zero Sundays are normal; other zero days get a warning. */
+    var zero = [], sun = [], i;
+    for (i = 0; i < cut; i++) if (!(vals[i] > 0)) { (dcDow(y + '-' + m0 + '-' + ('0' + (i + 1)).slice(-2)) === 0 ? sun : zero).push(i + 1); }
+    var ok = cut - zero.length - sun.length, n = ok + sun.length;
+    var txt = n + '/' + cut + ' hari';
+    if (sun.length) txt += ' (' + sun.join(', ') + ' ' + mon + ' Minggu nol)';
+    if (zero.length) txt += ' · hari nol: ' + zero.join(', ') + ' ' + mon;
+    return (zero.length ? '⚠️ ' : '✅ ') + txt;
+  }
+  function dcData() {
+    var P = window.PENJUALAN_FEED, D = window.DEMAND_FEED, G = window.GA_FEED, V = window.dseVisitsFeed, E = window.ENDBAL_FEED, T = window.TARGET_FEED, rows = [];
+    var yes = '✅', no = '❌', warn = '⚠️';
+    var pm = (P && P.metadata) || {}, cut = parseInt(pm.cut_day, 10) || 0, mon = pm.cut ? MON_ID[parseInt(pm.cut.slice(5, 7), 10) - 1] : 'Okt', y = pm.cut ? pm.cut.slice(0, 4) : '2026', m0 = pm.cut ? pm.cut.slice(5, 7) : '10';
+    var prevMon = MON_ID[((parseInt(m0, 10) + 10) % 12)];
+    // Visit PJP
+    if (V && V.daily_timeline) {
+      var tl = V.daily_timeline, av = tl.filter(function (d) { return d.available !== false; }), miss = (V.metadata.missing_days || []);
+      var s0 = tl.length ? parseInt(tl[0].date, 10) : 1, e0 = tl.length ? parseInt(tl[tl.length - 1].date, 10) : 0;
+      rows.push(['<b>Visit PJP</b>', (miss.length ? warn + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa data: ' + miss.map(function (d) { return parseInt(d, 10); }).join(', ') : yes + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa hari kosong') + ' · ' + av.length + ' hari ada data', no, no]);
+    }
+    // MOBII (penjualan) per category: per-day totals from mc_daily
+    var cats = [['SP', '<b>MOBII</b>: SP'], ['VCF', 'MOBII: Voucher isi'], ['VCB', 'MOBII: Voucher blank'], ['SALMO', 'MOBII: Saldo Mobo']];
+    if (P && P.mc_daily && cut) cats.forEach(function (c) {
+      var day = [], lm = 0, i; for (i = 0; i < cut; i++) day.push(0);
+      P.mc_daily.forEach(function (r) { if (r.cat !== c[0]) return; (r.m || []).forEach(function (x, k) { if (k < cut) day[k] += (x && x[1]) || 0; }); (r.l || []).forEach(function (x) { lm += (x && x[1]) || 0; }); });
+      var fm = 0; (P.outlets || []).forEach(function (o) { var a = o.c && o.c[c[0]]; if (a && a[5] > 0) fm += a[5]; });
+      rows.push([c[1], dcMtdCell(day, cut, mon, y, m0), lm > 0 ? yes : no, fm > 0 ? yes + ' 30/30' : no]);
+    });
+    // MOBO (demand) per category
+    var dm = (D && D.metadata) || {}, dcut = parseInt(dm.cut_day, 10) || cut, lmT = ((dm.lm || {}).totals) || {};
+    var dcats = [['RLD', '<b>MOBO</b>: Reload'], ['VCI', 'MOBO: Voucher Injection'], ['CVM', 'MOBO: CVM'], ['PKT', 'MOBO: Paket Data'], ['SPI', 'MOBO: SP Injection']];
+    if (D && D.outlets && dcut) {
+      dcats.forEach(function (c) {
+        var day = [], i; for (i = 0; i < dcut; i++) day.push(0);
+        D.outlets.forEach(function (o) { var a = o.c && o.c[c[0]]; if (a && a[4]) a[4].forEach(function (e) { if (e[0] <= dcut) day[e[0] - 1] += e[1] || 0; }); });
+        var t = lmT[c[0]] || {}, note = '';
+        if (c[0] === 'CVM') note = ' · <span class="note">sheet CVM berisi salinan RECARGE yang dibuang</span>';
+        if (c[0] === 'SPI') note = ' · <span class="note">di luar total demand</span>';
+        var cell = dcMtdCell(day, dcut, mon, y, m0) + note; if (c[0] === 'CVM' && cell.indexOf('✅') === 0) cell = cell.replace('✅', warn);
+        rows.push([c[1], cell, t.lmtd > 0 ? yes : no, t.fm > 0 ? yes + ' 30/30' : no]);
+      });
+      var sal = dm.salmo || {}, ls = lmT.SAL || lmT.SALMO || {};
+      rows.push(['MOBO: SALMO (demand saldo)', warn + ' ' + (sal.last_day || dcut) + '/' + dcut + ' hari, di luar total demand' + (sal.unknown && sal.unknown.ids ? '; ' + sal.unknown.ids + ' id tak dikenal' : ''), ls.lmtd > 0 ? yes : no, ls.fm > 0 ? yes : no]);
+    }
+    // Gross Add
+    if (G && G.metadata) {
+      var gm = G.metadata, gcut = parseInt(gm.cut_day, 10) || 0, behind = cut - gcut;
+      rows.push(['<b>GA outlet dan SSO</b>', (behind > 0 ? warn : yes) + ' 1–' + gcut + ' ' + mon + (behind > 0 ? ' (GA ' + behind + ' hari di belakang)' : ''), yes, yes + ' 30/30']);
+      rows.push(['<b>GA site</b> (outlet digulung per site NBS)', yes, yes, yes]);
+      rows.push(['<b>Target GA</b> (M2S KECAMATAN, per kecamatan dan brand)', gm.target ? yes + ' target Oktober' : no, 'n/a', 'n/a']);
+      rows.push(['GA lokasi aktivasi sebenarnya (M2S)', no + ' Oktober', warn + ' tidak dapat dipakai', warn + ' September sampai sekitar 26 Sep']);
+    }
+    // ENDBAL and target
+    if (E && E.metadata) rows.push(['ENDBAL (stok dan saldo outlet)', (E.metadata.snapshot === pm.cut ? yes : warn) + ' snapshot ' + isoLbl(E.metadata.snapshot) + (E.metadata.snapshot === pm.cut ? '' : ' (' + Math.round((Date.parse(pm.cut) - Date.parse(E.metadata.snapshot)) / 86400000) + ' hari di belakang)'), 'n/a', 'n/a']);
+    if (T && T.metadata) rows.push(['Target DSE (Sell-In SP dan OSA)', yes + ' ' + fmtCount(T.metadata.dses) + ' DSE, target Oktober', 'n/a', 'n/a']);
+    var todo = [];
+    if (cut - ((G && G.metadata && parseInt(G.metadata.cut_day, 10)) || 0) > 0) todo.push('GA ' + cut + ' ' + mon);
+    if (E && E.metadata && E.metadata.snapshot !== pm.cut) todo.push('snapshot ENDBAL terbaru');
+    todo.push('export PJP ' + prevMon, 'file MOBO_SALMO ' + prevMon, 'M2S Oktober');
+    return { rows: rows, todo: todo, head: 'Cut data: MOBII ' + cutSellIn() + ' · MOBO ' + cutDemand() + ' · PJP ' + pjpPeriod('end') + ' · GA ' + cutGa() + ' · ENDBAL snapshot ' + cutEndbal() + '. LMTD = 1–' + cut + ' ' + prevMon + ', FM = 1–30 ' + prevMon + '.' };
+  }
+  function dcOpen() {
+    if (typeof document === 'undefined' || document.getElementById('ovPop')) return;
+    var C = dcData();
+    var table = '<table class="tbl" data-nosort="1"><thead><tr><th>Komponen</th><th>MTD ' + MON_ID[9] + '</th><th>LMTD Sep</th><th>FM Sep</th></tr></thead><tbody>' + C.rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>'; }).join('') + '</tbody></table>';
+    var el = document.createElement('div'); el.id = 'ovPop';
+    el.innerHTML = '<div class="ov-box" role="dialog" aria-modal="true" aria-label="Checklist kelengkapan data"><div class="ov-head"><div><div class="ov-title">Checklist kelengkapan data · MTD, LMTD, FM</div><div class="ov-scope">' + esc(C.head) + ' ✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di raw</div></div><div class="ov-actions"><button type="button" class="btn" data-dc-close="1">Tutup ✕</button></div></div><div class="ov-body">' + table + '<p class="note" style="margin-top:8px;"><b>Yang masih perlu:</b> ' + esc(C.todo.join(', ')) + '.</p></div></div>';
+    el.addEventListener('click', function (ev) { if (ev.target === el || (ev.target.closest && ev.target.closest('[data-dc-close]'))) ovClose(); });
+    document.body.appendChild(el);
+  }
   function init() {
     document.addEventListener('click', onClick);
-    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') ovClose(); else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-ov')) { ev.preventDefault(); ovOpen(ev.target.getAttribute('data-ov')); } });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') ovClose(); else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.id === 'cut') { ev.preventDefault(); dcOpen(); } else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-ov')) { ev.preventDefault(); ovOpen(ev.target.getAttribute('data-ov')); } });
     document.addEventListener('change', onChange);
     document.addEventListener('input', onInput);
     document.addEventListener('keydown', onKey);
