@@ -420,6 +420,21 @@ cut_day = max([cut_day] + [d for (bb, _i), x in rows_by.items() for d in x["o"]]
 print("   raw pivot vs outlet sheet: " + "; ".join(f"{b} Sep sheet {sheet_sep_total[b]:,} -> raw {sum(sum(x['s'].values()) for (bb, _i), x in rows_by.items() if bb == b):,}; Okt sheet {sheet_oct_total[b]:,} -> raw {sum(sum(x['o'].values()) for (bb, _i), x in rows_by.items() if bb == b):,}" for b in ("IM3", "3ID")))
 print(f"   baris sheet: " + ", ".join(f"{b} Sep {universe[b]['sep']:,} / Okt {universe[b]['oct']:,}" for b in universe) + f"; hari terakhir Oktober dengan data: {cut_day}")
 
+# Every master outlet is carried, also when neither RGUGA sheet nor raw pivot lists it (it simply has no GA). Without them the master base of "% SSO" and
+# "outlets without GA" is smaller than the territory master (14,639 instead of 14,685 physical outlets).
+phys_seen = {(by_im3 if b == "IM3" else by_3id).get(oid) for (b, oid) in rows_by}
+n_stub = 0
+for o in terr["outlets"]:
+    k = o["outlet_key"]
+    if k in phys_seen:
+        continue
+    a, b = norm_id(o.get("outlet_id_im3")), norm_id(o.get("outlet_id_3id"))
+    for brand, oid in (("IM3", a), ("3ID", b)):
+        if oid not in ("", "0") and (brand, oid) not in rows_by:
+            getrec(brand, oid); n_stub += 1
+    phys_seen.add(k)
+print(f"   {n_stub} id master tanpa baris RGUGA ditambahkan sebagai baris tanpa GA")
+
 # ---------------------------------------------------------------- resolve to master and territory
 print("[4/5] Memetakan ke master...")
 out_rows, stats = [], defaultdict(int)

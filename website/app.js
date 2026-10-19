@@ -3645,7 +3645,7 @@
     return true;
   }
   function pjOutlets(F) { return (F.outlets || []).filter(function (o) { return pjInScope(o, F); }); }
-  function pjEmptyAgg() { return { mv: 0, mq: 0, lv: 0, lq: 0, fv: 0, fq: 0, om: 0, ol: 0, mvx: 0, mqx: 0 }; }
+  function pjEmptyAgg() { return { mv: 0, mq: 0, lv: 0, lq: 0, fv: 0, fq: 0, om: 0, ol: 0, omM: 0, olM: 0, mvx: 0, mqx: 0 }; }   // om / ol = active outlets incl. adhoc; omM / olM = active MASTER outlets only (the numerator of every % of master outlets)
   /* MTD used for growth / gap: SP Injection has no LMTD / Sep baseline yet, so it is left out of like-for-like comparisons */
   function pjMx(a) { return a.mvx != null ? a.mvx : a.mv; }
   function pjAgg(rows) {
@@ -3656,11 +3656,11 @@
       Object.keys(o.c).forEach(function (cat) {
         var f = o.c[cat], a = A[cat]; if (!a) return;
         a.mq += f[0]; a.mv += f[1]; a.lq += f[2]; a.lv += f[3]; a.fq += f[4]; a.fv += f[5];
-        if (f[1] > 0) { a.om++; anyM = true; } if (f[3] > 0) { a.ol++; anyL = true; }
+        if (f[1] > 0) { a.om++; anyM = true; if (o.tier === 'M') a.omM++; } if (f[3] > 0) { a.ol++; anyL = true; if (o.tier === 'M') a.olM++; }
         A.tot.mq += f[0]; A.tot.mv += f[1]; A.tot.lq += f[2]; A.tot.lv += f[3]; A.tot.fq += f[4]; A.tot.fv += f[5];
         if (cat !== 'SPI' || pjSpiBase()) { A.tot.mvx += f[1]; A.tot.mqx += f[0]; }
       });
-      if (anyM) A.tot.om++; if (anyL) A.tot.ol++;
+      if (anyM) { A.tot.om++; if (o.tier === 'M') A.tot.omM++; } if (anyL) { A.tot.ol++; if (o.tier === 'M') A.tot.olM++; }
     });
     return A;
   }
@@ -4087,14 +4087,14 @@
     var tbody = groups.map(function (G, i) {
       var a = pjAggFor(G);
       var cells = pjCats().map(function (c) { var x = G.agg[c[0]]; if (c[0] === 'SPI' && !pjSpiBase()) return '<td class="num">' + (x.mv ? pjRp(x.mv) : '·') + '<br><span class="note" style="font-size:10.5px;">' + (x.mq ? fmtCount(x.mq) + ' pcs' : '') + '</span></td>'; return '<td class="num">' + (x.mv ? pjRp(x.mv) : '·') + '<br><span style="font-size:10.5px;">' + (x.mv || x.lv ? pjGrowth(x.mv, x.lv) : '') + '</span></td>'; }).join('');
-      var cov = level === 'outlet' ? '' : '<td class="num">' + fmtCount(G.base) + '</td><td class="num"><b>' + fmtCount(G.agg.tot.om) + '</b> (' + pctOf(G.agg.tot.om, G.base) + '%)</td>';
+      var cov = level === 'outlet' ? '' : '<td class="num">' + fmtCount(G.base) + '</td><td class="num"><b>' + fmtCount(G.agg.tot.omM) + '</b> (' + pctOf(G.agg.tot.omM, G.base) + '%)</td>';
       return '<tr><td class="num">' + (i + 1) + '</td>' + pjNameCell(G) + (showParent ? '<td>' + esc(G.parent) + '</td>' : '') + pjPerfCells(a) + cov + cells + '<td>' + pjDetailBtn(level, G) + '</td></tr>';
     }).join('');
     if (level !== 'outlet' && groups.length > 1) {
       var pItems = []; groups.forEach(function (G) { pItems = pItems.concat(G.items); });
       var PA = pjAgg(pItems), Pa = cat === 'all' ? PA.tot : PA[cat], PB = groups.reduce(function (s, G) { return s + G.base; }, 0);
       var pCells = pjCats().map(function (c) { var x = PA[c[0]]; if (c[0] === 'SPI' && !pjSpiBase()) return '<td class="num">' + (x.mv ? pjRp(x.mv) : '·') + '<br><span style="font-size:10.5px;">' + (x.mq ? fmtCount(x.mq) + ' pcs' : '') + '</span></td>'; return '<td class="num">' + (x.mv ? pjRp(x.mv) : '·') + '<br><span style="font-size:10.5px;">' + (x.mv || x.lv ? pjGrowth(x.mv, x.lv) : '') + '</span></td>'; }).join('');
-      tbody += '<tr class="tot-row" style="' + TOT_ST + '"><td></td><td><b>TOTAL · ' + fmtCount(groups.length) + ' ' + ({ area: 'area', mc: 'MC', dse: 'DSE' }[level] || '') + '</b></td>' + (showParent ? '<td></td>' : '') + pjPerfCells(Pa) + totNum(fmtCount(PB)) + totNum('<b>' + fmtCount(PA.tot.om) + '</b> (' + pctOf(PA.tot.om, PB) + '%)') + pCells + '<td></td></tr>';
+      tbody += '<tr class="tot-row" style="' + TOT_ST + '"><td></td><td><b>TOTAL · ' + fmtCount(groups.length) + ' ' + ({ area: 'area', mc: 'MC', dse: 'DSE' }[level] || '') + '</b></td>' + (showParent ? '<td></td>' : '') + pjPerfCells(Pa) + totNum(fmtCount(PB)) + totNum('<b>' + fmtCount(PA.tot.omM) + '</b> (' + pctOf(PA.tot.omM, PB) + '%)') + pCells + '<td></td></tr>';
     }
     var head = th('#', 1) + th(pjEntityHead(level)) + pjPerfHead(showParent, pjParentHead(level)) + (level === 'outlet' ? '' : th('Outlet master', 1) + th('UAR MTD', 1)) + pjCats().map(function (c) { return th(c[1], 1); }).join('') + th('Detail');
     return pjLevelBar(F) + card('Penjualan per teritori · ' + PJ_LEVEL_LABEL[level] + (cat !== 'all' ? ' · kolom performa: ' + PJ_CAT_LABEL[cat] : ' · kolom performa: semua kategori'),
@@ -4473,7 +4473,7 @@
     var T = A.tot, LD = pjLd(F, rows), ldTxt = 'Hari kerja terakhir ' + LD.W.short + ': ';
     var kpis = '<div class="kpis" style="margin-top:10px; grid-template-columns: repeat(4, 1fr);">' +
       kpi('Total Sell-In ke outlet · MTD', pjRp(T.mv), 'LMTD ' + pjRp(T.lv) + ' · ' + (pjGrowthPct(pjMx(T), T.lv) == null ? '—' : (pjGrowthPct(pjMx(T), T.lv) >= 0 ? '+' : '') + pjGrowthPct(pjMx(T), T.lv).toFixed(1) + '%'), pjGrowthPct(pjMx(T), T.lv) >= 0 ? 'up' : 'down', 'September penuh ' + pjRp(T.fv) + ' · ' + ldTxt + pjRp(LD.D.tot.v)) +
-      kpi('UAR · outlet aktif beli MTD', fmtCount(T.om), pctOf(T.om, masterN) + '% dari ' + fmtCount(masterN) + ' outlet master di lingkup', 'up', 'LMTD ' + fmtCount(T.ol) + ' · ' + fmtCount(rows.filter(function (o) { return o.tier === 'A'; }).length) + ' outlet adhoc ikut dihitung · ' + ldTxt + fmtCount(LD.D.tot.u) + ' outlet beli') +
+      kpi('UAR · outlet aktif beli MTD', fmtCount(T.om), pctOf(T.omM, masterN) + '% outlet master aktif (' + fmtCount(T.omM) + ' dari ' + fmtCount(masterN) + ') · +' + fmtCount(T.om - T.omM) + ' adhoc', 'up', 'LMTD ' + fmtCount(T.ol) + ' (' + fmtCount(T.olM) + ' master) · ' + ldTxt + fmtCount(LD.D.tot.u) + ' outlet beli') +
       kpi('Run-rate akhir Oktober', pjRp(T.mv / n * (M.mtd_month_days || 31)), 'vs September penuh ' + pjRp(T.fv), T.mv / n * 31 >= T.fv ? 'up' : 'down', 'Nilai MTD ÷ ' + n + ' hari × 31 · ' + ldTxt + pjRp(LD.D.tot.v) + ' vs rata-rata ' + pjRp(T.mv / n) + '/hari') +
       kpi('Penjualan hari kerja terakhir · ' + LD.W.label, pjRp(LD.D.tot.v), 'vs ' + LD.W.prevShort + ' ' + pjRp(LD.P.tot.v) + ldDelta(LD.D.tot.v, LD.P.tot.v), LD.D.tot.v >= LD.P.tot.v ? 'up' : 'down', 'SP ' + fmtCount(LD.D.SP.q) + ' pcs · Voucher ' + fmtCount(LD.D.VC.q) + ' pcs · Saldo ' + pjRp(LD.D.SALMO.v)) +
     '</div>';
@@ -8377,7 +8377,7 @@
     var g = pjGrowthPct(pjMx(T), T.lv), LD = pjLd(F, rows), ldTxt = 'Hari kerja terakhir ' + LD.W.short + ': ';
     return '<div class="kpis" style="margin-top:10px;">' +
       kpi('Total Sell-In ke outlet · MTD', pjRp(T.mv), 'LMTD ' + pjRp(T.lv) + ' · ' + (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'), g >= 0 ? 'up' : 'down', 'September penuh ' + pjRp(T.fv) + ' · ' + ldTxt + pjRp(LD.D.tot.v)) +
-      kpi('UAR · outlet aktif beli MTD', fmtCount(T.om), pctOf(T.om, masterN) + '% dari ' + fmtCount(masterN) + ' outlet master di lingkup', 'up', 'LMTD ' + fmtCount(T.ol) + ' · ' + ldTxt + fmtCount(LD.D.tot.u) + ' outlet beli') +
+      kpi('UAR · outlet aktif beli MTD', fmtCount(T.om), pctOf(T.omM, masterN) + '% outlet master aktif (' + fmtCount(T.omM) + ' dari ' + fmtCount(masterN) + ') · +' + fmtCount(T.om - T.omM) + ' adhoc', 'up', 'LMTD ' + fmtCount(T.ol) + ' (' + fmtCount(T.olM) + ' master) · ' + ldTxt + fmtCount(LD.D.tot.u) + ' outlet beli') +
       kpi('Run-rate akhir Oktober', pjRp(T.mv / n * (M.mtd_month_days || 31)), 'vs September penuh ' + pjRp(T.fv), T.mv / n * (M.mtd_month_days || 31) >= T.fv ? 'up' : 'down', 'Nilai MTD ÷ ' + n + ' hari × ' + (M.mtd_month_days || 31) + ' · ' + ldTxt + pjRp(LD.D.tot.v) + ' vs rata-rata ' + pjRp(T.mv / n) + '/hari') +
       kpi('Penjualan hari kerja terakhir · ' + LD.W.label, pjRp(LD.D.tot.v), 'vs ' + LD.W.prevShort + ' ' + pjRp(LD.P.tot.v) + ldDelta(LD.D.tot.v, LD.P.tot.v), LD.D.tot.v >= LD.P.tot.v ? 'up' : 'down', 'SP ' + fmtCount(LD.D.SP.q) + ' pcs · Voucher ' + fmtCount(LD.D.VC.q) + ' pcs · Saldo ' + pjRp(LD.D.SALMO.v) + ' · ' + fmtCount(rows.length) + ' outlet bertransaksi MTD') +
     '</div>';
@@ -8413,24 +8413,27 @@
   function ovCode(d) { var l = (d.logins || []).map(function (x) { return String(x).split(':').slice(-1)[0]; }), im = (d.logins || []).filter(function (x) { return /^IM3:/.test(x); })[0]; return im ? im.split(':')[1] : (l[0] || ''); }
   /* one record per DSE (canvassers in scope), merged across the visits, KPI, sell-in and GA feeds by DSE name */
   function ovDseTable(V, K, F, LD, GA) {
-    var T = {}, get = function (name) { var k = dseNorm(name); return T[k] || (T[k] = { name: String(name), code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
+    /* DSE identity = person id (KPI feed pid = visits feed person_id). Names alone are not unique (two DSEs are called SUSANTO) and 69 DSEs carry their login code as name in the territory, KPI, sell-in and GA feeds but their person name in the PJP feed. */
+    var kByName = {}; if (K) (K.dses || []).forEach(function (d) { (kByName[dseNorm(d.n)] = kByName[dseNorm(d.n)] || []).push(d); });
+    var pidOf = function (name, mc) { var L = kByName[dseNorm(name)]; if (!L) return null; if (L.length === 1) return L[0].pid; for (var i = 0; i < L.length; i++) if (L[i].mc === mc) return L[i].pid; return L[0].pid; };
+    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
     var li = V ? ovVisitDay(V) : 0;
     if (V) (V.dses || []).forEach(function (d) {
-      if (d.is_promotor || !ovIn(d.branch, d.micro_cluster)) return;
-      var r = get(d.dse_name), x = (d.daily || [])[li] || [0, 0, 0, 0, 0, 0, 0];
-      r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true;
+      if (d.is_promotor || !ovIn(d.branch, d.micro_cluster, d.hoa_leader)) return;
+      var r = get(d.dse_name, d.person_id), x = (d.daily || [])[li] || [0, 0, 0, 0, 0, 0, 0];
+      r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true; r.inM = !!d.in_master;
       r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0;
     });
-    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n); r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; });
+    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; });
     if (F && LD) pjOutlets(F).forEach(function (o) {
-      if (o.tier !== 'M') return; var key = dseNorm(o.dse); if (!T[key]) return; var r = T[key], sp = o.c.SP, sa = o.c.SALMO, dd = LD.W.day, pd = LD.W.prevDay, i;
+      if (o.tier !== 'M') return; var key = pidOf(o.dse, o.mc); if (!key || !T[key]) return; var r = T[key], sp = o.c.SP, sa = o.c.SALMO, dd = LD.W.day, pd = LD.W.prevDay, i;
       var day = function (c, d) { var v = 0, q = 0; ((o.c[c] || [])[10] || []).forEach(function (e) { if (e[0] === d) { v += e[1]; q += e[2]; } }); return [v, q]; };
       if (sp) { r.sp += sp[0]; r.spF += sp[4]; r.spL += sp[2]; if (sp[1] > 0) r.spU++; var s1 = day('SP', dd), s0 = day('SP', pd); r.spD += s1[1]; r.spP += s0[1]; if (s1[0] > 0) r.spUD++; }
       if (sa) { r.sa += sa[1]; r.saF += sa[5]; r.saL += sa[3]; if (sa[1] > 0) r.saU++; var a1 = day('SALMO', dd), a0 = day('SALMO', pd); r.saD += a1[0]; r.saP += a0[0]; if (a1[0] > 0) r.saUD++; }
       r.osaD += day('SP', dd)[0] + day('VCF', dd)[0] + day('VCB', dd)[0] + day('SALMO', dd)[0];
     });
     if (GA) GA.list.forEach(function (o) {
-      if (!ovIn(o.br, o.mc, o.hoa)) return; var key = dseNorm(o.dse); if (!T[key]) return; var r = T[key], s = gaStat(o, 'all'), d1 = gaArr(o, 'all', 'o')[GA.cut];
+      if (!ovIn(o.br, o.mc, o.hoa)) return; var key = pidOf(o.dse, o.mc); if (!key || !T[key]) return; var r = T[key], s = gaStat(o, 'all'), d1 = gaArr(o, 'all', 'o')[GA.cut];
       r.ga += s.cur; r.gaL += s.prev; r.gaF += s.full; r.gaD += d1; if (s.cur > 0) r.sso++; if (s.prev > 0) r.ssoL++; if (d1 > 0) r.ssoD++;
     });
     return Object.keys(T).map(function (k) { return T[k]; });
@@ -8446,27 +8449,28 @@
     // ---------------- PJP and Effective Call
     if (V) {
       var li = ovVisitDay(V), dlabel = ((V.metadata.days || [])[li] || '').slice(0, 6).replace('-', ' ');
-      var ds = T.filter(function (r) { return r.hasV; }), pl = 0, ac = 0, pr = 0, dpl = 0, dac = 0, dpr = 0, nD = 0, n100m = 0, n100d = 0, nDd = 0, nEc = 0, nEcD = 0;
+      var ds = T.filter(function (r) { return r.hasV; }), pl = 0, ac = 0, pr = 0, dpl = 0, dac = 0, dpr = 0, nD = 0, n100m = 0, n100d = 0, nDd = 0, nEc = 0, nEcD = 0, nU = 0, plU = 0, acU = 0;
       ds.forEach(function (r) {
-        pl += r.pl; ac += r.ac; pr += r.pr; dpl += r.dpl; dac += r.dac; dpr += r.dpr;
+        pl += r.pl; ac += r.ac; pr += r.pr; dpl += r.dpl; dac += r.dac; dpr += r.dpr;   // totals: every field operator except promotors (same as Ringkasan PJP)
+        if (!r.inM) { if (r.pl > 0) { nU++; plU += r.pl; acU += r.ac; } return; }   // DSE counts: only operators mapped to the master; unmapped logins are reported separately
         if (r.pl > 0) { nD++; if (r.ac >= r.pl) n100m++; if (r.pr / r.pl > 0.8) nEc++; }
         if (r.dpl > 0) { nDd++; if (r.dac >= r.dpl) n100d++; if (r.dpr / r.dpl > 0.8) nEcD++; }
       });
       var pjpM = ovPct(ac, pl), pjpD = ovPct(dac, dpl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);
-      var cPJP = ['DSE', 'ID', 'MC', 'Rencana', 'Terlaksana', 'Gap', '%'], dsP = ds.filter(function (r) { return r.pl > 0; });
-      ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsP.slice().sort(function (a, b) { return a.ac / a.pl - b.ac / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.ac), ovSN(r.ac - r.pl), ovP(r.ac / r.pl * 100)]; }), ['Total: ' + ovN(ac) + ' terlaksana dari ' + ovN(pl) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl), n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD']);
-      var dD = ds.filter(function (r) { return r.dpl > 0 && r.dac < r.dpl; }).sort(byGap(function (r) { return r.dpl - r.dac; }));
+      var cPJP = ['DSE', 'ID', 'MC', 'Rencana', 'Terlaksana', 'Gap', '%'], dsP = ds.filter(function (r) { return r.pl > 0 && r.inM; });
+      ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsP.slice().sort(function (a, b) { return a.ac / a.pl - b.ac / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.ac), ovSN(r.ac - r.pl), ovP(r.ac / r.pl * 100)]; }), ['Total: ' + ovN(ac) + ' terlaksana dari ' + ovN(pl) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl), n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD'].concat(nU ? ['Tidak termasuk daftar: ' + ovN(nU) + ' login belum terpetakan ke master (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + '); angka rencana dan terlaksana di atas sudah memuatnya'] : []));
+      var dD = ds.filter(function (r) { return r.inM && r.dpl > 0 && r.dac < r.dpl; }).sort(byGap(function (r) { return r.dpl - r.dac; }));
       var cD1 = ['DSE', 'ID', 'MC', 'Rencana D-1', 'Terlaksana', 'Gap', '%'], rD1 = function (r) { return [r.name, r.code, r.mc, ovN(r.dpl), ovN(r.dac), ovSN(r.dac - r.dpl), ovP(r.dac / r.dpl * 100)]; };
       ovAdd('pjp_d1', 'PJP D-1 ' + dlabel + ' · DSE yang belum 100%', cD1, ovRows(dD, rD1), ['Total D-1: ' + ovN(dac) + ' dari ' + ovN(dpl) + ' rencana (' + ovP(pjpD) + '), gap ' + ovSN(dac - dpl), dD.length + ' DSE belum 100% dari ' + nDd + ' DSE terjadwal']);
       ovAdd('dse100', 'DSE yang belum 100% PJP · D-1 ' + dlabel, cD1, ovRows(dD, rD1), [dD.length + ' dari ' + nDd + ' DSE belum 100% pada D-1', 'MTD: ' + n100m + ' dari ' + nD + ' DSE terlaksana ≥ rencana']);
       var cEC = ['DSE', 'ID', 'MC', 'Rencana', 'Produktif', 'EC %', 'Gap ke 50%'];
       ovAdd('ec_mtd', 'Effective Call MTD · DSE terendah dulu', cEC, ovRows(dsP.slice().sort(function (a, b) { return a.pr / a.pl - b.pr / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.5) + ' visit']; }), ['Total: ' + ovN(pr) + ' produktif dari ' + ovN(pl) + ' (' + ovP(ecM) + '), target 50% butuh ' + ovN(pl * 0.5) + ' (gap ' + ovSN(pr - pl * 0.5) + ')']);
-      var dsD = ds.filter(function (r) { return r.dpl > 0; });
+      var dsD = ds.filter(function (r) { return r.inM && r.dpl > 0; });
       ovAdd('ec_d1', 'Effective Call D-1 ' + dlabel + ' · DSE terendah dulu', cEC, ovRows(dsD.slice().sort(function (a, b) { return a.dpr / a.dpl - b.dpr / b.dpl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.dpl), ovN(r.dpr), ovP(r.dpr / r.dpl * 100), ovSN(r.dpr - r.dpl * 0.5) + ' visit']; }), ['Total D-1: ' + ovN(dpr) + ' dari ' + ovN(dpl) + ' (' + ovP(ecD) + '), gap ke target 50% ' + ovSN(dpr - dpl * 0.5)]);
       var topEc = dsP.slice().sort(function (a, b) { return b.pr / b.pl - a.pr / a.pl; });
       ovAdd('ec80', 'DSE dengan Effective Call > 80% (MTD)', cEC, ovRows(topEc, function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.8) + ' vs 80%']; }, 60), [nEc + ' dari ' + nD + ' DSE di atas 80% (MTD) · D-1: ' + nEcD + ' dari ' + nDd, 'Daftar urut dari EC tertinggi']);
       out.push(ovKpiGroup('PJP dan Effective Call · ' + scope, [
-        ovK('pjp_mtd', '% PJP MTD', ovP(pjpM), ovN(ac) + ' / ' + ovN(pl) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE · tanpa promotor'),
+        ovK('pjp_mtd', '% PJP MTD', ovP(pjpM), ovN(ac) + ' / ' + ovN(pl) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE terpetakan · ' + (nU ? ovN(nU) + ' login belum terpetakan (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + ') · ' : '') + 'tanpa promotor'),
         ovK('pjp_d1', 'D-1 PJP % · ' + dlabel, ovP(pjpD), ovN(dac) + ' / ' + ovN(dpl) + ' · gap ' + ovSN(dac - dpl), ovCls(pjpD, 80), 'Hari kerja terakhir di feed PJP'),
         ovK('dse100', '% DSE dengan PJP 100%', ovP(ovPct(n100d, nDd)), n100d + ' / ' + nDd + ' DSE · ' + (nDd - n100d) + ' belum 100%', ovCls(ovPct(n100d, nDd), 50), 'D-1 · MTD: ' + n100m + ' / ' + nD + ' DSE'),
         ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(pl) + ' · vs 50%: ' + ovSN(pr - pl * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · produktif = SP/VC > 0 atau saldo > Rp 50 Rb'),
@@ -8507,11 +8511,11 @@
         ovK('sp_mtd', 'Sell-In SP MTD', ovN(sp.mq) + ' pcs', ovSg(gSp) + ' · Δ ' + ovSN(sp.mq - sp.lq) + ' vs LMTD ' + ovN(sp.lq), ovCls(gSp, 2), 'September penuh ' + ovN(sp.fq) + ' pcs'),
         ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(sp.mq, spTgt)) : '—', spTgt ? ovP(ovPct(sp.mq, spPro)) + ' prorata · gap ' + ovSN(sp.mq - spPro) + ' pcs' : 'tanpa target', ovCls(ovPct(sp.mq, spPro), 100), spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - sp.mq) / Math.max(1, md - n)) + '/hari (kini ' + ovN(sp.mq / n) + ')' : ''),
         ovK('sp_d1', 'D-1 Sell-In SP · ' + LD.W.short, ovN(spD.q) + ' pcs', ovSg(ovGrowth(spD.q, LD.P.SP.q)) + ' · Δ ' + ovSN(spD.q - LD.P.SP.q) + ' vs ' + LD.W.prevShort, spD.q >= LD.P.SP.q ? 'up' : 'down', 'Rata-rata harian MTD ' + ovN(sp.mq / n) + ' pcs'),
-        ovK('sp_uar', 'UAR Sell-In SP', ovN(sp.om), ovP(ovPct(sp.om, mN)) + ' dari ' + ovN(mN) + ' · Δ ' + ovSN(sp.om - sp.ol) + ' vs LMTD', ovCls(ovPct(sp.om, mN), 30), 'D-1: ' + ovN(spD.u) + ' outlet · LMTD ' + ovN(sp.ol))]));
+        ovK('sp_uar', 'UAR Sell-In SP', ovN(sp.omM), ovP(ovPct(sp.omM, mN)) + ' dari ' + ovN(mN) + ' outlet master · Δ ' + ovSN(sp.omM - sp.olM) + ' vs LMTD', sp.omM >= sp.olM ? 'up' : 'down', 'LMTD ' + ovN(sp.olM) + ' outlet master · +' + ovN(sp.om - sp.omM) + ' adhoc di luar master · D-1: ' + ovN(spD.u) + ' outlet (termasuk adhoc)')]));
       out.push(ovKpiGroup('Saldo Mobo (SALMO) Sell-In · ' + scope, [
         ovK('sal_mtd', 'SALMO MTD', pjRp(sa.mv), ovSg(gSa) + ' · Δ ' + ovSR(sa.mv - sa.lv) + ' vs LMTD ' + pjRp(sa.lv), ovCls(gSa, 2), 'Sep penuh ' + pjRp(sa.fv) + ' · butuh ' + pjRp(Math.max(0, sa.fv - sa.mv) / Math.max(1, md - n)) + '/hari (kini ' + pjRp(sa.mv / n) + ')'),
         ovK('sal_d1', 'D-1 SALMO · ' + LD.W.short, pjRp(saD.v), ovSg(ovGrowth(saD.v, LD.P.SALMO.v)) + ' · Δ ' + ovSR(saD.v - LD.P.SALMO.v) + ' vs ' + LD.W.prevShort, saD.v >= LD.P.SALMO.v ? 'up' : 'down', 'Rata-rata harian MTD ' + pjRp(sa.mv / n)),
-        ovK('sal_uar', 'UAR SALMO MTD', ovN(sa.om), ovP(ovPct(sa.om, mN)) + ' dari ' + ovN(mN) + ' · Δ ' + ovSN(sa.om - sa.ol) + ' vs LMTD', ovCls(ovPct(sa.om, mN), 50), 'LMTD ' + ovN(sa.ol) + ' outlet'),
+        ovK('sal_uar', 'UAR SALMO MTD', ovN(sa.omM), ovP(ovPct(sa.omM, mN)) + ' dari ' + ovN(mN) + ' outlet master · Δ ' + ovSN(sa.omM - sa.olM) + ' vs LMTD', sa.omM >= sa.olM ? 'up' : 'down', 'LMTD ' + ovN(sa.olM) + ' outlet master · +' + ovN(sa.om - sa.omM) + ' adhoc di luar master'),
         ovK('sal_uar_d1', 'UAR SALMO D-1 · ' + LD.W.short, ovN(saD.u), 'Δ ' + ovSN(saD.u - LD.P.SALMO.u) + ' vs ' + LD.W.prevShort + ' (' + ovN(LD.P.SALMO.u) + ')', saD.u >= LD.P.SALMO.u ? 'up' : 'down', 'Outlet penerima saldo hari itu')]));
     }
     // ---------------- Gross Add (raw/GA only)
@@ -8528,24 +8532,25 @@
       ovAdd('sso_d1', 'SSO D-1 ' + cutG + ' Okt vs total outlet', ['DSE', 'MC', 'SSO D-1', 'Outlet binaan', '%'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.ssoD / a.asg - b.ssoD / b.asg; }), function (r) { return [r.name, r.mc, ovN(r.ssoD), ovN(r.asg), ovP(r.ssoD / r.asg * 100)]; }), ['SSO D-1 (outlet master) ' + ovN(gUm) + ' dari ' + ovN(gMN) + ' outlet (' + ovP(ovPct(gUm, gMN)) + ') · semua outlet GA ' + ovN(gU)]);
       out.push(ovKpiGroup('Gross Add dan SSO (raw/GA) · ' + scope, [
         ovK('ga_mtd', 'GA MTD vs LMTD', ovN(g.q) + ' pcs', ovSg(gG) + ' · Δ ' + ovSN(g.q - g.p) + ' vs LMTD ' + ovN(g.p), ovCls(gG, 2), 'MTD 1–' + cutG + ' Okt vs 1–' + cutG + ' Sep'),
-        TG ? ovK('ga_fm', 'GA MTD vs target Oktober', ovN(TG.s.q) + ' pcs', ovP(TG.achP, 0) + ' pro-rata · ' + ovP(TG.ach) + ' dari target ' + ovN(TG.s.t), ovCls(TG.achP, 100), 'Sisa ' + TG.rem + ' hari: butuh ' + ovN(TG.req) + '/hari vs kini ' + ovN(TG.rr) + '/hari · proyeksi ' + ovP(TG.projP, 0) + ' dari target') : ovK('ga_fm', 'GA MTD vs target FM', '—', 'target GA belum ada · vs Sep penuh ' + ovN(g.f) + ': gap ' + ovSN(g.q - g.f), 'down', 'Sisa ' + ((GA.src.metadata.cur_days || 31) - cutG) + ' hari: butuh ' + ovN(Math.max(0, g.f - g.q) / Math.max(1, (GA.src.metadata.cur_days || 31) - cutG)) + '/hari'),
+        TG ? ovK('ga_fm', 'GA MTD vs target Oktober', ovN(TG.s.q) + ' pcs', ovP(TG.achP, 0) + ' pro-rata · ' + ovP(TG.ach) + ' dari target ' + ovN(TG.s.t), ovCls(TG.achP, 100), 'Sisa ' + TG.rem + ' hari: butuh ' + ovN(TG.req) + '/hari vs kini ' + ovN(TG.rr) + '/hari · proyeksi ' + ovP(TG.projP, 0) + ' dari target · GA total scope ' + ovN(g.q) + ' (selisih ' + ovN(g.q - TG.s.q) + ' = outlet tanpa kecamatan di file)') : ovK('ga_fm', 'GA MTD vs target FM', '—', 'target GA belum ada · vs Sep penuh ' + ovN(g.f) + ': gap ' + ovSN(g.q - g.f), 'down', 'Sisa ' + ((GA.src.metadata.cur_days || 31) - cutG) + ' hari: butuh ' + ovN(Math.max(0, g.f - g.q) / Math.max(1, (GA.src.metadata.cur_days || 31) - cutG)) + '/hari'),
         ovK('ga_d1', 'D-1 GA · ' + cutG + ' Okt', ovN(gq) + ' pcs', ovP(ovPct(gq, fmDaily)) + ' dari rata-rata Sep ' + ovN(fmDaily) + ' · Δ ' + ovSN(gq - fmDaily), ovCls(ovPct(gq, fmDaily), 100), 'Tanpa target harian · GA satu hari di belakang'),
         ovK('sso_mtd', 'SSO MTD vs LMTD', ovN(g.u), ovSg(gsG) + ' · Δ ' + ovSN(g.u - g.up) + ' vs LMTD ' + ovN(g.up), ovCls(gsG, 2), 'September penuh ' + ovN(g.uf)),
         ovK('sso_d1', 'D-1 SSO vs total outlet', ovN(gUm) + ' outlet', ovP(ovPct(gUm, gMN)) + ' dari ' + ovN(gMN) + ' outlet master', ovCls(ovPct(gUm, gMN), 10), cutG + ' Okt · semua outlet GA ' + ovN(gU))]));
     }
     // ---------------- outlet health
     if (B) {
-      var br_ = B.rows.filter(opdIn), nN = br_.length, nvL = br_.filter(function (r) { return B.nv[r.k]; }), z0L = br_.filter(function (r) { return r.mtdSP <= 0; }), zgL = B.hasGa ? br_.filter(function (r) { return r.ga <= 0; }) : [];
+      var br_ = B.rows.filter(opdIn), nN = br_.length, brD = br_.filter(function (r) { return !dseIsNone(r.dse); }), nD2 = brD.length, nvL = brD.filter(function (r) { return B.nv[r.k]; }),   // PJP coverage is measured on outlets that have a DSE; outlets without a DSE have no PJP (their ad-hoc visits are excluded)
+         z0L = br_.filter(function (r) { return r.mtdSP <= 0; }), zgL = B.hasGa ? br_.filter(function (r) { return r.ga <= 0; }) : [];
       var zbL = B.hasEb ? br_.filter(function (r) { return r.hasEb && opdBal(r) <= 0; }) : [], noAcc = B.hasEb ? br_.filter(function (r) { return !r.hasEb; }).length : 0;
       var oc = ['Outlet', 'ID', 'MC', 'DSE'], of = function (r) { return [r.n, r.id, r.mc, r.dse]; };
-      ovAdd('h_vis', 'Outlet divisit vs total · cakupan per MC (terendah dulu)', ['MC', 'Outlet master', 'Divisit', 'Belum', '%'], (function () { var g = {}; br_.forEach(function (r) { var x = g[r.mc] || (g[r.mc] = { n: 0, nv: 0 }); x.n++; if (B.nv[r.k]) x.nv++; }); return Object.keys(g).sort(function (a, b) { return (1 - g[a].nv / g[a].n) - (1 - g[b].nv / g[b].n); }).map(function (k) { var x = g[k]; return [k, ovN(x.n), ovN(x.n - x.nv), ovN(x.nv), ovP((x.n - x.nv) / x.n * 100)]; }); })(), ['Divisit ' + ovN(nN - nvL.length) + ' dari ' + ovN(nN) + ' outlet master (' + ovP(ovPct(nN - nvL.length, nN)) + ')']);
-      ovAdd('h_nv', 'Outlet belum divisit MTD · order September terbesar dulu', oc.concat(['Order Sep', 'Demand MTD']), ovRows(nvL.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepT), pjRp(r.dem)]); }, 300), [ovN(nvL.length) + ' outlet master tanpa check-in sejak 1 Okt (' + ovP(ovPct(nvL.length, nN)) + ')']);
+      ovAdd('h_vis', 'Outlet divisit vs total · cakupan per MC (terendah dulu)', ['MC', 'Outlet master', 'Divisit', 'Belum', '%'], (function () { var g = {}; brD.forEach(function (r) { var x = g[r.mc] || (g[r.mc] = { n: 0, nv: 0 }); x.n++; if (B.nv[r.k]) x.nv++; }); return Object.keys(g).sort(function (a, b) { return (1 - g[a].nv / g[a].n) - (1 - g[b].nv / g[b].n); }).map(function (k) { var x = g[k]; return [k, ovN(x.n), ovN(x.n - x.nv), ovN(x.nv), ovP((x.n - x.nv) / x.n * 100)]; }); })(), ['Divisit ' + ovN(nN - nvL.length) + ' dari ' + ovN(nN) + ' outlet master (' + ovP(ovPct(nN - nvL.length, nN)) + ')']);
+      ovAdd('h_nv', 'Outlet belum divisit MTD · order September terbesar dulu', oc.concat(['Order Sep', 'Demand MTD']), ovRows(nvL.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepT), pjRp(r.dem)]); }, 300), [ovN(nvL.length) + ' outlet ber-DSE tanpa check-in sejak 1 Okt (' + ovP(ovPct(nvL.length, nD2)) + ' dari ' + ovN(nD2) + ' outlet ber-DSE; ' + ovN(nN - nD2) + ' outlet master tanpa DSE tidak punya PJP dan tidak dihitung)']);
       ovAdd('h_sp0', 'Outlet tanpa Sell-In SP MTD · SP September terbesar dulu', oc.concat(['SP Sep (pcs)', 'Order Sep']), ovRows(z0L.slice().sort(function (a, b) { return b.sepSPq - a.sepSPq || b.sepT - a.sepT; }), function (r) { return of(r).concat([ovN(r.sepSPq), pjRp(r.sepT)]); }, 300), [ovN(z0L.length) + ' outlet master dengan SP Sell-In MTD = 0 (' + ovP(ovPct(z0L.length, nN)) + ')']);
       ovAdd('h_ga0', 'Outlet tanpa GA MTD · GA September terbesar dulu', oc.concat(['GA Sep', 'GA LMTD']), ovRows(zgL.slice().sort(function (a, b) { return b.gaF - a.gaF; }), function (r) { return of(r).concat([ovN(r.gaF), ovN(r.gaP)]); }, 300), [ovN(zgL.length) + ' outlet master dengan GA MTD = 0 (raw/GA)']);
       ovAdd('h_bal0', 'Outlet saldo nol (ENDBAL) · order September terbesar dulu', oc.concat(['Order Sep', 'Order MTD']), ovRows(zbL.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepT), pjRp(r.mtdT)]); }, 300), [ovN(zbL.length) + ' outlet dengan stock account ≤ Rp 0 · ' + ovN(noAcc) + ' outlet tanpa rekening stok']);
       healthHtml = ovKpiGroup('Kesehatan outlet · ' + scope, [
-        ovK('h_vis', 'Outlet divisit vs total outlet', ovN(nN - nvL.length) + ' / ' + ovN(nN), ovP(ovPct(nN - nvL.length, nN)) + ' · belum ' + ovN(nvL.length), ovCls(ovPct(nN - nvL.length, nN), 90), 'Outlet master (14,694 termasuk 860 tanpa DSE)'),
-        ovK('h_nv', 'Outlet belum divisit MTD', ovN(nvL.length), ovP(ovPct(nvL.length, nN)) + ' dari ' + ovN(nN) + ' outlet master', nvL.length ? 'down' : 'up', 'Tanpa check-in sejak 1 Okt'),
+        ovK('h_vis', 'Outlet divisit vs total outlet ber-DSE', ovN(nD2 - nvL.length) + ' / ' + ovN(nD2), ovP(ovPct(nD2 - nvL.length, nD2)) + ' · belum ' + ovN(nvL.length), ovCls(ovPct(nD2 - nvL.length, nD2), 90), 'Outlet master ' + ovN(nN) + ' = ' + ovN(nD2) + ' ber-DSE + ' + ovN(nN - nD2) + ' tanpa DSE (tanpa PJP, tidak dihitung)'),
+        ovK('h_nv', 'Outlet belum divisit MTD', ovN(nvL.length), ovP(ovPct(nvL.length, nD2)) + ' dari ' + ovN(nD2) + ' outlet ber-DSE', nvL.length ? 'down' : 'up', 'Tanpa check-in sejak 1 Okt (PJP)'),
         ovK('h_sp0', 'Outlet tanpa Sell-In SP MTD', ovN(z0L.length), ovP(ovPct(z0L.length, nN)) + ' dari ' + ovN(nN) + ' outlet master', z0L.length ? 'down' : 'up', 'SP Sell-In MTD = 0 pcs'),
         ovK('h_ga0', 'Outlet tanpa GA MTD', B.hasGa ? ovN(zgL.length) : '—', B.hasGa ? ovP(ovPct(zgL.length, nN)) + ' dari ' + ovN(nN) + ' outlet master' : 'feed GA belum dimuat', zgL.length ? 'down' : 'up', 'GA MTD = 0 (raw/GA)'),
         ovK('h_bal0', 'Outlet saldo nol (ENDBAL)', B.hasEb ? ovN(zbL.length) : '—', B.hasEb ? ovP(ovPct(zbL.length, nN)) + ' dari ' + ovN(nN) + ' · ' + ovN(noAcc) + ' tanpa rekening' : 'feed ENDBAL belum dimuat', zbL.length ? 'down' : 'up', 'Snapshot ' + (B.E && B.E.metadata ? B.E.metadata.snapshot : '—'))]);

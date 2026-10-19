@@ -196,6 +196,7 @@ def main():
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
+        steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))
     failed = []
     for label, cmd in steps:
         if run(label, cmd, env) != 0:

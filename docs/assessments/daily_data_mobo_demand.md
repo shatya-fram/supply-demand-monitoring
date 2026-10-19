@@ -98,3 +98,7 @@ The workbook saved 17 Oct 04:35 had 75,692 rows in both `CVM` and `RECARGE`. The
 Definitions: LMTD = September day 1 to the October cut day; Last FM = September 1–30; Gap vs FM = MTD − Last FM; Req RR / hari = max(0, FM − MTD) ÷ (31 − cut day).
 Observation: September Reload rises from about Rp 0.1–0.2 B/day (early Sep) to 1.2–1.5 B/day (late Sep), so Reload growth vs LMTD (+383%) is inflated by a low early-September base. SALMO has no September file, so SAL shows no LMTD / Last FM.
 
+
+## 10. CVM sheet with a stale RECARGE copy (19 Oct 2026)
+`DAILY_DATA_MOBO_202610.xlsb` (18 Oct 22:49): CVM 75,692 rows, RECARGE 79,968 rows. Against RECARGE on outlet + product: 46,374 CVM rows identical (Rp 16.2 B), 13,718 equal up to 16 Oct and different on 17–18 Oct (Rp 20.0 B), 15,600 not in RECARGE (Rp 2.08 B, the genuine CVM: about Rp 0.1 B/day, in line with September at Rp 0.2 B/day). The RECARGE sheet had moved on while the CVM copy had not. Rule in `drop_copied_rows`: a CVM row whose outlet + product exists in RECARGE is a copy when it matches through day 16 (or fully). Check each new file: the builder prints the removed count and amount; a CVM total above about Rp 0.3 B/day means the filter missed something. Ask the MOBO owner to stop copying RECARGE into CVM.
+Daily total demand (RLD+VCI+CVM+PKT), Rp B: 15 Oct 2.71, 16 Oct 2.74, 17 Oct 2.72, 18 Oct 2.61 (Sunday).
