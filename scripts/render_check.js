@@ -195,6 +195,47 @@ for (const m of ['si', 'sal', 'ga']) for (const tb of ['outlet', 'dse', 'flag'])
   state.branch = fb.branch; check('sga/' + m + '/' + tb + '/branch', VIEWS[v]); state.kec = fm.micro_cluster; state.branch = fm.branch; check('sga/' + m + '/' + tb + '/mc', VIEWS[v]); state.branch = ''; state.kec = '';
 }
 for (const sg of ['lost', 'drop', 'big']) { state.view = 'mb_penjualan'; state.sgaMetric = 'si'; state.sgaTab = 'flag'; state.sgaSeg = sg; state.sgaFlag = 'outlet'; check('sga/flag/seg=' + sg, VIEWS.mb_penjualan); }
+// Slab SGA popups (every slab number): rows in the popup = the number printed in the cell, FM / LMTD / MTD in Rp and qty with n/a where there is no data
+for (const m of ['si', 'sal', 'ga']) for (const tb of ['outlet', 'dse']) {
+  const v = m === 'ga' ? 'mb_grossadd' : 'mb_penjualan'; state.view = v; state.branch = ''; state.kec = ''; state.hoa = ''; state.pjTab = 'sga'; state.gaTab = 'sga'; if (m !== 'ga') state.sgaMetric = m; state.sgaTab = tb; state.sgaPage = 1;
+  let html = ''; check('sga/popup/' + m + '/' + tb, () => (html = VIEWS[v]()));
+  const seen = new Set(); let n = 0;
+  for (const x of html.matchAll(/data-ov="(sg\|[^"]+)"[^>]*>(?:<b[^>]*>)?([\d.,]+)(?:<\/b>)?<\/(?:span|td)>/g)) {
+    const k = x[1].replace(/&amp;/g, '&'); if (seen.has(k) || seen.size > 60) continue; seen.add(k);
+    const e = app.ovEntry(k); if (!e) { failures++; console.log('✗ sg popup missing ' + k); continue; }
+    const shown = parseInt(x[2].replace(/[.,]/g, ''), 10), t = app.ovText(e);
+    if (/undefined|NaN/.test(t)) { failures++; console.log('✗ sg popup undefined/NaN ' + k); }
+    else if (/\|(\d)\|(\d+|N|A|L)$/.test(k) && /<span/.test(x[0]) && e.rows.length !== shown) { failures++; console.log('✗ sg popup rows ' + e.rows.length + ' != cell ' + shown + ' ' + k); } else n++;
+  }
+  if (!n) { failures++; console.log('✗ no sg popups for ' + m + '/' + tb); }
+}
+state.sgaTab = 'outlet';
+// Matrix Outlet x Produk > Slab Matrix voucher: popups per slab cell
+for (const br of ['IM3', '3ID']) for (const bs of ['fm', 'lm', 'mtd', 'pr']) {
+  state.view = 'mb_penjualan'; state.pjTab = 'produk'; state.pjProdView = 'matrix'; state.pjMxBrand = br; state.pjMxSlab = bs; state.branch = ''; state.kec = ''; state.hoa = '';
+  let html = ''; check('vmslab/popup/' + br + '/' + bs, () => (html = VIEWS.mb_penjualan())); let n = 0;
+  for (const x of html.matchAll(/data-ov="(vm\|[^"]+)"[^>]*>\s*(?:<b>)?([\d.,]+)(?:<\/b>)?(?:<br>|<\/td>)/g)) { if (n > 30) break; const e = app.ovEntry(x[1]); if (!e) { failures++; console.log('✗ vm popup missing ' + x[1]); continue; } const t = app.ovText(e);
+    if (/undefined|NaN/.test(t)) { failures++; console.log('✗ vm popup undefined/NaN ' + x[1]); } else if (e.rows.length !== parseInt(x[2].replace(/[.,]/g, ''), 10)) { failures++; console.log('✗ vm popup rows ' + e.rows.length + ' != cell ' + x[2] + ' ' + x[1]); } else n++; }
+  if (!n) { failures++; console.log('✗ no vm popups ' + br + '/' + bs); }
+}
+state.pjMxSlab = 'fm';
+// Opportunity > UAR slab (uarSlabView): popups per slab cell
+for (const tab of ['sp', 'vc', 'sal', 'spi']) {
+  state.view = 'mb_uar'; state.uarTab = tab; state.uarSub = 'slab'; state.branch = ''; state.kec = ''; state.hoa = '';
+  let html = ''; check('uarslab/popup/' + tab, () => (html = VIEWS.mb_uar())); let n = 0;
+  for (const x of html.matchAll(/data-ov="(ur\|[^"]+)"[^>]*>([\d.,]+)<\/span>/g)) { if (n > 40) break; const e = app.ovEntry(x[1]); if (!e) { failures++; console.log('✗ ur popup missing ' + x[1]); continue; } const t = app.ovText(e);
+    if (/undefined|NaN/.test(t)) { failures++; console.log('✗ ur popup undefined/NaN ' + x[1]); } else if (e.rows.length !== parseInt(x[2].replace(/[.,]/g, ''), 10)) { failures++; console.log('✗ ur popup rows ' + e.rows.length + ' != cell ' + x[2] + ' ' + x[1]); } else n++; }
+  if (!n) console.log('! no ur popups for ' + tab + ' (view may be on another sub-tab)');
+}
+// Gross Add > Slab GA (gaSlab): popups per slab cell, tagging and site basis
+for (const bs of ['outlet', 'site']) {
+  state.view = 'mb_grossadd'; state.gaTab = 'slab'; state.gaBasis = bs; state.branch = ''; state.kec = ''; state.hoa = '';
+  let html = ''; check('gaslab/popup/' + bs, () => (html = VIEWS.mb_grossadd())); let n = 0;
+  for (const x of html.matchAll(/data-ov="(gs\|[^"]+)"[^>]*>(?:<[^>]+>)*([\d.,]+)<\/span>/g)) { if (n > 40) break; const e = app.ovEntry(x[1]); if (!e) { failures++; console.log('✗ gs popup missing ' + x[1]); continue; } const t = app.ovText(e);
+    if (/undefined|NaN/.test(t)) { failures++; console.log('✗ gs popup undefined/NaN ' + x[1]); } else if (e.rows.length !== parseInt(x[2].replace(/[.,]/g, ''), 10)) { failures++; console.log('✗ gs popup rows ' + e.rows.length + ' != cell ' + x[2] + ' ' + x[1]); } else n++; }
+  if (!n) { failures++; console.log('✗ no gs popups for ' + bs); }
+}
+state.gaBasis = 'outlet'; state.gaTab = 'ringkasan';
 state.sgaSeg = 'all'; state.sgaMetric = 'si'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaTab = 'outlet'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaMetric = 'si';
 
 // Daily GA Trend and Outlet & KRO Management (18 Oct 2026)
@@ -213,7 +254,7 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   for (const [pr, me] of KRO_COMBOS) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { kroSet(pr, me, tb); check('kro/' + pr + '-' + me + '/' + tb + '/mc', VIEWS.mb_kro); }
   state.branch = ''; state.kec = '';
   for (const [pr, me] of KRO_COMBOS) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { kroSet(pr, me, tb); check('kro/' + pr + '-' + me + '/' + tb, VIEWS.mb_kro); }
-  for (const [pr, me] of KRO_COMBOS) for (const gr of ['area', 'mc', 'type', 'perf']) { kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; check('kro/' + pr + '-' + me + '/group=' + gr, VIEWS.mb_kro); }
+  for (const [pr, me] of KRO_COMBOS) for (const gr of ['am', 'type', 'perf']) { kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; check('kro/' + pr + '-' + me + '/group=' + gr, VIEWS.mb_kro); }
   for (const [pr, me] of KRO_COMBOS) for (const cl of ['all', 'W', 'K', 'R']) for (const per of ['fm', 'pr']) { kroSet(pr, me, 'katalog'); state.kroClass = cl; state.kroPer = per; check('kro/katalog/' + pr + '-' + me + '/' + cl + '/' + per, VIEWS.mb_kro); }
   for (const key of Object.keys(global.KRO_FEED.rows.reduce((a, r) => { Object.values(r.fl).forEach(l => l.forEach(f => { a[f] = 1; })); return a; }, {}))) { kroSet('sp', 'si', 'katalog'); state.kroFlag = key; check('kro/katalog/flag=' + key, VIEWS.mb_kro); }
   kroSet('sp', 'si', 'katalog'); state.kroSearch = 'cell'; state.kroPage = 3; check('kro/katalog/search-page3', VIEWS.mb_kro);
@@ -227,12 +268,26 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
     kroSet('sp', 'si', 'katalog'); state.kroMode = 'prog'; state.kroProgUp = {}; check('kro/program/empty', VIEWS.mb_kro);
     state.kroMode = 'wl'; state.kroWl = []; check('kro/whitelist/empty', VIEWS.mb_kro); state.kroWlText = ''; }
   // clickable counts (popup entries 'kr|...') must resolve and carry no undefined / NaN
-  for (const [pr, me] of KRO_COMBOS) for (const gr of ['area', 'mc', 'type', 'perf']) {
+  for (const [pr, me] of KRO_COMBOS) for (const gr of ['am', 'type', 'perf']) {
     kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; let html = ''; check('kro/drill/' + pr + '-' + me + '/' + gr, () => (html = VIEWS.mb_kro()));
     const keys = [...new Set([...html.matchAll(/data-ov="(kr\|[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))]; let n = 0;
     for (const k of keys) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ kro popup ' + k); continue; } const t = app.ovText(e); if (/undefined|NaN/.test(t)) { failures++; console.log('✗ kro popup undefined/NaN ' + k); } else n++; }
     if (!keys.length) { failures++; console.log('✗ no kro popup keys for ' + pr + '-' + me + '/' + gr); }
   }
+  // popup rows must equal the number printed in the slab table cell (first cell per popup key), with every MC expanded
+  for (const [pr, me] of KRO_COMBOS) {
+    kroSet(pr, me, 'ringkasan'); state.kroGroup = ''; state.kroOpenA = {}; state.kroOpenM = {}; Object.keys(global.KRO_FEED.mc_sum).forEach(m => { state.kroOpenM[m] = true; });
+    let html = ''; check('kro/expanded/' + pr + '-' + me, () => (html = VIEWS.mb_kro()));
+    const seen = new Set(); let n = 0, ctr = 0;
+    for (const m of html.matchAll(/data-ov="(kr\|[^"]+)"[^>]*>\s*((?:<b[^>]*>)?([\d.,]+)(?:<\/b>)?)(?:\s*→[^<]*)?<\/td>/g)) {
+      const k = m[1].replace(/&amp;/g, '&'); if (seen.has(k)) continue; seen.add(k); n++;
+      const e = app.ovEntry(k), shown = parseInt(m[3].replace(/[.,]/g, ''), 10);
+      if (!e) { failures++; console.log('✗ no popup ' + k); continue; }
+      if (/^kr\|T\|T\|(cf|cp)_[A-Z]\d$/.test(k) && !/Rp|%/.test(m[2])) { ctr++; if (e.rows.length !== shown) { failures++; console.log('✗ popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k + ' (' + pr + '-' + me + ')'); } }
+    }
+    if (!ctr) { failures++; console.log('✗ no slab count cells compared for ' + pr + '-' + me); }
+  }
+  state.kroOpenM = {};
   kroSet('sp', 'si', 'ringkasan'); state.gaBasis = 'outlet'; }
 // GA target per kecamatan (M2S KECAMATAN), rolled up to MC and Area
 { const mc0 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br0 = global.GA_FEED.metadata.mc_info[mc0].br;

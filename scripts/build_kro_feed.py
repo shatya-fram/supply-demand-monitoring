@@ -187,7 +187,7 @@ def main():
         if not rows and k in out and out[k].get("_pj"):
             rows = [out[k]["_pj"]]
         seen, acc = set(), {"sp": [0, 0, 0], "spi": 0, "vc": [0, 0, 0], "sal": [0, 0, 0], "spv": 0, "spd": defaultdict(int),
-                            "vcv": [0, 0, 0], "vcd": defaultdict(int), "sald": defaultdict(int)}
+                            "vcv": [0, 0, 0], "vcd": defaultdict(int), "sald": defaultdict(int), "spval": [0, 0, 0], "salc": [0, 0, 0]}
         for x in rows:
             if id(x) in seen:
                 continue
@@ -198,6 +198,9 @@ def main():
             acc["sp"][1] += g(sp, 2)
             acc["sp"][2] += g(sp, 4)
             acc["spv"] += g(sp, 1)
+            acc["spval"][0] += g(sp, 1)
+            acc["spval"][1] += g(sp, 3)
+            acc["spval"][2] += g(sp, 5)
             for dd in (sp[10] if len(sp) > 10 and sp[10] else []):   # [[day, value, qty]]
                 acc["spd"][dd[0]] += dd[2] or 0
             acc["spi"] += g(c.get("SPI"), 0)
@@ -212,6 +215,8 @@ def main():
                 for dd in (v[10] if len(v) > 10 and v[10] else []):
                     acc["vcd"][dd[0]] += dd[1] or 0
             sa = c.get("SALMO") or []
+            for i3 in range(3):
+                acc["salc"][i3] += g(sa[11] if len(sa) > 11 and sa[11] else [], i3)
             acc["sal"][0] += g(sa, 1)
             acc["sal"][1] += g(sa, 3)
             acc["sal"][2] += g(sa, 5)
@@ -226,7 +231,7 @@ def main():
         if not rows:
             return None
         tot, cat = 0, {"RLD": 0, "PKT": 0, "SAL": 0}
-        a = {"vci": [0, 0, 0], "vcid": defaultdict(int), "sald": defaultdict(int), "spi": [0, 0, 0], "spid": defaultdict(int)}
+        a = {"vci": [0, 0, 0], "vcid": defaultdict(int), "sald": defaultdict(int), "spi": [0, 0, 0], "spid": defaultdict(int), "vcn": [0, 0, 0], "spiv": [0, 0, 0]}
         seen = set()
         for x in rows:
             if id(x) in seen:
@@ -244,11 +249,17 @@ def main():
                 a["vcid"][dd[0]] += dd[1] or 0
             a["vci"][1] += g(l.get("VCI"), 1)
             a["vci"][2] += g(l.get("VCI"), 3)
+            a["vcn"][0] += g(v, 0)
+            a["vcn"][1] += g(l.get("VCI"), 0)
+            a["vcn"][2] += g(l.get("VCI"), 2)
             v = c.get("SAL") or []
             for dd in (v[4] if len(v) > 4 and v[4] else []):
                 a["sald"][dd[0]] += dd[1] or 0
             v = c.get("SPI") or []
             a["spi"][0] += g(v, 0)
+            a["spiv"][0] += g(v, 1)
+            a["spiv"][1] += g(l.get("SPI"), 1)
+            a["spiv"][2] += g(l.get("SPI"), 3)
             for dd in (v[4] if len(v) > 4 and v[4] else []):
                 a["spid"][dd[0]] += dd[2] or 0
             a["spi"][1] += g(l.get("SPI"), 0)
@@ -299,7 +310,7 @@ def main():
         ga_pr = ga_mtd / ga_cut * 31 if ga_cut else 0
         sp = supply_of(k, o["ids"])
         dmd = demand_of(k, o["ids"])
-        da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}}
+        da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}, "vcn": [0, 0, 0], "spiv": [0, 0, 0]}
         sp_mtd, sp_lm, sp_fm = (sp["sp"][0], sp["sp"][1], sp["sp"][2]) if sp else (0, 0, 0)
         sp_pr7 = d7(sp["spd"], sup_cut) / 7 * 31 if sp else 0
         sal_mtd = sum(v for _, v in (dmd and dmd["_a"]["sald"].items() or []))
@@ -312,6 +323,15 @@ def main():
             "sso": [None, None, sal_mtd, d7(da["sald"], dem_cut) / 7 * 31],
         }
         q = {key: [rnd(key, x) for x in v] for key, v in q.items()}
+        # counterpart of each measure for the popups: value (Rp) for the pcs keys, quantity for the Rp keys; [fm, lm, mtd], None = not available (never 0)
+        q2 = {
+            "ga": [None, None, None],
+            "sp": [sp["spval"][2] + da["spiv"][2] if sp else da["spiv"][2], sp["spval"][1] + da["spiv"][1] if sp else da["spiv"][1], sp["spval"][0] + da["spiv"][0] if sp else da["spiv"][0]],
+            "vsi": [sp["vc"][2], sp["vc"][1], sp["vc"][0]] if sp else [0, 0, 0],
+            "vso": list(da["vcn"][::-1]),
+            "ssi": [sp["salc"][2], sp["salc"][1], sp["salc"][0]] if sp else [0, 0, 0],
+            "sso": [None, None, None],
+        }
         c, qq, near = {}, q, False
         for key, (lad, hasfm, _lab) in KEYS.items():
             c[key + "_fm"] = cls(q[key][0], lad) if hasfm else None
@@ -357,7 +377,7 @@ def main():
             "vc": sp["vc"] if sp else None, "sal": sp["sal"] if sp else None,
             "dm": {k2: dmd[k2] for k2 in ("v", "rld", "pkt", "sal")} if dmd else None,
             "v": vv,
-            "q": q, "c": c,
+            "q": q, "q2": q2, "c": c,
         })
 
     # ---- flags per key (computed here so the contract is one place; the app only displays them)

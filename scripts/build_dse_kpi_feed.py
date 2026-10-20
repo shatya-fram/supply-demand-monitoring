@@ -63,6 +63,19 @@ POLICY = {
 }
 
 
+
+def sp_class(name, price):
+    """SP KPI definition (owner, 20 Oct 2026): SP Data Sell-In counts SP 3GB (plus SP Injection, from MOBO); SP0 / Zero is not counted.
+    '3gb'  = name carries 3GB and is not a Zero SP (IM3 SP ORI 3GB / SP 3GB ORI, 3ID SP HAPPY 3GB, BUNDLE PACK ORI REGULER 3GB)
+    'zero' = SP Zero, 3ID KPK bundle and empty-card bundles, FWA starter packs (Rp 10,000 class)
+    'other'= any other starter pack (Happy 5GB / 7GB eSIM, S PLUS)"""
+    n = (name or '').upper()
+    if re.search(r'3\s?GB', n) and 'ZERO' not in n:
+        return '3gb'
+    if 'ZERO' in n or 'KPK' in n or 'KOSONG' in n or 'FWA' in n or price == 10000:
+        return 'zero'
+    return 'other'
+
 def norm(s):
     s = str(s if s is not None else '').upper().strip()
     if s.endswith('.0'):
@@ -85,6 +98,7 @@ def main():
     terr = json.load(open(TERR, encoding='utf-8'))['outlets']
     vf = load_visits()
     M = pj['metadata']
+    PRODUCTS = pj['products']
 
     # ---- master roster: DSE -> branch / MC / DSO / HoA (mode over mapped outlets), codes
     roster = {}
@@ -117,7 +131,7 @@ def main():
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
     # ---- sell-in per master outlet, rolled up to its DSE
-    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_out': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
+    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
                                 'osa_amt': 0, 'osa_all': 0, 'sep_all': 0, 'osa_out': 0, 'sep_saldo': 0, 'sep_osa_amt': 0, 'sep_osa_out': 0, 'sp_sep_pcs': 0, 'outlets_seen': 0})
     qmin = POLICY['osa']['qualify_min_rp']
     unmatched = 0
@@ -144,6 +158,21 @@ def main():
             a['sp_uar5'] += 1
         if sp_q > 0:
             a['sp_out'] += 1
+        s3 = [0, 0, 0]                                 # SP 3GB MTD / LMTD / September full, from the per-product columns p[product index] = [mq, mv, lq, lv, fq, fv]
+        for pi, arr in (o.get('p') or {}).items():
+            pd = PRODUCTS[int(pi)]
+            if pd['cat'] != 'SP':
+                continue
+            cl = sp_class(pd['n'], pd.get('price'))
+            if cl == '3gb':
+                s3[0] += num(arr[0]); s3[1] += num(arr[2]); s3[2] += num(arr[4])
+            elif cl == 'zero':
+                a['sp0_pcs'] += num(arr[0])
+            else:
+                a['spx_pcs'] += num(arr[0])
+        a['sp3_pcs'] += s3[0]; a['sp3_lpcs'] += s3[1]; a['sp3_sep'] += s3[2]
+        if s3[0] > 0:
+            a['sp3_out'] += 1
         spi_q = g('SPI', 0)                           # SP Injection (digital, MOBO), MTD pcs; part of Sell-In SP achievement (owner, 19 Oct 2026)
         a['spi_pcs'] += spi_q; a['spi_amt'] += g('SPI', 1)
         if spi_q > 0:
@@ -228,7 +257,7 @@ def main():
             'osa_tgt': round(osa_tgt), 'osa_tgt_all': round(a['sep_all']), 'osa_tgt_src': tgt_src,
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
-            'sp_uar5': a['sp_uar5'], 'sp_out': a['sp_out'], 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
+            'sp_uar5': a['sp_uar5'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
             'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))
@@ -246,7 +275,7 @@ def main():
                 'osa_amount': 'value (Rp) of SP + voucher (isi and blank) + saldo Mobo sell-in to DSE-mapped outlets whose combined value reaches Rp 300K in the period (GAPLOK OSA productivity rule); toggle: all outlets',
                 'osa_target': 'official individual OSA target (IOH = IM3 + 3ID, rebalanced) from the target workbook; proxy = September full month only where a DSE has no official target',
                 'sp_target': 'official Sell-In SP target in pcs per DSE (rebalanced), prorated MTD in the app',
-                'sp_pcs': 'SP pcs sold in (all brands, all SP products) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
+                'sp3_pcs': 'SP 3GB pcs sold in to DSE-mapped outlets = the SP KPI (SP Data Sell-In) together with spi_pcs; SP Zero / 3ID KPK and empty-card bundles / FWA are in sp0_pcs and are not counted, other SP in spx_pcs', 'sp_pcs': 'SP pcs sold in (all brands, all SP products, memo) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
                 'uar': 'DSE-mapped outlets with >= 5 SP pcs in the period',
                 'effective_call': 'productive visits (executed visit with SP/VC qty > 0 or saldo > Rp 50K) / planned visits (fix PJP); toggle: executed visits',
                 'class': 'urban/rural by branch rule (KARAWANG, KAB BEKASI = rural) unless the targets file gives U|R',

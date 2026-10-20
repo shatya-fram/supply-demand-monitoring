@@ -57,7 +57,7 @@ function audit(scope) {
   near(scope, 'osa_fm', 'OSA MTD (Rp)', rp(D.osa_fm.value), osa);
   s = D.osa_mtd.delta.match(/prorata (Rp [\d.,]+ \w+) · gap (.*)$/); near(scope, 'osa_mtd', 'target pro-rata', rp(s[1]), osaT * cut / days);
   near(scope, 'sp_ach', 'target FM SP', num((D.sp_ach.note.match(/FM ([\d,]+) pcs/) || [, 0])[1]), spT, 0.001);
-  s = D.sp_ach.delta.match(/^([\d.]+)% prorata/); near(scope, 'sp_ach', '% pro-rata', num(s[1]), (sum(rows, 'SP', 0) + kd.reduce((a, d) => a + (d.spi_pcs || 0), 0)) / (spT * cut / days) * 100, 0.004);   // SP achievement includes SP Injection (19 Oct 2026)
+  s = D.sp_ach.delta.match(/^([\d.]+)% prorata/); near(scope, 'sp_ach', '% pro-rata', num(s[1]), (kd.reduce((a, d) => a + (d.sp3_pcs != null ? d.sp3_pcs : 0) + (d.spi_pcs || 0), 0)) / (spT * cut / days) * 100, 0.004);   // SP achievement includes SP Injection (19 Oct 2026)
   near(scope, 'sp_mtd', 'SP MTD', num(D.sp_mtd.value), sum(rows, 'SP', 0), 0.0001);
   near(scope, 'sal_mtd', 'SALMO MTD (Rp)', rp(D.sal_mtd.value), sum(rows, 'SALMO', 1), 0.006);
   s = D.sal_mtd.delta.match(/vs LMTD (Rp [\d.,]+ \w+)/); near(scope, 'sal_mtd', 'SALMO LMTD (Rp)', rp(s[1]), sum(rows, 'SALMO', 3), 0.006);

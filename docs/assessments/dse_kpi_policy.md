@@ -73,3 +73,8 @@ Three reasons the numbers are so low, all visible in the data:
 ## 6. Verification
 
 The scoring was recomputed independently in Python for every DSE and all eight option combinations (basis × OSA amount × effective call). Total incentive and final incentive on the page matched in every case (for example prorata, outlet ≥ Rp 300K, productive: total Rp 876,003, final Rp 0; with executed visits: Rp 876,003 and Rp 59,094). The page also renders without errors for every toggle, sort order, and for Area, MC and DSE levels (`scripts/render_check.js`, 21 DSE Productivity states).
+
+
+## Update 20 Oct 2026: SP KPI = SP 3GB + SP Injection (SP0 excluded)
+Owner decision: SP Data Sell-In performance counts SP 3GB and SP Injection only; SP0 / SP Zero (IM3 SP ZERO, 3ID KPK and empty-card bundles, FWA, the Rp 10,000 class) is not counted. KPI feed fields: `sp3_pcs`, `sp3_lpcs`, `sp3_sep`, `sp3_out`, `sp0_pcs`, `spx_pcs`, `spi_pcs`. At cut 19 Oct: SP 3GB 4,008 pcs, SP0 31,215 pcs, other 2 pcs, injection 25,230 pcs. Applies to DSE Productivity, Partner Territory Performance, Target Setting actuals and the Overall Performance SP achievement. Unchanged: UAR ≥ 5 pcs (all SP) and the Penjualan / UAR / GA sell-in growth tables.
+Open points: (1) the Sell-In SP target (266,765 pcs, rebalancing file) may include SP0; September full month on 3GB is 33,953 pcs against 174,037 on all SP; (2) whether UAR ≥ 5 pcs should also count 3GB only.

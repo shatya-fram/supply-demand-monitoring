@@ -76,3 +76,10 @@ Catatan: kelas SP di Okt lebih tinggi dari di September karena SP Injection ikut
 - Daftar anggota program (BOSS, Tebus Murah, dan program lain) belum ada di `raw/`: dibutuhkan file `program,outlet_id` dari pemilik program.
 - Saldo sell-out menunggu file `DAILY_DATA_MOBO_SALMO_202609` agar punya Last FM / LMTD dan perpindahan kelas.
 - Id SALMO yang bukan outlet master / adhoc (57 id, Rp 7.9 M) tidak masuk outlet mana pun.
+
+## 10. Tambahan 20 Okt (sore): hierarki Area › MC dan popup di semua tabel slab
+
+- Ringkasan KRO: Area › MC › tipe KRO (Wholesaler, KRO) bisa dibuka / ditutup; pengelompokan Tipe KRO dan Performa tetap sebagai alternatif.
+- Setiap angka di tabel slab membuka popup daftar outlet dengan FM, LMTD, MTD dalam Rp dan qty, gap MTD−FM dan growth vs LMTD (salin teks / gambar / PNG). Feed KRO membawa `q2` (nilai Rp untuk kunci pcs, qty untuk kunci Rp; `null` = n/a). Helper umum: `ovMeasEntry`, `ovCell`, `ovLazy`.
+- Cakupan: KRO (`kr|`), Slab Sell-In Penjualan (`sl|`), Slab SGA (`sg|`), Slab GA (`gs|`), slab UAR (`ur|`), slab voucher Matrix Outlet x Produk (`vm|`). Belum: slab stock balance / inventory days (End Balance), slab inaktivitas kunjungan, slab outlet per site, slab OSA (bukan ukuran FM / LMTD / MTD).
+- Rekonsiliasi otomatis: `render_check.js` membandingkan jumlah baris popup dengan angka di sel (KRO semua produk × ukuran dengan semua MC dibuka; Slab SGA; Slab GA; UAR; voucher).

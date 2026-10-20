@@ -338,7 +338,9 @@
     kroProd: 'sp',           // product: sp | vc | sl | ga
     kroMeas: 'si',           // Voucher / Saldo: si (sell in, MOBII) | so (sell out, MOBO)
     kroMode: 'slab',         // catalogue mode: slab (last month performance) | wl (whitelist) | prog (program)
-    kroGroup: '',            // summary grouping: '' (auto) | area | mc | type | perf
+    kroGroup: '',            // summary grouping: '' (Area › MC › tipe) | type | perf
+    kroOpenA: {},
+    kroOpenM: {},
     kroProg: '',
     kroWl: [],
     kroWlText: '',
@@ -3890,29 +3892,47 @@
     });
     return basis === 'pr' ? t / n * mdays : t;
   }
+  var _vmLists = [], _vmCtx = null;
+  function vmCell(l, k, inner, style, cls) { if (!l.length) return '<td class="' + (cls || 'num') + '" style="' + (style || '') + '">' + inner + '</td>'; var i = _vmLists.indexOf(l); if (i < 0) { _vmLists.push(l); i = _vmLists.length - 1; } return ovCell('vm|' + i + '|' + k, inner, style, cls); }
+  function vmMeasOf(F, o) {   // voucher isi + blank of the outlet's brand products: [Rp, qty] for MTD, LMTD, FM
+    var prods = F.products || [], r = { mtd: [0, 0], lm: [0, 0], fm: [0, 0] };
+    Object.keys(o.p || {}).forEach(function (i) { var pr = prods[+i]; if (!pr || (pr.cat !== 'VCF' && pr.cat !== 'VCB')) return; var x = o.p[i]; r.mtd[0] += x[1]; r.mtd[1] += x[0]; r.lm[0] += x[3]; r.lm[1] += x[2]; r.fm[0] += x[5]; r.fm[1] += x[4]; });
+    return r;
+  }
+  function vmLazy(pk) {   // vm|<list id>|<slab index | A all | K KRO and above | W Wholesaler>
+    var m = /^vm\|(\d+)\|(\w+)$/.exec(pk), C = _vmCtx, l = m && _vmLists[+m[1]]; if (!m || !C || !l) return null;
+    var k = m[2], idx = function (o) { return PJ_VC_ORDER.indexOf(pjVcCls(pjVcQty(C.F, o, C.basis))); };
+    var L = l.filter(function (o) { var i = idx(o); return k === 'A' ? true : (k === 'K' ? i >= 3 : (k === 'W' ? i >= 5 : i === +k)); });
+    L.sort(function (x, y) { return pjVcQty(C.F, y, C.basis) - pjVcQty(C.F, x, C.basis); });
+    var nm = k === 'A' ? 'Semua outlet PJP' : (k === 'K' ? 'KRO dan Wholesaler' : (k === 'W' ? 'Wholesaler' : KRO_CLS[PJ_VC_ORDER[+k]][0].replace('Tanpa volume', '0 unit')));
+    return ovMeasEntry('Slab voucher · ' + nm + ' · ' + C.brand + ' · ' + C.bl, ['Outlet', 'ID · brand', 'DSE', 'MC'], L.map(function (o) { return { lead: [o.n || o.id, o.id + ' · ' + o.b, uarDse(o), o.mc || '—'], m: vmMeasOf(C.F, o) }; }), ['Slab dihitung pada qty voucher (isi + blank) basis ' + C.bl + '.']);
+  }
   function pjMxSlabCard(F, brand) {
     var basis = state.pjMxSlab || 'fm', n = F.metadata.cut_day, mi = F.metadata.mc_info || {};
     var rows = pjOutlets(F).filter(function (o) { return o.b === brand && o.tier === 'M'; });
     var bl = (PJ_VC_BASIS.filter(function (b) { return b[0] === basis; })[0] || PJ_VC_BASIS[0])[1];
-    function blank() { return { n: 0, q: 0, c: PJ_VC_ORDER.map(function () { return 0; }), cq: PJ_VC_ORDER.map(function () { return 0; }) }; }
-    function add(a, q) { var k = PJ_VC_ORDER.indexOf(pjVcCls(q)); a.n++; a.q += q; a.c[k]++; a.cq[k] += q; }
+    function blank() { return { n: 0, q: 0, o: [], c: PJ_VC_ORDER.map(function () { return 0; }), cq: PJ_VC_ORDER.map(function () { return 0; }) }; }
+    function add(a, q, o) { var k = PJ_VC_ORDER.indexOf(pjVcCls(q)); a.o.push(o); a.n++; a.q += q; a.c[k]++; a.cq[k] += q; }
+    _vmLists = []; Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('vm|') === 0) delete _ovReg[k]; });
+    _vmCtx = { F: F, basis: basis, brand: brand, bl: bl }; ovLazy('vm', vmLazy);
     var area = {}, tot = blank();
     rows.forEach(function (o) {
       var q = pjVcQty(F, o, basis), a = (mi[o.mc] || {}).br || '—', A = area[a] || (area[a] = { s: blank(), mc: {} }), M = A.mc[o.mc] || (A.mc[o.mc] = blank());
-      add(A.s, q); add(M, q); add(tot, q);
+      add(A.s, q, o); add(M, q, o); add(tot, q, o);
     });
     var KC = { N: 'none', R1: 'none', R2: 'none', K1: 'warn', K2: 'ok', W1: 'top', W2: 'top', W3: 'top', W4: 'top' };
     function cell(x, k) {
       var c = x.c[k]; if (!c) return '<td class="num" style="color:var(--ij-muted); text-align:center;">·</td>';
       var sh = x.n ? c / x.n : 0, col = DK_COL[KC[PJ_VC_ORDER[k]]];
-      return '<td class="num" style="text-align:center; background:' + col[0] + (sh > 0.5 ? '' : '') + '; color:' + col[1] + ';" title="' + fmtCount(c) + ' outlet · ' + pctOf(c, x.n) + '% · ' + fmtCount(Math.round(x.cq[k])) + ' unit"><b>' + fmtCount(c) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(c, x.n) + '%</span></td>';
+      var tdh = ovCell('vm|' + (function () { var i = _vmLists.indexOf(x.o); if (i < 0) { _vmLists.push(x.o); i = _vmLists.length - 1; } return i; })() + '|' + k, '<b>' + fmtCount(c) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(c, x.n) + '%</span>', 'text-align:center; background:' + col[0] + '; color:' + col[1] + ';');
+      return tdh.replace('title="Klik:', 'title="' + fmtCount(c) + ' outlet · ' + fmtCount(Math.round(x.cq[k])) + ' unit. Klik:');
     }
     function row(label, ket, x, kind) {
       var kro = x.c.slice(3).reduce(function (a, b) { return a + b; }, 0), who = x.c.slice(5).reduce(function (a, b) { return a + b; }, 0);
       var bg = kind === 'tot' ? TOT_ST : kind === 'area' ? 'background:var(--ij-wash); font-weight:800;' : 'background:#fff;';
-      return '<tr style="' + bg + '"><td class="cur"' + (kind === 'mc' ? ' style="padding-left:22px;"' : '') + '>' + label + (ket ? '<br><span class="note">' + ket + '</span>' : '') + '</td><td class="num">' + fmtCount(x.n) + '</td>' +
+      return '<tr style="' + bg + '"><td class="cur"' + (kind === 'mc' ? ' style="padding-left:22px;"' : '') + '>' + label + (ket ? '<br><span class="note">' + ket + '</span>' : '') + '</td>' + vmCell(x.o, 'A', fmtCount(x.n)) +
         PJ_VC_ORDER.map(function (c, k) { return cell(x, k); }).join('') +
-        '<td class="num"><b>' + fmtCount(kro) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(kro, x.n) + '%</span></td><td class="num"><b>' + fmtCount(who) + '</b></td><td class="num cur"><b>' + fmtCount(Math.round(x.q)) + '</b></td><td class="num">' + (x.n - x.c[0] ? fmtCount(Math.round(x.q / (x.n - x.c[0]))) : '—') + '</td></tr>';
+        vmCell(x.o, 'K', '<b>' + fmtCount(kro) + '</b><br><span style="font-size:11.5px; font-weight:500;">' + pctOf(kro, x.n) + '%</span>') + vmCell(x.o, 'W', '<b>' + fmtCount(who) + '</b>') + '<td class="num cur"><b>' + fmtCount(Math.round(x.q)) + '</b></td><td class="num">' + (x.n - x.c[0] ? fmtCount(Math.round(x.q / (x.n - x.c[0]))) : '—') + '</td></tr>';
     }
     var body = '';
     Object.keys(area).sort(function (a, b) { return area[b].s.n - area[a].s.n; }).forEach(function (a) {
@@ -4395,6 +4415,13 @@
     var ix = w === 'lm' ? 2 : w === 'fm' ? 4 : 0, q = 0; Object.keys(o.p || {}).forEach(function (pi) { if (pjSlabProductOk(F, pi)) q += o.p[pi][ix]; });
     return q;
   }
+  function pjSlabCounter(F, o, which) {   // the other unit of the slab measure: Rp for pcs commodities, quantity for saldo (n/a: the saldo feed has no quantity)
+    var com = state.pjSlabCom || 'SP', w = which || 'mtd';
+    if (com === 'SALMO') return null;
+    if (com === 'SPI') return w === 'mtd' ? (o.c.SPI ? o.c.SPI[1] : 0) : null;
+    var ix = w === 'lm' ? 3 : w === 'fm' ? 5 : 1, v = 0; Object.keys(o.p || {}).forEach(function (pi) { if (pjSlabProductOk(F, pi)) v += o.p[pi][ix]; });
+    return v;
+  }
   function pjSlabMatrix(F) {
     var com = state.pjSlabCom || 'SP', ent = state.pjSlabEntity || 'outlet';
     var slabs = com === 'SALMO' ? PJ_SLABS_RP : (ent === 'dse' ? PJ_SLABS_PCS_DSE : PJ_SLABS_PCS);
@@ -4458,8 +4485,8 @@
     var perDse = {}, dseAll = {};   // perDse: MTD of DSEs with Sell-In; dseAll: MTD, LMTD, Last FM and PJP outlets of every DSE in scope
     rows.forEach(function (o) {
       if (o.tier !== 'M' || !o.dse || o.dse === 'UNASSIGNED') return;
-      var D = dseAll[o.dse] || (dseAll[o.dse] = { v: 0, l: 0, f: 0, n: 0 }), lm = pjSlabMeasure(F, o, 'lm'), fm = pjSlabMeasure(F, o, 'fm');
-      D.n++; D.v += pjSlabMeasure(F, o) || 0; D.l = lm == null ? null : D.l + lm; D.f = fm == null ? null : D.f + fm;
+      var D = dseAll[o.dse] || (dseAll[o.dse] = { v: 0, l: 0, f: 0, n: 0, cv: [0, 0, 0] }), lm = pjSlabMeasure(F, o, 'lm'), fm = pjSlabMeasure(F, o, 'fm');
+      D.n++; D.cv = [D.cv[0] == null ? null : D.cv[0] + (pjSlabCounter(F, o) || 0), D.cv[1] == null ? null : (pjSlabCounter(F, o, 'lm') == null ? null : D.cv[1] + pjSlabCounter(F, o, 'lm')), D.cv[2] == null ? null : (pjSlabCounter(F, o, 'fm') == null ? null : D.cv[2] + pjSlabCounter(F, o, 'fm'))]; if (state.pjSlabCom === 'SALMO') D.cv = [null, null, null]; D.v += pjSlabMeasure(F, o) || 0; D.l = lm == null ? null : D.l + lm; D.f = fm == null ? null : D.f + fm;
       var v = pjSlabMeasure(F, o); if (v <= 0) return;
       perDse[o.dse] = (perDse[o.dse] || 0) + v;
     });
@@ -4472,10 +4499,10 @@
       var A = ensure(area); if (A.hoa === '—') A.hoa = info.hoa || '—'; var M = ensure(area, m);
       var si = pjSlabIdx(perDse[d], slabs), D = dseAll[d] || { v: perDse[d], l: 0, f: 0, n: 0 };
       M.slabs[si]++; M.tot += perDse[d]; M.buyersM++;
-      M.items.push({ d: d, n: D.n, v: perDse[d], l: D.l, f: D.f, si: si, m: m });
+      M.items.push({ d: d, n: D.n, v: perDse[d], l: D.l, f: D.f, si: si, m: m, cv: D.cv });
     });
     Object.keys(groups).forEach(function (a) { Object.keys(groups[a].mcs).forEach(function (m) {   // DSEs without Sell-In MTD (zero slab)
-      (DB.byMc[m] || []).forEach(function (d) { if (perDse[d] > 0) return; var D = dseAll[d] || { n: 0, l: 0, f: 0 }; groups[a].mcs[m].items.push({ d: d, n: D.n, v: 0, l: D.l, f: D.f, si: 0, m: m }); });
+      (DB.byMc[m] || []).forEach(function (d) { if (perDse[d] > 0) return; var D = dseAll[d] || { n: 0, l: 0, f: 0 }; groups[a].mcs[m].items.push({ d: d, n: D.n, v: 0, l: D.l, f: D.f, si: 0, m: m, cv: D.cv }); });
     }); });
     var areas = Object.keys(groups).map(function (k) {
       var A = groups[k]; A.list = Object.keys(A.mcs).map(function (m) { var M = A.mcs[m]; M.slabs[0] = Math.max(0, M.base - M.buyersM); return M; });
@@ -4519,13 +4546,20 @@
       items.sort(function (x, y) { return (y.v - x.v) || ((y.l || 0) - (x.l || 0)) || String(x.d || x.o.n).localeCompare(String(y.d || y.o.n)); });
       var tv = 0, tl = 0, tf = 0; items.forEach(function (it) { tv += it.v; tl += it.l || 0; tf += it.f || 0; });
       var nm = w === 'all' ? (isDse ? 'Semua DSE master' : 'Semua outlet PJP') : (w === 'buy' ? (isDse ? 'DSE dengan Sell-In MTD' : 'Outlet beli MTD') : 'Slab ' + slabs[+w][2] + (isRp ? '' : ' pcs'));
-      var rowsOut = items.map(function (it) {
-        if (isDse) { var mm = mi2[it.m] || {}; return [it.d, mm.br || '—', it.m, mm.dso || '—', fmtCount(it.n), fmtV(it.v), fmtN(it.l), fmtN(it.f), gTxt(it.v, it.l)]; }
-        var o = it.o; return [o.n || o.id, o.id + ' · ' + o.b + (o.tier === 'M' ? '' : ' · non-PJP'), o.dse || '—', o.mc || '—', fmtV(it.v), fmtN(it.l), fmtN(it.f), gTxt(it.v, it.l)];
-      });
-      var lines = [fmtCount(items.length) + (isDse ? ' DSE' : ' outlet') + ' · MTD ' + fmtV(tv) + ' · LMTD ' + (com === 'SPI' ? 'n/a (SP Injection hanya MTD)' : fmtV(tl)) + ' · Last FM ' + (com === 'SPI' ? 'n/a' : fmtV(tf))];
+      var mk = function (it) {   // [Rp, qty] per period; the slab measure is Rp for saldo and qty for the other commodities
+        var cvs = isDse ? (it.cv || [null, null, null]) : [pjSlabCounter(F, it.o), pjSlabCounter(F, it.o, 'lm'), pjSlabCounter(F, it.o, 'fm')], main = [it.v, it.l, it.f];
+        function pr(i) { return main[i] == null && cvs[i] == null ? [null, null] : (isRp ? [main[i], cvs[i]] : [cvs[i], main[i]]); }
+        return { mtd: pr(0), lm: pr(1), fm: pr(2) };
+      };
+      var lines;
+      var entry = ovMeasEntry('Detail ' + nm + ' · ' + scopeLbl(sk), isDse ? ['DSE', 'Area · MC', 'DSO', 'Outlet PJP'] : ['Outlet', 'ID · brand', 'DSE', 'MC'], items.map(function (it) {
+        if (isDse) { var mm = mi2[it.m] || {}; return { lead: [it.d, (mm.br || '—') + ' · ' + it.m, mm.dso || '—', fmtCount(it.n)], m: mk(it) }; }
+        var o = it.o; return { lead: [o.n || o.id, o.id + ' · ' + o.b + (o.tier === 'M' ? '' : ' · non-PJP'), o.dse || '—', o.mc || '—'], m: mk(it) };
+      }), []);
+      // lines (summary and zero-slab note) kept from the previous popup
+      lines = [fmtCount(items.length) + (isDse ? ' DSE' : ' outlet') + ' · MTD ' + fmtV(tv) + ' · LMTD ' + (com === 'SPI' ? 'n/a (SP Injection hanya MTD)' : fmtV(tl)) + ' · Last FM ' + (com === 'SPI' ? 'n/a' : fmtV(tf))];
       if (w === '0' || w === 'all') { var cnt = 0; R.areas.forEach(function (A) { A.list.forEach(function (M) { var q = sk.split('|'); if ((q[0] === 'A' && A.area !== q[1]) || (q[0] === 'M' && M.mc !== q[1])) return; cnt += M.slabs[0]; }); }); var zl = items.filter(function (it) { return it.si === 0; }).length; if (w === '0' && cnt > zl) lines.push((cnt - zl) + ' ' + (isDse ? 'DSE' : 'outlet master') + ' di slab 0 belum punya baris di feed Sell-In (tidak pernah bertransaksi), jadi tidak tercantum di daftar.'); }
-      return { title: 'Detail ' + nm + ' · ' + scopeLbl(sk), cols: isDse ? ['DSE', 'Area', 'MC', 'DSO', 'Outlet PJP', 'MTD', 'LMTD', 'Last FM', 'Growth vs LMTD'] : ['Outlet', 'ID · brand', 'DSE', 'MC', 'MTD', 'LMTD', 'Last FM', 'Growth vs LMTD'], rows: rowsOut, lines: lines };
+      entry.lines = lines.concat(entry.lines); return entry;
     };
     var sOpenM = state.pjSlabOpenM || (state.pjSlabOpenM = {}), sClosedA = state.pjSlabClosedA || (state.pjSlabClosedA = {});
     function ck(sk, w, inner, extra) { return '<td class="num" data-ov="sl|' + esc(sk) + '|' + w + '" role="button" tabindex="0" title="Klik: daftar ' + (isDse ? 'DSE' : 'outlet') + ' dengan MTD, LMTD dan Last FM (bisa disalin sebagai teks, gambar, PNG)" style="cursor:pointer; ' + (extra || '') + '">' + inner + '</td>'; }
@@ -5677,7 +5711,24 @@
   }
 
   /* ---- Opportunity 1: slab UAR bulan ini vs bulan lalu ---- */
+  var _urLists = [], _urC = null;
+  function urSpan(l, p, i, v, inner) { if (!v) return inner; _urLists.push(l); return '<span data-ov="ur|' + (_urLists.length - 1) + '|' + p + '|' + i + '" role="button" tabindex="0" title="Klik: daftar outlet dengan FM, LMTD, MTD (Rp dan qty), gap dan growth" style="cursor:pointer; text-decoration:underline dotted;">' + inner + '</span>'; }
+  function urMeasOf(o, C) {   // { fm, lm, mtd } = [Rp, qty]; saldo has no quantity, GA (tab spi) no Rp and no FM here
+    var m = uarMetric(o, C.tab, C.spi), cs = uarCats(C.tab), mtd = [0, 0], lm = [0, 0], fm = [0, 0];
+    if (C.tab === 'spi') return { mtd: [null, m[0]], lm: [null, m[1]], fm: [null, null] };
+    cs.forEach(function (c) { var a = (o.c && o.c[c]) || []; if (c === 'SALMO') { mtd[0] += a[1] || 0; lm[0] += a[3] || 0; fm[0] += a[5] || 0; } else { mtd[0] += a[1] || 0; mtd[1] += a[0] || 0; lm[0] += a[3] || 0; lm[1] += a[2] || 0; fm[0] += a[5] || 0; fm[1] += a[4] || 0; } });
+    if (C.tab === 'sal') { mtd[1] = null; lm[1] = null; fm[1] = null; }
+    return { mtd: mtd, lm: lm, fm: fm };
+  }
+  function urLazy(pk) {   // ur|<list id>|<0 MTD | 1 LMTD>|<slab index>
+    var m = /^ur\|(\d+)\|(\d)\|(\d+)$/.exec(pk), C = _urC, l = m && _urLists[+m[1]]; if (!m || !C || !l) return null;
+    var p = +m[2], i = +m[3], S = UAR_SLABS[C.tab];
+    var L = l.filter(function (o) { return uarSlabIdx(C.tab, uarMetric(o, C.tab, C.spi)[p]) === i; });
+    L.sort(function (x, y) { return uarMetric(y, C.tab, C.spi)[p] - uarMetric(x, C.tab, C.spi)[p]; });
+    return ovMeasEntry('Outlet slab ' + S[i][2] + ' · ' + C.term + ' · ' + (p === 0 ? 'MTD Oktober' : 'LMTD September'), ['Outlet', 'ID · brand', 'DSE', 'MC'], L.map(function (o) { return { lead: [o.n || o.id, o.id + ' · ' + o.b + (o.tier === 'M' ? '' : ' · non-PJP'), uarDse(o), o.mc || '—'], m: urMeasOf(o, C) }; }), ['Slab dihitung pada ' + (p === 0 ? 'MTD' : 'LMTD') + '.']);
+  }
   function uarSlabView(C) {
+    _urLists = []; _urC = C; ovLazy('ur', urLazy); Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('ur|') === 0) delete _ovReg[k]; });
     var S = UAR_SLABS[C.tab], ncol = S.length;
     function counts(l) {
       var c = new Array(ncol).fill(0), p = new Array(ncol).fill(0);
@@ -5688,7 +5739,7 @@
       var x = counts(l), bg = /ink/.test(style) ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
       var cells = S.map(function (sl, i) {
         var d = x.c[i] - x.p[i], good = i >= 3 ? d > 0 : (i === 0 ? d < 0 : null), clr = /ink/.test(style) ? '#fff' : (d === 0 || good == null ? 'var(--ij-muted)' : (good ? '#166534' : '#991b1b'));
-        return '<td class="num" style="' + (i === 0 ? DK_BL : '') + '"><b>' + fmtCount(x.c[i]) + '</b><div style="font-size:12px;">' + pctOf(x.c[i], x.n) + '%</div></td><td class="num" style="color:' + (/ink/.test(style) ? '#fff' : 'var(--ij-muted)') + ';">' + fmtCount(x.p[i]) + '<div style="font-size:12px; color:' + clr + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</div></td>';
+        return '<td class="num" style="' + (i === 0 ? DK_BL : '') + '"><b>' + urSpan(l, 0, i, x.c[i], fmtCount(x.c[i])) + '</b><div style="font-size:12px;">' + pctOf(x.c[i], x.n) + '%</div></td><td class="num" style="color:' + (/ink/.test(style) ? '#fff' : 'var(--ij-muted)') + ';">' + urSpan(l, 1, i, x.p[i], fmtCount(x.p[i])) + '<div style="font-size:12px; color:' + clr + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</div></td>';
       }).join('');
       return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(x.n) + '</td>' + cells + '</tr>';
     }
@@ -6056,14 +6107,23 @@
       card('September penuh (30 hari) · referensi', '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Tanggal') + th('GA Sep (pcs)', 1) + th('SSO Sep', 1) + th('GA / SSO', 1) + '</tr></thead><tbody>' + rowsS + totS + '</tbody></table></div>' +
         '<p class="note">Sumber: ' + esc(G.src.metadata.sources.sep.split('/').pop()) + ' (terbit ulang 15 Okt 2026). Lonjakan = hari dengan GA > 1,8× median September.</p>');
   }
+  var _gsLists = [], _gsBrand = 'all';
+  function gsSpan(l, p, i, v, inner) { if (!v) return inner; _gsLists.push(l); return '<span data-ov="gs|' + (_gsLists.length - 1) + '|' + p + '|' + i + '" role="button" tabindex="0" title="Klik: daftar outlet dengan FM, LMTD, MTD (pcs GA), gap dan growth" style="cursor:pointer; text-decoration:underline dotted;">' + inner + '</span>'; }
+  function gsLazy(pk) {   // gs|<list id>|<0 MTD | 1 LMTD>|<slab index>
+    var m = /^gs\|(\d+)\|(\d)\|(\d)$/.exec(pk), l = m && _gsLists[+m[1]]; if (!m || !l) return null;
+    var p = +m[2], i = +m[3], L = l.filter(function (o) { var s = gaStat(o, _gsBrand); return gaSlabIdx(p === 0 ? s.cur : s.prev) === i; });
+    L.sort(function (x, y) { return gaStat(y, _gsBrand)[p === 0 ? 'cur' : 'prev'] - gaStat(x, _gsBrand)[p === 0 ? 'cur' : 'prev']; });
+    return ovMeasEntry('Outlet slab ' + GA_SLABS[i][2] + ' GA · ' + (p === 0 ? 'MTD Oktober' : 'LMTD September'), ['Outlet', 'ID · brand', 'DSE', 'MC'], L.map(function (o) { var s = gaStat(o, _gsBrand); return { lead: [o.n || o.i, (o.i || '') + ' · ' + (o.b || ''), uarDse(o), o.mc || '—'], m: { mtd: [null, s.cur], lm: [null, s.prev], fm: [null, s.full] } }; }), ['Slab GA dihitung pada ' + (p === 0 ? 'MTD' : 'LMTD') + '; GA tidak punya nilai Rupiah (n/a).']);
+  }
   function gaSlab(list, brand, siteMode) {
+    _gsLists = []; _gsBrand = brand; ovLazy('gs', gsLazy); Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('gs|') === 0) delete _ovReg[k]; });
     var G = gaPrep(), S = GA_SLABS, ncol = S.length, C = { list: siteMode ? gaSiteItems(list) : list, mi: G.mi };
     function counts(l) { var c = [], p = [], i; for (i = 0; i < ncol; i++) { c.push(0); p.push(0); } l.forEach(function (o) { var s = gaStat(o, brand); c[gaSlabIdx(s.cur)]++; p[gaSlabIdx(s.prev)]++; }); return { c: c, p: p, n: l.length }; }
     function rowFn(label, ket, l, style) {
-      var x = counts(siteMode ? gaFlat(l) : l), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
+      var fl = siteMode ? gaFlat(l) : l, x = counts(fl), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
       var cells = S.map(function (sl, i) {
         var d = x.c[i] - x.p[i], good = i >= 3 ? d > 0 : (i === 0 ? d < 0 : null), clr = ink ? '#fff' : (d === 0 || good == null ? 'var(--ij-muted)' : (good ? '#166534' : '#991b1b'));
-        return '<td class="num" style="' + (i === 0 ? DK_BL : '') + '"><b>' + fmtCount(x.c[i]) + '</b><div style="font-size:12px;">' + pctOf(x.c[i], x.n) + '%</div></td><td class="num" style="color:' + (ink ? '#fff' : 'var(--ij-muted)') + ';">' + fmtCount(x.p[i]) + '<div style="font-size:12px; color:' + clr + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</div></td>';
+        return '<td class="num" style="' + (i === 0 ? DK_BL : '') + '"><b>' + gsSpan(fl, 0, i, x.c[i], fmtCount(x.c[i])) + '</b><div style="font-size:12px;">' + pctOf(x.c[i], x.n) + '%</div></td><td class="num" style="color:' + (ink ? '#fff' : 'var(--ij-muted)') + ';">' + gsSpan(fl, 1, i, x.p[i], fmtCount(x.p[i])) + '<div style="font-size:12px; color:' + clr + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</div></td>';
       }).join('');
       return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(x.n) + '</td>' + cells + '</tr>';
     }
@@ -6402,7 +6462,7 @@
   };
   var KRO_ACTION = ['NO_VISIT', 'LOW_VISIT', 'STOP', 'DOWN', 'NO_DSE', 'SUPPLY_NO_GA'];
   var KRO_TABS = [['ringkasan', '📊 Ringkasan KRO'], ['katalog', '📒 Katalog Outlet'], ['tracking', '👥 Tracking per DSO / DSE'], ['aksi', '🚩 Aksi prioritas']];
-  var KRO_GROUPS = [['area', 'Area'], ['mc', 'MC (DSO)'], ['type', 'Tipe KRO'], ['perf', 'Performa']];
+  var KRO_GROUPS = [['am', 'Area › MC › tipe'], ['type', 'Tipe KRO'], ['perf', 'Performa']];
   var KRO_PERF = [['new', 'Baru KRO / Wholesaler', 'ok'], ['up', 'Naik slab', 'ok'], ['flat', 'Tetap', 'flat'], ['down', 'Turun slab', 'bad'], ['stop', 'Berhenti (proyeksi 0)', 'bad']];
   function kroProd() { var p = state.kroProd; return p === 'vc' || p === 'sl' || p === 'ga' ? p : 'sp'; }
   function kroMeas() { return state.kroMeas === 'so' ? 'so' : 'si'; }
@@ -6487,11 +6547,11 @@
     var a = kroRk(v.cf), b = kroRk(v.cp), k1 = KRO_RANK.K1; if (a < k1 && b < k1) return null;
     if (a < k1) return 'new'; if (b === 0) return 'stop'; return b > a ? 'up' : (b === a ? 'flat' : 'down');
   }
-  function kroGKey(r, grp, key) { if (grp === 'T') return 'T'; if (grp === 'area') return r.br || '—'; if (grp === 'mc') return r.mc || '—'; if (grp === 'type') return kroCat(kroTop(r, key)); return kroPerf(r, key); }
-  function kroGrp(key) { var g = state.kroGroup || ''; if (!g) g = (state.branch || state.hoa || state.kec) ? 'mc' : 'area'; if (g === 'perf' && !kroHasFm(key)) g = 'area'; return g; }
+  function kroGKey(r, grp, key) { if (grp === 'T') return 'T'; if (grp === 'type') return kroCat(kroTop(r, key)); return kroPerf(r, key); }
+  function kroGrp(key) { var g = state.kroGroup || 'am'; if (g !== 'type' && g !== 'perf') g = 'am'; if (g === 'perf' && !kroHasFm(key)) g = 'am'; return g; }
   function kroDl(a, c) { var d = c - a; return (d >= 0 ? '+' : '−') + fmtCount(Math.abs(d)); }
   function kroPctv(a, n) { return n ? pctOf(a, n) + '%' : '·'; }
-  function kroOv(grp, gk, metric, inner) { return '<td class="num" data-ov="kr|' + grp + '|' + encodeURIComponent(gk) + '|' + metric + '" role="button" tabindex="0" title="Klik: daftar outlet (bisa disalin sebagai teks, gambar, PNG)" style="cursor:pointer;">' + inner + '</td>'; }
+  function kroOv(grp, gk, metric, inner) { return ovCell('kr|' + grp + '|' + encodeURIComponent(gk) + '|' + metric, inner); }
   function kroRingkasan(K, rows, key) {
     var M = K.metadata, cuts = M.cuts, hasFm = kroHasFm(key), A = kroAgg(kroScopeMc(), key), dseScoped = !!state.dse, S = hasFm ? 'cf' : 'cp', SQ = hasFm ? 'qf' : 'qp', sepL = hasFm ? 'September' : 'Proyeksi Okt', unit = kroUnit(key), bn = kroKeyName(key), ord = kroOrder(key);
     var kro = rows.filter(function (r) { return kroIsKro(r, key); }), W = kro.filter(function (r) { return kroCat(kroTop(r, key)) === 'W'; }), Kc = kro.filter(function (r) { return kroCat(kroTop(r, key)) === 'K'; });
@@ -6516,8 +6576,9 @@
     var vs = {}; rows.forEach(function (r) { var c = hasFm ? kroV(r, key).cf : kroV(r, key).cp; (vs[c] = vs[c] || []).push(r); });
     var srows = ord.filter(function (c) { return c !== 'N'; }).map(function (c) {
       var st = (vs[c] && KRO_RANK[c] >= KRO_RANK.K1) ? kroVisitStat(vs[c]) : null, d = A.cp[c] - A[S][c];
-      return '<tr><td class="cur">' + kroTag(c, key) + '</td><td class="num"><b>' + fmtCount(A[S][c]) + '</b></td>' + (hasFm ? '<td class="num">' + fmtCount(A.cp[c]) + '</td><td class="num"><span style="color:' + (d === 0 ? 'var(--ij-muted)' : (KRO_RANK[c] >= KRO_RANK.K1 ? (d > 0 ? '#166534' : '#991b1b') : 'var(--ij-muted)')) + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</span></td>' : '') + '<td class="num">' + kroFmt(key, A[SQ][c]) + '</td><td class="num">' + pctOf(A[SQ][c], tot) + '%</td>' +
-        (st ? '<td class="num">' + st.vis + '</td><td class="num">' + (st.zero ? '<b style="color:#991b1b;">' + st.zero + '</b>' : '0') + '</td><td class="num">' + kroPctv(st.vis, st.n) + '</td><td class="num">' + (st.n ? (st.x / st.n).toFixed(1) : '·') + '</td><td class="num">' + st.nodse + '</td>' : '<td colspan="5" class="note">Retail: kunjungan mengikuti PJP biasa</td>') + '</tr>';
+      var mk = function (per, sub, inner) { return A[per === 'cf' ? S : 'cp'][c] ? kroOv('T', 'T', per + '_' + c + (sub ? '_' + sub : ''), inner) : '<td class="num">' + inner + '</td>'; }, pS = hasFm ? 'cf' : 'cp';
+      return '<tr><td class="cur">' + kroTag(c, key) + '</td>' + mk(pS, '', '<b>' + fmtCount(A[S][c]) + '</b>') + (hasFm ? mk('cp', '', fmtCount(A.cp[c])) + '<td class="num"><span style="color:' + (d === 0 ? 'var(--ij-muted)' : (KRO_RANK[c] >= KRO_RANK.K1 ? (d > 0 ? '#166534' : '#991b1b') : 'var(--ij-muted)')) + ';">' + (d === 0 ? '·' : (d > 0 ? '▲ ' : '▼ ') + fmtCount(Math.abs(d))) + '</span></td>' : '') + mk(pS, '', kroFmt(key, A[SQ][c])) + mk(pS, '', pctOf(A[SQ][c], tot) + '%') +
+        (st ? mk(pS, 'v', st.vis) + mk(pS, 'nv', st.zero ? '<b style="color:#991b1b;">' + st.zero + '</b>' : '0') + mk(pS, 'v', kroPctv(st.vis, st.n)) + mk(pS, 'v', st.n ? (st.x / st.n).toFixed(1) : '·') + mk(pS, 'nd', st.nodse) : '<td colspan="5" class="note">Retail: kunjungan mengikuti PJP biasa</td>') + '</tr>';
     }).join('');
     var slab = card('Slab standar · jumlah outlet dan kunjungan PJP per slab · ' + bn + ' · ' + esc(scopeText()),
       '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Slab per bulan') + th('Outlet ' + (hasFm ? 'Sep' : 'proyeksi Okt'), 1) + (hasFm ? th('Outlet Okt (proyeksi)', 1) + th('Δ', 1) : '') + th(unit + (hasFm ? ' Sep' : ' proyeksi'), 1) + th('% volume', 1) + th('Success visit (≥ 1 check-in)', 1) + th('Belum dikunjungi', 1) + th('% dikunjungi', 1) + th('Check-in per outlet', 1) + th('Tanpa DSE', 1) + '</tr></thead><tbody>' + srows + '</tbody></table></div>' +
@@ -6529,66 +6590,123 @@
       ST.forEach(function (x) { mv[x] = {}; ST.forEach(function (y) { mv[x][y] = 0; }); });
       rows.forEach(function (r) { var v = kroV(r, key), x = mapc(v.cf), y = mapc(v.cp); if (!(kroCat(x) === 'R' || x === 'N') || KRO_RANK[v.cp] >= KRO_RANK.K1) { if (!(kroCat(x) === 'R' && (kroCat(y) === 'R' || y === 'N'))) mv[x][y]++; } });
       var wmin = kroIsVal(key) ? 'Wholesaler (> 90 jt)' : 'Wholesaler (> 100)', lab = function (c) { return c === 'W' ? wmin : kroLabel(c, key); }, RK = function (c) { return c === 'W' ? 6 : kroRk(c); };
-      var mrows = ST.slice(0, ST.length - 1).filter(function (x) { return kroCat(x) !== 'R' || x === ST[ST.length - 2] || x === ST[ST.length - 3]; }).map(function (x) { return '<tr><td class="cur"><b>' + lab(x) + '</b></td>' + ST.map(function (y) { var v = mv[x][y], up = RK(y) > RK(x); return '<td class="num" style="' + (v && x !== y ? 'font-weight:800; color:' + (up ? '#166534' : '#991b1b') + ';' : '') + '">' + ((kroCat(x) === 'R') && (kroCat(y) === 'R' || y === 'N') ? '<span class="note">·</span>' : fmtCount(v)) + '</td>'; }).join('') + '</tr>'; }).join('');
+      var mrows = ST.slice(0, ST.length - 1).filter(function (x) { return kroCat(x) !== 'R' || x === ST[ST.length - 2] || x === ST[ST.length - 3]; }).map(function (x) { return '<tr><td class="cur"><b>' + lab(x) + '</b></td>' + ST.map(function (y) { var v = mv[x][y], up = RK(y) > RK(x); var st2 = (v && x !== y ? 'font-weight:800; color:' + (up ? '#166534' : '#991b1b') + ';' : ''), skip = (kroCat(x) === 'R') && (kroCat(y) === 'R' || y === 'N'); return skip || !v ? '<td class="num" style="' + st2 + '">' + (skip ? '<span class="note">·</span>' : fmtCount(v)) + '</td>' : kroOv('T', 'T', 'mv_' + x + '_' + y, fmtCount(v)).replace('style="cursor:pointer;"', 'style="cursor:pointer;' + st2 + '"'); }).join('') + '</tr>'; }).join('');
       matrix = card('Perpindahan kelas · September (baris) → proyeksi Oktober (kolom) · ' + bn, '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('September') + ST.map(function (y) { return '<th class="num">' + lab(y) + '</th>'; }).join('') + '</tr></thead><tbody>' + mrows + '</tbody></table></div>' +
         '<p class="note">Hijau = naik slab, merah = turun slab. Perpindahan antar sesama Retail tidak dihitung (hampir seluruh outlet).</p>');
     }
     return kroNav(K) + hl + cards + slab + matrix + kroGroupTable(K, rows, key, A, tot);
   }
-  /* summary table grouped by Area, MC, KRO type or performance */
+  /* ---------- measures per outlet and the outlet universe (KRO rows + Retail from kro_slim.js) ---------- */
+  function kroMeasOf(r, key) {   // { fm, lm, mtd } = [Rp, qty]; null = not available
+    var q = r.q[key], q2 = (r.q2 && r.q2[key]) || [null, null, null], isVal = kroIsVal(key), hasFm = kroHasFm(key);
+    function pair(i, j) { var a = q[i] == null ? null : q[i], b = q2[j] == null ? null : q2[j]; return isVal ? [a, b] : [b, a]; }
+    return { fm: hasFm ? pair(0, 0) : [null, null], lm: hasFm && q[1] != null ? pair(1, 1) : [null, null], mtd: pair(2, 2) };
+  }
+  function kroAll(K) {   // KRO rows plus every Retail record of kro_slim.js (once loaded)
+    var sl = kroSlim();
+    if (!sl) return K.rows;
+    if (!K._all) K._all = K.rows.concat(sl.map(function (s) { return kroSlimRow(K, s); }));
+    return K._all;
+  }
+  function kroMeasEntry(title, L, key, lines) {
+    var hasFm = kroHasFm(key), items = L.map(function (r) {
+      var v = kroV(r, key), ids = Object.keys(r.id).sort().map(function (x) { return x + ' ' + r.id[x]; }).join(' · ');
+      return { lead: [r.n || '(tanpa nama)', ids, r.br + ' · ' + r.mc, uarDse(r)], m: kroMeasOf(r, key), r: r, v: v };
+    });
+    var e = ovMeasEntry(title, ['Outlet', 'ID', 'Area · MC', 'DSE'], items, lines);
+    e.cols = e.cols.concat([hasFm ? 'Slab Sep → Okt' : 'Slab proyeksi Okt', 'Check-in selesai / rencana', 'Flag']);
+    e.rows = e.rows.map(function (row, i) { var r = items[i].r, v = items[i].v; return row.concat([(hasFm ? kroLabel(v.cf, key) + ' → ' : '') + kroLabel(v.cp, key), r.v.x + ' / ' + r.v.p, kroFl(r, key).map(function (f) { return (KRO_FLAGS[f] || [f])[0]; }).join(', ')]); });
+    e.lines.push('Slab = tangga ' + (kroIsVal(key) ? 'nilai Rupiah' : 'pcs') + ' · ' + kroKeyName(key) + '; kolom Rp / qty n/a bila ukuran itu tidak punya data (mis. GA tanpa Rp, Saldo sell-out tanpa September).');
+    return e;
+  }
+  function kroGMatch(r, grp, gk, key) {
+    if (grp === 'T') return true;
+    if (grp === 'am') { if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); var m = /^MT:(.*):([WK])$/.exec(gk); return !!m && r.mc === m[1] && kroCat(kroTop(r, key)) === m[2]; }
+    return kroGKey(r, grp, key) === gk;
+  }
+  /* popup keys  kr|<grp>|<encoded group>|<metric>
+     metric: W, K, A (KRO + Wholesaler), NV / Wnv / Knv (belum dikunjungi) | cf_<slab>[_v|_nv|_nd] / cp_<slab>[...] (outlets in a slab in September / projection; visited, not visited, no DSE) | mv_<from>_<to> (class movement) */
+  function kroLazy(pk) {
+    var m = String(pk).match(/^kr\|(\w+)\|([^|]*)\|([\w]+)$/); if (!m) return null;
+    var K = kroFeed(); if (!K) return null;
+    var key = kroKey(), grp = m[1], gk = decodeURIComponent(m[2]), met = m[3], hasFm = kroHasFm(key), lines = [], nm, L, mm;
+    var slabM = /^(cf|cp)_([A-Z]\d|N)(?:_(v|nv|nd))?$/.exec(met), mvM = /^mv_(\w+?)_(\w+)$/.exec(met);
+    if (slabM || mvM) {
+      var uni = kroAll(K), per = slabM ? slabM[1] : null, cl = slabM ? slabM[2] : null, sub = slabM ? slabM[3] : null;
+      if (kroCat(cl) === 'R' && !kroSlim()) lines.push('Daftar outlet Retail masih dimuat (kro_slim.js): tutup dan klik lagi dalam beberapa detik.');
+      var mapc = function (c) { return kroCat(c) === 'W' ? 'W' : c; };
+      L = uni.filter(kroInScope).filter(function (r) { return kroGMatch(r, grp, gk, key); }).filter(function (r) {
+        var v = kroV(r, key);
+        if (slabM) { if ((per === 'cf' ? v.cf : v.cp) !== cl) return false; if (sub === 'v') return r.v.x > 0; if (sub === 'nv') return r.v.x === 0; if (sub === 'nd') return kroFl(r, key).indexOf('NO_DSE') >= 0 || dseIsNone(r.dse); return true; }
+        return mapc(v.cf) === mvM[1] && mapc(v.cp) === mvM[2];
+      });
+      nm = slabM ? 'Outlet ' + (per === 'cf' ? (hasFm ? 'September' : 'proyeksi') : 'proyeksi Okt') + ' di slab ' + kroLabel(cl, key) + ({ v: ' · sudah dikunjungi', nv: ' · belum dikunjungi', nd: ' · tanpa DSE' }[sub] || '') : 'Perpindahan ' + (mvM[1] === 'W' ? 'Wholesaler' : kroLabel(mvM[1], key)) + ' → ' + (mvM[2] === 'W' ? 'Wholesaler' : kroLabel(mvM[2], key));
+    } else {
+      L = K.rows.filter(kroInScope).filter(function (r) { return kroIsKro(r, key) && kroGMatch(r, grp, gk, key); });
+      var cat = met.charAt(0);
+      if (cat === 'W' || cat === 'K') L = L.filter(function (r) { return kroCat(kroTop(r, key)) === cat; });
+      if (/nv$/i.test(met)) L = L.filter(function (r) { return r.v.x === 0; });
+      nm = { W: 'Wholesaler', K: 'KRO', A: 'KRO + Wholesaler', NV: 'KRO + Wholesaler belum dikunjungi', Wnv: 'Wholesaler belum dikunjungi', Knv: 'KRO belum dikunjungi' }[met] || met;
+    }
+    L.sort(function (a, b) { return (kroV(b, key).vm - kroV(a, key).vm) || (kroV(b, key).vp - kroV(a, key).vp); });
+    var gl = grp === 'T' ? '' : ' · ' + (grp === 'perf' ? ((KRO_PERF.filter(function (p) { return p[0] === gk; })[0] || [0, gk])[1]) : gk.replace(/^(A|M):/, '').replace(/^MT:(.*):([WK])$/, '$1 · $2'));
+    return kroMeasEntry(nm + ' · ' + kroKeyName(key) + gl, L, key, lines);
+  }
+  /* ---------- summary table: Area > MC > KRO type (collapsible), or flat by KRO type / performance ---------- */
   function kroGroupTable(K, rows, key, A, tot) {
-    var M = K.metadata, mi = M.mc_info || {}, hasFm = kroHasFm(key), S = hasFm ? 'cf' : 'cp', SQ = hasFm ? 'qf' : 'qp', unit = kroUnit(key), grp = kroGrp(key), dseScoped = !!state.dse, ms = kroScopeMc(), bn = kroKeyName(key);
-    var grpBar = '<div class="map-toolbar" style="margin:10px 0 8px;">' + sellinBtnGroup('Kelompokkan per', 'kro-group', KRO_GROUPS.filter(function (g) { return g[0] !== 'perf' || hasFm; }), grp) + '</div>';
-    var sevS = hasFm ? 'Sep' : 'Proy.';
-    var order = [], G = {};
-    function add(k, label, ket) { if (!G[k]) { G[k] = { k: k, label: label, ket: ket || '', rows: [], n: 0, ret: 0 }; order.push(k); } return G[k]; }
-    if (grp === 'area' || grp === 'mc') ms.forEach(function (m) { var k = grp === 'area' ? m.br : m.mc, g = add(k, esc(k), grp === 'mc' ? 'DSO ' + esc((mi[k] || {}).dso || '—') + ' · ' + esc((mi[k] || {}).br || '') : ''); g.n += m.n; g.ret += kroSumCat(m.k[key][S], 'R'); });
-    if (grp === 'perf') KRO_PERF.forEach(function (p) { add(p[0], dkTag(p[2], p[1]), ''); });
-    if (grp === 'type') [['W', 'Wholesaler'], ['K', 'KRO']].forEach(function (p) { add(p[0], '<b>' + p[1] + '</b>', ''); });
-    rows.forEach(function (r) { var k = kroGKey(r, grp, key); if (k == null || k === 'R' || k === 'N') return; var g = G[k] || add(k, esc(k), ''); g.rows.push(r); });
+    var M = K.metadata, mi = M.mc_info || {}, hasFm = kroHasFm(key), S = hasFm ? 'cf' : 'cp', unit = kroUnit(key), grp = kroGrp(key), dseScoped = !!state.dse, ms = kroScopeMc(), bn = kroKeyName(key);
+    var grpBar = '<div class="map-toolbar" style="margin:10px 0 8px;">' + sellinBtnGroup('Kelompokkan', 'kro-group', KRO_GROUPS.filter(function (g) { return g[0] !== 'perf' || hasFm; }), grp) + '</div>';
+    var sevS = hasFm ? 'Sep' : 'Proy.', openA = state.kroOpenA || (state.kroOpenA = {}), openM = state.kroOpenM || (state.kroOpenM = {});
     function metr(L) {
       var m = { wf: 0, wp: 0, kf: 0, kp: 0, vol: 0 };
       L.forEach(function (r) { var v = kroV(r, key), cs = hasFm ? v.cf : v.cp, cw = kroCat(cs); if (cw === 'W') m.wf++; if (kroCat(v.cp) === 'W') m.wp++; if (cw === 'K') m.kf++; if (kroCat(v.cp) === 'K') m.kp++; if (cw === 'W' || cw === 'K') m.vol += hasFm ? v.vf : v.vp; });
       m.vis = kroVisitStat(L.filter(function (r) { return kroIsKro(r, key); })); return m;
     }
-    var trs = '', all = [], tn = 0, tr_ = 0;
-    var keys = order.slice(); if (grp === 'area' || grp === 'mc') keys.sort(function (a, b) { return G[b].rows.length - G[a].rows.length; });
-    function line(g, m, style, ink) {
-      var kw = m.wf + m.kf, kwp = m.wp + m.kp, cs = ink ? ' style="background:var(--ink); color:#fff;"' : '';
-      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur"' + cs + '>' + g.label + (g.ket ? '<br><span class="note"' + (ink ? ' style="color:#fff;"' : '') + '>' + g.ket + '</span>' : '') + '</td>' +
-        '<td class="num">' + (g.n != null && g.n !== '' && !dseScoped && (grp === 'area' || grp === 'mc') ? fmtCount(g.n) : '·') + '</td>' +
-        (ink ? '<td class="num"><b>' + fmtCount(m.wf) + '</b> → ' + (hasFm ? fmtCount(m.wp) : '') + '</td><td class="num"><b>' + fmtCount(m.kf) + '</b> → ' + (hasFm ? fmtCount(m.kp) : '') + '</td><td class="num cur"><b>' + fmtCount(kw) + '</b> → ' + (hasFm ? fmtCount(kwp) : '') + '</td>'
-          : kroOv(grp, g.k, 'W', '<b>' + fmtCount(m.wf) + '</b>' + (hasFm ? ' → ' + fmtCount(m.wp) : '')) + kroOv(grp, g.k, 'K', '<b>' + fmtCount(m.kf) + '</b>' + (hasFm ? ' → ' + fmtCount(m.kp) : '')) + kroOv(grp, g.k, 'A', '<b>' + fmtCount(kw) + '</b>' + (hasFm ? ' → ' + fmtCount(kwp) : ''))) +
-        '<td class="num">' + kroFmt(key, m.vol) + '</td><td class="num">' + pctOf(m.vol, tot) + '%</td><td class="num">' + kroPctv(m.vis.vis, m.vis.n) + '</td>' +
-        (ink ? '<td class="num">' + (m.vis.zero ? '<b>' + fmtCount(m.vis.zero) + '</b>' : '0') + '</td>' : kroOv(grp, g.k, 'NV', m.vis.zero ? '<b style="color:#991b1b;">' + fmtCount(m.vis.zero) + '</b>' : '0')) + '<td class="num">' + (g.ret != null && (grp === 'area' || grp === 'mc') && !dseScoped ? fmtCount(g.ret) : '·') + '</td></tr>';
+    function tog(k, open) { return '<button type="button" class="btn" data-kro-tog="' + esc(k) + '" aria-expanded="' + open + '" style="font-size:11px; padding:2px 8px; margin-right:8px;">' + (open ? '&#9660;' : '&#9654;') + '</button>'; }
+    // line(): label cell + clickable numbers; n / ret = outlets and Retail count of the node (null = not shown)
+    function line(label, ket, gp, gk, m, n, ret, style, indent) {
+      var ink = /ink/.test(style || ''), cs = ' style="' + (ink ? 'background:var(--ink); color:#fff;' : '') + (indent ? ' padding-left:' + indent + 'px;' : '') + '"', ov = function (met, inner) { return kroOv(gp, gk, met, inner); };
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur"' + cs + '>' + label + (ket ? '<br><span class="note"' + (ink ? ' style="color:#fff;"' : '') + '>' + ket + '</span>' : '') + '</td>' +
+        '<td class="num">' + (n != null && !dseScoped ? fmtCount(n) : '·') + '</td>' +
+        ov('W', '<b>' + fmtCount(m.wf) + '</b>' + (hasFm ? ' → ' + fmtCount(m.wp) : '')) + ov('K', '<b>' + fmtCount(m.kf) + '</b>' + (hasFm ? ' → ' + fmtCount(m.kp) : '')) + ov('A', '<b>' + fmtCount(m.wf + m.kf) + '</b>' + (hasFm ? ' → ' + fmtCount(m.wp + m.kp) : '')) +
+        ov('A', kroFmt(key, m.vol)) + ov('A', pctOf(m.vol, tot) + '%') + ov('A', kroPctv(m.vis.vis, m.vis.n)) + ov('NV', m.vis.zero ? '<b' + (ink ? '' : ' style="color:#991b1b;"') + '>' + fmtCount(m.vis.zero) + '</b>' : '0') +
+        '<td class="num">' + (ret != null && !dseScoped ? fmtCount(ret) : '·') + '</td></tr>';
     }
-    keys.forEach(function (k) { var g = G[k], m = metr(g.rows); if (grp === 'perf' && !g.rows.length) return; trs += line(g, m, '', false); all = all.concat(g.rows); tn += g.n; tr_ += g.ret; });
-    var T = { label: 'TOTAL ' + esc(scopeText()), ket: '', n: tn, ret: tr_, k: 'T' };
-    trs += line(T, metr(all), 'background:var(--ink); color:#fff; font-weight:800;', true);
-    var gl = { area: 'Area', mc: 'MC · DSO', type: 'Tipe KRO', perf: 'Performa September → Oktober' }[grp];
-    var note = grp === 'perf' ? 'Performa = perpindahan kelas September → proyeksi Oktober pada KRO / Wholesaler: Baru (Retail di September, KRO+ di proyeksi), Naik, Tetap, Turun, Berhenti (proyeksi 0). Hanya outlet berslab KRO ke atas yang dibandingkan.' :
-      (grp === 'type' ? 'Tipe = kelas tertinggi outlet (September atau proyeksi Oktober).' : 'Jumlah outlet per baris dari seluruh outlet di wilayah itu; outlet di luar master dan outlet non-PJP yang punya volume masuk ke MC asal data.');
+    var trs = '', all = [], tn = 0, tr_ = 0, gl;
+    if (grp === 'am') {
+      gl = 'Area › MC › tipe KRO';
+      var areas = {}, aorder = [];
+      ms.forEach(function (m) { var a = areas[m.br] || (areas[m.br] = { br: m.br, mcs: {}, n: 0, ret: 0 }); if (!areas[m.br].seen) { areas[m.br].seen = 1; aorder.push(m.br); } var c = a.mcs[m.mc] = { mc: m.mc, n: m.n, ret: kroSumCat(m.k[key][S], 'R'), rows: [] }; a.n += m.n; a.ret += c.ret; });
+      rows.forEach(function (r) { var a = areas[r.br], c = a && a.mcs[r.mc]; if (!c) return; if (kroCat(kroTop(r, key)) === 'W' || kroCat(kroTop(r, key)) === 'K' || kroIsKro(r, key)) c.rows.push(r); });
+      aorder.forEach(function (br) { var a = areas[br]; a.rows = []; Object.keys(a.mcs).forEach(function (k) { a.rows = a.rows.concat(a.mcs[k].rows); }); });
+      aorder.sort(function (x, y) { return areas[y].rows.length - areas[x].rows.length; });
+      aorder.forEach(function (br) {
+        var a = areas[br], aOpen = openA[br] !== false;
+        trs += line(tog('A|' + br, aOpen) + '<b>' + esc(br) + '</b>', Object.keys(a.mcs).length + ' MC', 'am', 'A:' + br, metr(a.rows), a.n, a.ret, 'background:var(--ij-wash, #f6f4f1); font-weight:800;', 0);
+        all = all.concat(a.rows); tn += a.n; tr_ += a.ret;
+        if (!aOpen) return;
+        Object.keys(a.mcs).sort(function (x, y) { return a.mcs[y].rows.length - a.mcs[x].rows.length; }).forEach(function (mc) {
+          var c = a.mcs[mc], mOpen = !!openM[mc];
+          trs += line(tog('M|' + mc, mOpen) + esc(mc), 'DSO ' + esc((mi[mc] || {}).dso || '—'), 'am', 'M:' + mc, metr(c.rows), c.n, c.ret, '', 22);
+          if (!mOpen) return;
+          [['W', 'Wholesaler'], ['K', 'KRO']].forEach(function (t) { var L = c.rows.filter(function (r) { return kroCat(kroTop(r, key)) === t[0]; }); if (L.length) trs += line(t[1], '', 'am', 'MT:' + mc + ':' + t[0], metr(L), null, null, 'font-size:13px;', 48); });
+        });
+      });
+      trs += line('TOTAL ' + esc(scopeText()), '', 'T', 'T', metr(all), tn, tr_, 'background:var(--ink); color:#fff; font-weight:800;', 0);
+    } else {
+      var G = {}, order = [];
+      gl = { type: 'Tipe KRO', perf: 'Performa September → Oktober' }[grp];
+      if (grp === 'perf') KRO_PERF.forEach(function (p) { G[p[0]] = { label: dkTag(p[2], p[1]), rows: [] }; order.push(p[0]); });
+      else [['W', 'Wholesaler'], ['K', 'KRO']].forEach(function (p) { G[p[0]] = { label: '<b>' + p[1] + '</b>', rows: [] }; order.push(p[0]); });
+      rows.forEach(function (r) { var k = kroGKey(r, grp, key); if (k && G[k]) G[k].rows.push(r); });
+      order.forEach(function (k) { var g = G[k]; if (grp === 'perf' && !g.rows.length) return; trs += line(g.label, '', grp, k, metr(g.rows), null, null, '', 0); all = all.concat(g.rows); });
+      trs += line('TOTAL ' + esc(scopeText()), '', 'T', 'T', metr(all), null, null, 'background:var(--ink); color:#fff; font-weight:800;', 0);
+    }
+    var note = grp === 'perf' ? 'Performa = perpindahan kelas September → proyeksi Oktober pada KRO / Wholesaler: Baru (Retail di September, KRO+ di proyeksi), Naik, Tetap, Turun, Berhenti (proyeksi 0).' :
+      (grp === 'type' ? 'Tipe = kelas tertinggi outlet (September atau proyeksi Oktober).' : 'Klik ▶ / ▼ untuk membuka Area → MC → tipe KRO (Wholesaler, KRO). Jumlah outlet per baris dari seluruh outlet di wilayah itu; outlet di luar master dan non-PJP yang punya volume masuk ke MC asal data.');
     var tbl = '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th(gl) + th('Outlet', 1) + th('Wholesaler ' + sevS + (hasFm ? ' → Okt' : ''), 1) + th('KRO ' + sevS + (hasFm ? ' → Okt' : ''), 1) + th('KRO + Wholesaler', 1) + th(unit + ' ' + (hasFm ? 'Sep' : 'proyeksi'), 1) + th('% volume', 1) + th('% dikunjungi', 1) + th('Belum dikunjungi', 1) + th('Retail (' + (hasFm ? 'Sep' : 'proyeksi') + ')', 1) + '</tr></thead><tbody>' + trs + '</tbody></table></div>';
     return card('Ringkasan KRO + Wholesaler per ' + gl + ' · ' + bn + (hasFm ? ' · September → proyeksi Oktober' : ' · proyeksi Oktober') + ' · ' + esc(scopeText()), grpBar + tbl +
-      '<p class="note">' + note + ' Klik angka Wholesaler, KRO, KRO + Wholesaler atau Belum dikunjungi untuk daftar outlet. Success visit = ≥ 1 check-in PJP selesai 1–' + M.cuts.visits + ' Okt.</p>');
-  }
-  /* popup list for clickable counts: key kr|<grp>|<encoded group>|<metric>  (metric W, K, A = KRO + Wholesaler, NV = belum dikunjungi, Wnv, Knv) */
-  function kroLazy(pk) {
-    var m = String(pk).match(/^kr\|(\w+)\|([^|]*)\|(\w+)$/); if (!m) return null;
-    var K = kroFeed(); if (!K) return null;
-    var key = kroKey(), grp = m[1], gk = decodeURIComponent(m[2]), met = m[3], hasFm = kroHasFm(key);
-    var L = K.rows.filter(kroInScope).filter(function (r) { return kroIsKro(r, key) && (grp === 'T' || kroGKey(r, grp, key) === gk); });
-    var cat = met.charAt(0);
-    if (cat === 'W' || cat === 'K') L = L.filter(function (r) { return kroCat(kroTop(r, key)) === cat; });
-    if (/nv$/i.test(met)) L = L.filter(function (r) { return r.v.x === 0; });
-    L.sort(function (a, b) { return kroV(b, key).vp - kroV(a, key).vp; });
-    var nm = { W: 'Wholesaler', K: 'KRO', A: 'KRO + Wholesaler', NV: 'KRO + Wholesaler belum dikunjungi', Wnv: 'Wholesaler belum dikunjungi', Knv: 'KRO belum dikunjungi' }[met] || met;
-    var rowsOut = L.map(function (r) {
-      var v = kroV(r, key), ids = Object.keys(r.id).sort().map(function (x) { return x + ' ' + r.id[x]; }).join(' · ');
-      return [r.n || '(tanpa nama)', ids, r.br + ' · ' + r.mc, uarDse(r), (hasFm ? kroLabel(v.cf, key) + ' → ' : '') + kroLabel(v.cp, key), hasFm ? kroFmt(key, v.vf) : '—', kroFmt(key, v.vm), kroFmt(key, v.vp), r.v.x + ' / ' + r.v.p, kroFl(r, key).map(function (f) { return (KRO_FLAGS[f] || [f])[0]; }).join(', ')];
-    });
-    var tv = 0; L.forEach(function (r) { tv += kroV(r, key).vm; });
-    return { title: nm + ' · ' + kroKeyName(key) + (grp === 'T' ? '' : ' · ' + (grp === 'perf' ? ((KRO_PERF.filter(function (p) { return p[0] === gk; })[0] || [0, gk])[1]) : gk)), cols: ['Outlet', 'ID', 'Area · MC', 'DSE', 'Slab ' + (hasFm ? 'Sep → Okt' : 'proyeksi Okt'), (hasFm ? 'Volume Sep' : '—'), 'Volume MTD', 'Proyeksi Okt', 'Check-in selesai / rencana', 'Flag'], rows: rowsOut, lines: [fmtCount(L.length) + ' outlet · volume MTD ' + kroFmt(key, tv) + ' · PJP visit 1–' + K.metadata.cuts.visits + ' Okt'] };
+      '<p class="note">' + note + ' Setiap angka bisa diklik: daftar outlet dengan FM (September penuh), LMTD (1–' + M.cuts.supply + ' September) dan MTD (Oktober) dalam Rp dan qty, gap MTD−FM dan growth, bisa disalin sebagai teks, gambar atau PNG. Success visit = ≥ 1 check-in PJP selesai 1–' + M.cuts.visits + ' Okt.</p>');
   }
   /* ---------- catalogue ---------- */
   function kroFilterRows(K, rows, key, forAction) {
@@ -6790,7 +6908,8 @@
   }
   function viewKro() {
     var K = kroFeed(); if (!K) return card('Outlet & KRO Management', '<p class="note">Feed KRO belum dibangun. Jalankan <code>python3 scripts/build_kro_feed.py</code> setelah feed GA, penjualan, demand dan kunjungan tersedia.</p>');
-    _kroLazy = kroLazy;
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });   // popup lists depend on product, measure and filters
+    _kroLazy = kroLazy; ovLazy('kr', kroLazy); _ovScope = scopeText() + ' · ' + kroKeyName(kroKey()) + ' · FM = September penuh · LMTD = 1–cut September · MTD = Oktober'; kroSlim();
     var rows = K.rows.filter(kroInScope), tab = state.kroTab || 'ringkasan', key = kroKey();
     if (tab === 'katalog') return kroKatalog(K, rows, key, false);
     if (tab === 'aksi') return kroKatalog(K, rows, key, true);
@@ -6820,7 +6939,27 @@
     var mi = P.metadata.mc_info || {}, list = pjOutlets(P).filter(function (o) { return o.tier === 'M'; });
     var S = sgSlabs(m);
     list.forEach(function (o) { o._sg = sgVal(o, m, G); o._sl = [sgIdx(S, o._sg[0]), sgIdx(S, o._sg[1]), sgIdx(S, o._sg[2])]; });
-    return { P: P, m: m, G: G, S: S, list: list, mi: mi, cut: P.metadata.cut_day, gcut: G ? G.cut : null };
+    _sgLists = []; var C = { P: P, m: m, G: G, S: S, list: list, mi: mi, cut: P.metadata.cut_day, gcut: G ? G.cut : null }; _sgC = C; ovLazy('sg', sgLazy);
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('sg|') === 0) delete _ovReg[k]; });
+    return C;
+  }
+  var _sgLists = [], _sgC = null;
+  function sgReg(l) { var i = _sgLists.indexOf(l); if (i < 0) { _sgLists.push(l); i = _sgLists.length - 1; } return i; }
+  function sgSpan(l, p, k, inner, style) { return '<span data-ov="sg|' + sgReg(l) + '|' + p + '|' + k + '" role="button" tabindex="0" title="Klik: daftar outlet dengan FM, LMTD, MTD (Rp dan qty), gap dan growth" style="cursor:pointer; text-decoration:underline dotted;' + (style || '') + '">' + inner + '</span>'; }
+  function sgMeasOf(o, C) {   // { fm, lm, mtd } = [Rp, qty]; n/a = null (GA has no Rp, saldo has no quantity)
+    var s = o._sg;
+    if (C.m === 'ga') return { mtd: [null, s[0]], lm: [null, s[1]], fm: [null, s[2]] };
+    if (C.m === 'sal') return { mtd: [s[0], null], lm: [s[1], null], fm: [s[2], null] };
+    var a = (o.c && o.c.SP) || []; return { mtd: [a[1] || 0, a[0] || 0], lm: [a[3] || 0, a[2] || 0], fm: [a[5] || 0, a[4] || 0] };
+  }
+  function sgLazy(pk) {   // sg|<list id>|<period 0 MTD, 1 LMTD, 2 FM>|<slab index | N no volume | A active | L all>
+    var m = /^sg\|(\d+)\|(\d)\|(\w+)$/.exec(pk), C = _sgC, l = m && _sgLists[+m[1]]; if (!m || !C || !l) return null;
+    var p = +m[2], k = m[3], S = C.S, per = ['MTD (Oktober)', 'LMTD (1–cut September)', 'FM (September penuh)'][p];
+    var L = l.filter(function (o) { var i = o._sl[p]; return k === 'L' ? true : (k === 'A' ? i < S.length : (k === 'N' ? i >= S.length : i === +k)); });
+    L.sort(function (x, y) { return y._sg[p] - x._sg[p]; });
+    var nm = k === 'L' ? 'Semua outlet' : (k === 'A' ? 'Outlet aktif' : (k === 'N' ? 'Tanpa volume' : 'Slab ' + S[+k][2]));
+    var items = L.map(function (o) { return { lead: [o.n || o.id, o.id + ' · ' + o.b, uarDse(o), o.mc || '—'], m: sgMeasOf(o, C) }; });
+    return ovMeasEntry(nm + ' · ' + per + ' · ' + SG_LABEL[C.m], ['Outlet', 'ID · brand', 'DSE', 'MC'], items, ['Kolom FM / LMTD / MTD berlaku untuk semua outlet di daftar; slab dihitung pada periode ' + per + '.']);
   }
   function sgCount(list, S) {   // counts[period][slab] and totals; periods: 0 = MTD (this month), 1 = LMTD, 2 = FM
     var cnt = [0, 1, 2].map(function () { return S.map(function () { return 0; }); }), sum = [0, 0, 0], act = [0, 0, 0], none = [0, 0, 0];
@@ -6836,11 +6975,12 @@
         sellinBtnGroup('Gap besar ≥', 'sga-thr', thrOpts.map(function (v) { return [String(v), C.m === 'sal' ? pjRp(v) : v + ' pcs']; }), String(thr)) : '') + '</div>';
     return tabNav + bar;
   }
-  function sgCell(c, k, S) {   // big = this month (MTD), small = LMTD / FM
+  function sgCell(c, k, S, l) {   // big = this month (MTD), small = LMTD / FM; every number opens the outlet list
     var a = c.cnt[0][k], b = c.cnt[1][k], f = c.cnt[2][k];
     if (!a && !b && !f) return '<td class="num" style="color:var(--ij-muted);">·</td>';
     var clr = a > b ? '#166534' : (a < b ? '#991b1b' : 'inherit');
-    return '<td class="num"><b style="color:' + clr + ';">' + fmtCount(a) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(b) + ' / ' + fmtCount(f) + '</div></td>';
+    var sp = function (p, v, st) { return v && l ? sgSpan(l, p, k, fmtCount(v), st) : fmtCount(v); };
+    return '<td class="num"><b style="color:' + clr + ';">' + sp(0, a) + '</b><div class="note" style="font-size:11.5px;">' + sp(1, b) + ' / ' + sp(2, f) + '</div></td>';
   }
   function sgHeadSlabs(S) { return S.map(function (x) { return '<th class="num">' + x[2] + '</th>'; }).join(''); }
   var SG_NOTE = 'Besar = bulan ini (MTD), kecil = bulan lalu LMTD / bulan lalu penuh (FM). Hijau = lebih banyak outlet di slab itu dibanding LMTD. Batas atas slab masuk ke slab yang lebih rendah. Hanya outlet PJP di lingkup filter; migrasi sistem MOBII / MOBO membuat awal Oktober (1–9 Okt) rendah, jadi MTD terlihat lebih kecil dari semestinya.';
@@ -6851,10 +6991,12 @@
     S.forEach(function (x, k) {
       var a = T.cnt[0][k], b = T.cnt[1][k], f = T.cnt[2][k];
       function pcs(p) { var t = 0; C.list.forEach(function (o) { if (o._sl[p] === k) t += o._sg[p]; }); return t; }
-      rows += '<tr><td class="cur"><b>' + x[2] + '</b></td><td class="num"><b>' + fmtCount(a) + '</b></td><td class="num">' + sgFmt(C.m, pcs(0)) + '</td><td class="num">' + fmtCount(b) + '</td><td class="num">' + sgFmt(C.m, pcs(1)) + '</td><td class="num">' + fmtCount(f) + '</td><td class="num">' + sgFmt(C.m, pcs(2)) + '</td>' +
+      var cc = function (p, v, inner) { return v ? ovCell('sg|' + sgReg(C.list) + '|' + p + '|' + k, inner) : '<td class="num">' + inner + '</td>'; };
+      rows += '<tr><td class="cur"><b>' + x[2] + '</b></td>' + cc(0, a, '<b>' + fmtCount(a) + '</b>') + cc(0, a, sgFmt(C.m, pcs(0))) + cc(1, b, fmtCount(b)) + cc(1, b, sgFmt(C.m, pcs(1))) + cc(2, f, fmtCount(f)) + cc(2, f, sgFmt(C.m, pcs(2))) +
         '<td class="num">' + uarGTag(b ? (a / b - 1) * 100 : (a ? null : 0)) + ' <span class="note">' + (a - b >= 0 ? '+' : '') + fmtCount(a - b) + '</span></td><td class="num">' + uarGTag(f ? (a / f - 1) * 100 : (a ? null : 0)) + ' <span class="note">' + (a - f >= 0 ? '+' : '') + fmtCount(a - f) + '</span></td></tr>';
     });
-    rows += '<tr><td class="cur">Tanpa volume (0)</td><td class="num">' + fmtCount(T.none[0]) + '</td><td class="num">·</td><td class="num">' + fmtCount(T.none[1]) + '</td><td class="num">·</td><td class="num">' + fmtCount(T.none[2]) + '</td><td class="num">·</td><td></td><td></td></tr>';
+    var cn = function (p) { return T.none[p] ? ovCell('sg|' + sgReg(C.list) + '|' + p + '|N', fmtCount(T.none[p])) : '<td class="num">0</td>'; };
+    rows += '<tr><td class="cur">Tanpa volume (0)</td>' + cn(0) + '<td class="num">·</td>' + cn(1) + '<td class="num">·</td>' + cn(2) + '<td class="num">·</td><td></td><td></td></tr>';
     rows += '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td class="cur" style="background:var(--ink); color:#fff;">TOTAL · ' + fmtCount(T.n) + ' outlet</td><td class="num">' + fmtCount(T.act[0]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[0]) + '</td><td class="num">' + fmtCount(T.act[1]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[1]) + '</td><td class="num">' + fmtCount(T.act[2]) + ' aktif</td><td class="num">' + sgFmt(C.m, T.sum[2]) + '</td><td class="num">' + (T.sum[1] ? ((T.sum[0] / T.sum[1] - 1) * 100).toFixed(1) + '%' : '—') + '</td><td class="num">' + (T.sum[2] ? ((T.sum[0] / T.sum[2] - 1) * 100).toFixed(1) + '%' : '—') + '</td></tr>';
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('Outlet aktif MTD (' + SG_LABEL[C.m] + ')', fmtCount(T.act[0]), 'LMTD ' + fmtCount(T.act[1]) + ' · FM ' + fmtCount(T.act[2]), T.act[0] >= T.act[1] ? 'up' : 'down', pctOf(T.act[0], T.n) + '% dari ' + fmtCount(T.n) + ' outlet PJP') +
@@ -6865,8 +7007,8 @@
       '<p class="note">LMTD = 1–' + (C.m === 'ga' && C.gcut ? C.gcut : C.cut) + ' September (hari yang sama); FM = September penuh. Kolom Volume = jumlah ' + SG_LABEL[C.m] + ' dari outlet di slab itu.</p>');
     function rowFn(label, ket, l, style) {
       var c = sgCount(l, S), bg = /ink/.test(style) ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
-      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(c.n) + '</td>' +
-        '<td class="num"><b>' + fmtCount(c.act[0]) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(c.act[1]) + ' / ' + fmtCount(c.act[2]) + '</div></td>' + S.map(function (x, k) { return sgCell(c, k, S); }).join('') +
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + (c.n ? sgSpan(l, 0, 'L', fmtCount(c.n)) : '0') + '</td>' +
+        '<td class="num"><b>' + (c.act[0] ? sgSpan(l, 0, 'A', fmtCount(c.act[0])) : '0') + '</b><div class="note" style="font-size:11.5px;">' + (c.act[1] ? sgSpan(l, 1, 'A', fmtCount(c.act[1])) : '0') + ' / ' + (c.act[2] ? sgSpan(l, 2, 'A', fmtCount(c.act[2])) : '0') + '</div></td>' + S.map(function (x, k) { return sgCell(c, k, S, l); }).join('') +
         '<td class="num"><b>' + sgFmt(C.m, c.sum[0]) + '</b><div class="note" style="font-size:11.5px;">' + sgFmt(C.m, c.sum[1]) + ' / ' + sgFmt(C.m, c.sum[2]) + '</div></td></tr>';
     }
     var TR = uarTerrRows({ list: C.list, mi: C.mi }, rowFn);
@@ -6885,8 +7027,8 @@
     var tp = Math.ceil(G.length / ps) || 1, page = Math.min(state.sgaPage || 1, tp); state.sgaPage = page;
     var body = G.slice((page - 1) * ps, page * ps).map(function (x) {
       var c = x.c, gcls = x.gap > 0 ? '#991b1b' : '#166534';
-      return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + dseHtml(x.dse) + '</b></td><td>' + esc(x.mc) + '<div class="note">' + esc(x.br) + '</div></td><td class="num">' + fmtCount(c.n) + '</td>' +
-        '<td class="num"><b>' + fmtCount(c.act[0]) + '</b><div class="note" style="font-size:11.5px;">' + fmtCount(c.act[1]) + ' / ' + fmtCount(c.act[2]) + '</div></td>' + S.map(function (y, k) { return sgCell(c, k, S); }).join('') +
+      return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + dseHtml(x.dse) + '</b></td><td>' + esc(x.mc) + '<div class="note">' + esc(x.br) + '</div></td><td class="num">' + (c.n ? sgSpan(x.list, 0, 'L', fmtCount(c.n)) : '0') + '</td>' +
+        '<td class="num"><b>' + (c.act[0] ? sgSpan(x.list, 0, 'A', fmtCount(c.act[0])) : '0') + '</b><div class="note" style="font-size:11.5px;">' + (c.act[1] ? sgSpan(x.list, 1, 'A', fmtCount(c.act[1])) : '0') + ' / ' + (c.act[2] ? sgSpan(x.list, 2, 'A', fmtCount(c.act[2])) : '0') + '</div></td>' + S.map(function (y, k) { return sgCell(c, k, S, x.list); }).join('') +
         '<td class="num"><b>' + sgFmt(C.m, c.sum[0]) + '</b><div class="note" style="font-size:11.5px;">' + sgFmt(C.m, c.sum[1]) + ' / ' + sgFmt(C.m, c.sum[2]) + '</div></td><td class="num" style="color:' + gcls + ';"><b>' + (x.gap > 0 ? '−' : '+') + sgFmt(C.m, Math.abs(x.gap)) + '</b></td></tr>';
     }).join('');
     var T = sgCount(C.list, S);
@@ -7441,7 +7583,8 @@
   function dkFeed() { return (typeof window !== 'undefined' && window.DSE_KPI_FEED) ? window.DSE_KPI_FEED : null; }
   function dkOpt() { return { basis: state.dkBasis || 'prorata', osa: state.dkOsa || 'all', ec: state.dkEc || 'prod', sp: 'target', spi: state.dkSpi !== 'off' }; }
   function dkSpiOn() { return state.dkSpi !== 'off'; }   // SP Injection (MOBO, digital) counts as SP Sell-In achievement (owner, 19 Oct 2026)
-  function dkSpPcs(r) { return (r.sp_pcs || 0) + (dkSpiOn() ? (r.spi_pcs || 0) : 0); }
+  function dkSp3(r) { return r.sp3_pcs != null ? r.sp3_pcs : (r.sp_pcs || 0); }   // SP KPI = SP 3GB (SP Zero / SP0 is not counted, owner 20 Oct 2026) + SP Injection
+  function dkSpPcs(r) { return dkSp3(r) + (dkSpiOn() ? (r.spi_pcs || 0) : 0); }
   function dkTag(kind, text) { var c = DK_COL[kind]; return '<span style="display:inline-block; padding:2px 7px; font:700 13px var(--ij-font); background:' + c[0] + '; color:' + c[1] + '; border:1px solid ' + c[1] + '33; white-space:nowrap;">' + text + '</span>'; }
   function dkScore(r, F, opt) {
     var P = F.policy, M = F.metadata, f = opt.basis === 'full' ? 1 : M.cut_day / M.month_days, o = { f: f };
@@ -7450,7 +7593,7 @@
     var slab = -1, rate = 0;
     if (o.osaAch != null) P.osa.slabs.forEach(function (sl, i) { if (o.osaAch >= sl.sla - 1e-9) { slab = i; rate = sl.rate; } });
     o.osaSlab = slab; o.osaRate = rate; o.osaInc = Math.min(P.osa.max_rp, rate * amt);
-    var T = P.sp.tiers; o.spT = [T[0].pcs * f, T[1].pcs * f]; o.sp1 = r.sp_pcs; o.spiAll = r.spi_pcs || 0; o.spi = opt.spi ? o.spiAll : 0; o.sp = o.sp1 + o.spi; o.spOfficial = false;
+    var T = P.sp.tiers; o.spT = [T[0].pcs * f, T[1].pcs * f]; o.sp1 = dkSp3(r); o.sp0 = r.sp0_pcs || 0; o.spiAll = r.spi_pcs || 0; o.spi = opt.spi ? o.spiAll : 0; o.sp = o.sp1 + o.spi; o.spOfficial = false;
     if (opt.sp !== 'policy' && r.sp_tgt > 0) { o.spOfficial = true; o.spTgt = r.sp_tgt * f; o.spT = [0.9 * o.spTgt, o.spTgt]; }
     o.spAch = o.spOfficial && o.spTgt > 0 ? o.sp / o.spTgt : null;
     o.spSlab = o.sp >= o.spT[1] - 1e-9 ? 1 : (o.sp >= o.spT[0] - 1e-9 ? 0 : -1);
@@ -7508,7 +7651,7 @@
       'Insentif: ' + (o.osaSlab < 0 ? '<b>Rp 0</b> (di bawah SLA 90%)' : (o.osaRate * 100).toFixed(1) + '% × ' + pjRp(o.osaAmt) + ' = ' + (o.osaRate * o.osaAmt > P.osa.max_rp ? pjRp(o.osaRate * o.osaAmt) + ' → dibatasi <b>' + pjRp(P.osa.max_rp) + '</b>' : '<b>' + pjRp(o.osaInc) + '</b>'))
     ];
     var spRows = [
-      'SP terjual: <b>' + fmtCount(o.sp) + ' pcs</b> = Sell-In ' + fmtCount(o.sp1) + ' pcs (' + fmtCount(r.sp_out) + ' outlet)' + (o.spi ? ' + Injection ' + fmtCount(o.spi) + ' pcs (' + fmtCount(r.spi_out || 0) + ' outlet)' : (o.spiAll ? ' <span class="note">(Injection ' + fmtCount(o.spiAll) + ' pcs tidak dihitung)</span>' : '')),
+      'SP dihitung: <b>' + fmtCount(o.sp) + ' pcs</b> = SP 3GB ' + fmtCount(o.sp1) + ' pcs (' + fmtCount(r.sp3_out != null ? r.sp3_out : r.sp_out) + ' outlet)' + (o.spi ? ' + Injection ' + fmtCount(o.spi) + ' pcs (' + fmtCount(r.spi_out || 0) + ' outlet)' : (o.spiAll ? ' <span class="note">(Injection ' + fmtCount(o.spiAll) + ' pcs tidak dihitung)</span>' : '')) + (o.sp0 ? ' <span class="note">· SP0 / Zero ' + fmtCount(o.sp0) + ' pcs tidak dihitung</span>' : ''),
       'Tier 1 (90%): ≥ <b>' + fmtCount(Math.round(o.spT[0])) + '</b> pcs → ' + pjRp(P.sp.max_rp * T[0].payout),
       'Tier 2 (100%): ≥ <b>' + fmtCount(Math.round(o.spT[1])) + '</b> pcs → ' + pjRp(P.sp.max_rp * T[1].payout),
       'Slab: ' + dkSlabSpTag(o) + ' → insentif <b>' + pjRp(o.spInc) + '</b>' + (o.spSlab < 0 ? ' <span class="note">(kurang ' + fmtCount(Math.max(0, Math.round(o.spT[0] - o.sp))) + ' pcs ke tier 1)</span>' : '')
@@ -7528,7 +7671,7 @@
     return '<tr><td colspan="' + cols + '" style="background:var(--ij-ground); padding:10px 12px;"><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap:12px;">' +
       box('OSA · bobot 40%', 'osa', osaRows) + box('SP Data Sell In · bobot 60%', 'sp', spRows) + box('Compliance', 'cmp', cmpRows) + box('Insentif', 'inc', incRows) + '</div></td></tr>';
   }
-  function dkSpiNote(sell, spi) { return spi ? '<div class="note" style="font-weight:500;">' + fmtCount(sell) + ' sell-in + ' + fmtCount(spi) + ' inject</div>' : ''; }
+  function dkSpiNote(sell, spi) { return spi ? '<div class="note" style="font-weight:500;">' + fmtCount(sell) + ' SP 3GB + ' + fmtCount(spi) + ' inject</div>' : ''; }
   function dkAgg(list, F, opt) {
     var A = { n: list.length, withVis: 0, amt: 0, tgt: 0, osaInc: 0, osaSl: [0, 0, 0, 0], sp: 0, sp1: 0, spi: 0, spTgt: 0, spOf: 0, spInc: 0, spSl: [0, 0, 0], uar: 0, uarTgt: 0, ecNum: 0, ecDen: 0, comp: 0, idx: { '1': 0, '0.97': 0, '0.95': 0, '0': 0 }, total: 0, final: 0, rows: [] };
     list.forEach(function (r) {
@@ -7737,7 +7880,7 @@
     var band = function (key, title, sub, cols) { return dkBandTh(key, title, sub, cols); };
     var cols = {}; DK_COLS.forEach(function (c) { cols[c.k] = c; });
     var dHead = '<tr>' + dkSortTh(cols.name, 2) + (showMc ? dkSortTh(cols.mc, 2) : '') +
-      band('osa', 'OSA', 'bobot 40% · 0.2% / 0.4% dari amount · maks Rp 1 Jt', 4) + band('sp', 'SP Data Sell In', 'bobot 60% · ' + (opt.sp === 'policy' ? 'tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' pcs' : 'slab 90% / 100% dari target resmi'), 4) +
+      band('osa', 'OSA', 'bobot 40% · 0.2% / 0.4% dari amount · maks Rp 1 Jt', 4) + band('sp', 'SP Data Sell In', 'SP 3GB + Injection (SP0 tidak dihitung) · bobot 60% · ' + (opt.sp === 'policy' ? 'tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' pcs' : 'slab 90% / 100% dari target resmi'), 4) +
       band('cmp', 'Compliance', 'UAR 50% + effective call 50%', 3) + band('inc', 'Insentif', 'total × index', 2) + '<th rowspan="2" style="vertical-align:bottom;">Rincian</th></tr>' +
       '<tr>' + ['osaAmt', 'osaTgt', 'osaAch', 'osaInc', 'sp', 'spTgt', 'spAch', 'spInc', 'uar', 'ec', 'comp', 'total', 'final'].map(function (k) { return dkSortTh(cols[k], 1); }).join('') + '</tr>';
     // toolbar: grouping, expand/collapse, download, search, value filters
@@ -7778,7 +7921,7 @@
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('DSE dalam cakupan', fmtCount(A.n), fmtCount(A.withVis) + ' punya data PJP', 'up', scope) +
       kpi('OSA · pencapaian vs target', A.osaAch == null ? '—' : (A.osaAch * 100).toFixed(1) + '%', pjRp(A.amt) + ' dari target ' + pjRp(A.tgt), A.osaAch != null && A.osaAch >= 0.9 ? 'up' : 'down', fmtCount(A.osaSl[2]) + ' DSE 100% · ' + fmtCount(A.osaSl[1]) + ' DSE 90% · ' + fmtCount(A.osaSl[0]) + ' di bawah 90%') +
-      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', (A.spi ? fmtCount(A.sp1) + ' sell-in + ' + fmtCount(A.spi) + ' injection · ' : '') + 'rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
+      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', fmtCount(A.sp1) + ' SP 3GB' + (A.spi ? ' + ' + fmtCount(A.spi) + ' injection' : '') + ' · rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
       kpi('Compliance index', (A.compAvg * 100).toFixed(1) + '% skor rata-rata', fmtCount(A.idx['1']) + ' DSE × 1 · ' + fmtCount(A.idx['0.97'] + A.idx['0.95']) + ' DSE × 0.97/0.95 · ' + fmtCount(A.idx['0']) + ' DSE × 0', A.idx['1'] > 0 ? 'up' : 'down', 'UAR ≥ 5 pcs ' + fmtCount(A.uar) + ' outlet · effective call ' + (A.ec == null ? '—' : (A.ec * 100).toFixed(1) + '%')) +
       kpi('Insentif total (sebelum index)', pjRp(A.total), 'OSA ' + pjRp(A.osaInc) + ' · SP ' + pjRp(A.spInc), 'up', 'maksimum Rp 1 Jt per KPI per DSE') +
       kpi('Insentif final', pjRp(A.final), 'total × compliance index', A.final > 0 ? 'up' : 'down', A.total > 0 ? 'index memotong ' + pjRp(A.total - A.final) + ' (' + ((1 - A.final / A.total) * 100).toFixed(0) + '%)' : 'belum ada DSE yang mencapai slab') +
@@ -7810,7 +7953,7 @@
       }
       A.key = 'T';
       var gHead = '<tr>' + dkStickyTh(mode === 'area' ? 'Area' : (mode === 'dist' ? 'Distributor' : 'Micro Cluster'), 2) + (hasDso ? '<th rowspan="2" style="vertical-align:bottom;">DSO</th>' : '') + '<th rowspan="2" class="num" style="vertical-align:bottom;">DSE</th>' +
-        dkBandTh('osa', 'OSA', 'bobot 40% · 0.2% / 0.4% · maks Rp 1 Jt', 5) + dkBandTh('sp', 'SP Data Sell In', 'bobot 60% · ' + (opt.sp === 'policy' ? 'tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' pcs' : 'slab 90% / 100% dari target resmi'), 5) +
+        dkBandTh('osa', 'OSA', 'bobot 40% · 0.2% / 0.4% · maks Rp 1 Jt', 5) + dkBandTh('sp', 'SP Data Sell In', 'SP 3GB + Injection (SP0 tidak dihitung) · bobot 60% · ' + (opt.sp === 'policy' ? 'tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' pcs' : 'slab 90% / 100% dari target resmi'), 5) +
         dkBandTh('cmp', 'Compliance', 'UAR 50% + effective call 50% → index', 3) + dkBandTh('inc', 'Insentif', 'total × index', 2) + '<th rowspan="2" style="vertical-align:bottom;">Detail</th></tr>' +
         '<tr>' + dkSubTh('osa', 'Amount', true, true) + dkSubTh('osa', 'Target', false, true) + dkSubTh('osa', 'Ach.', false, true) + dkSubTh('osa', 'Sebaran DSE', false) + dkSubTh('osa', 'Insentif', false, true) +
         dkSubTh('sp', 'Pcs', true, true) + dkSubTh('sp', 'Target', false, true) + dkSubTh('sp', 'Ach.', false, true) + dkSubTh('sp', 'Sebaran DSE', false) + dkSubTh('sp', 'Insentif', false, true) +
@@ -8755,8 +8898,34 @@
   function ovKpiGroup(title, kpis) { return '<h3 style="font:800 12px var(--ij-font); letter-spacing:.06em; text-transform:uppercase; margin:14px 0 0; padding-bottom:3px; border-bottom:2px solid var(--ij-ink);">' + title + '</h3><div class="kpis kpis-s" style="margin-top:6px;">' + kpis.join('') + '</div>'; }
   var _ovReg = {};   // popup registry, refilled on every render: key -> { title, cols, rows, lines }
   var _ovLazyFn = null;   // resolver for entries built on demand (slab matrix cells: key 'sl|...')
-  function ovEntry(key) { if (!_ovReg[key] && _ovLazyFn && String(key).indexOf('sl|') === 0) { var e = _ovLazyFn(key); if (e) _ovReg[key] = e; } if (!_ovReg[key] && _kroLazy && String(key).indexOf('kr|') === 0) { var e2 = _kroLazy(key); if (e2) _ovReg[key] = e2; } return _ovReg[key]; }
+  function ovEntry(key) { if (!_ovReg[key] && _ovLazyFn && String(key).indexOf('sl|') === 0) { var e = _ovLazyFn(key); if (e) _ovReg[key] = e; } if (!_ovReg[key] && _kroLazy && String(key).indexOf('kr|') === 0) { var e2 = _kroLazy(key); if (e2) _ovReg[key] = e2; } var pf = String(key).split('|')[0]; if (!_ovReg[key] && _ovLazyBy[pf]) { var e3 = _ovLazyBy[pf](key); if (e3) _ovReg[key] = e3; } return _ovReg[key]; }
   function ovAdd(key, title, cols, rows, lines) { _ovReg[key] = { title: title, cols: cols, rows: rows, lines: lines || [] }; }
+  /* Measure popups (owner, 20 Okt 2026): every slab number opens the list of outlets (or DSEs) behind it with FM (September penuh), LMTD (1..cut September) and
+     MTD (Oktober) in Rupiah AND quantity, the gap (MTD - FM; negative = short) and growth vs LMTD. A measure without a baseline is "n/a", never 0.
+     ovMeasEntry builds the popup entry from items [{ lead: [cells], m: { fm: [rp, qty], lm: [rp, qty], mtd: [rp, qty] } }]; ovCell makes a clickable number cell. */
+  var OV_MEAS_COLS = ['FM Rp', 'FM qty', 'LMTD Rp', 'LMTD qty', 'MTD Rp', 'MTD qty', 'Gap MTD−FM Rp', 'Gap MTD−FM qty', 'Growth vs LMTD'];
+  var _ovLazyBy = {};   // prefix (text before the first '|') -> resolver
+  function ovLazy(prefix, fn) { _ovLazyBy[prefix] = fn; }
+  function ovNv(v) { return v == null || isNaN(v) ? null : +v; }
+  function ovRpT(v) { return v == null ? 'n/a' : pjRp(v); }
+  function ovQtT(v) { return v == null ? 'n/a' : fmtCount(Math.round(v)); }
+  function ovGapT(mtd, fm, f) { return mtd == null || fm == null ? 'n/a' : (mtd - fm >= 0 ? '+' : '−') + f(Math.abs(mtd - fm)); }
+  function ovGrowT(m) {
+    var i = (m.lm && m.lm[0] != null && m.mtd && m.mtd[0] != null) ? 0 : ((m.lm && m.lm[1] != null && m.mtd && m.mtd[1] != null) ? 1 : -1);
+    if (i < 0) return 'n/a'; var l = m.lm[i], c = m.mtd[i]; return l > 0 ? (c >= l ? '+' : '−') + (Math.abs(c / l - 1) * 100).toFixed(1) + '%' : (c > 0 ? 'baru' : '—');
+  }
+  function ovMeasCells(m) {
+    var g = function (p, i) { return m[p] ? m[p][i] : null; };
+    return [ovRpT(g('fm', 0)), ovQtT(g('fm', 1)), ovRpT(g('lm', 0)), ovQtT(g('lm', 1)), ovRpT(g('mtd', 0)), ovQtT(g('mtd', 1)), ovGapT(g('mtd', 0), g('fm', 0), pjRp), ovGapT(g('mtd', 1), g('fm', 1), ovQtT), ovGrowT(m)];
+  }
+  function ovMeasEntry(title, leadCols, items, lines) {
+    var tot = { fm: [null, null], lm: [null, null], mtd: [null, null] };
+    items.forEach(function (it) { ['fm', 'lm', 'mtd'].forEach(function (p) { [0, 1].forEach(function (i) { var v = it.m[p] ? ovNv(it.m[p][i]) : null; if (v != null) tot[p][i] = (tot[p][i] || 0) + v; }); }); });
+    var c = ovMeasCells(tot);
+    return { title: title, cols: leadCols.concat(OV_MEAS_COLS), rows: items.map(function (it) { return it.lead.concat(ovMeasCells(it.m)); }),
+      lines: (lines || []).concat([fmtCount(items.length) + ' baris · total FM ' + c[0] + ' / ' + c[1] + ' · LMTD ' + c[2] + ' / ' + c[3] + ' · MTD ' + c[4] + ' / ' + c[5] + ' · gap MTD−FM ' + c[6] + ' / ' + c[7] + ' (Rp / qty; n/a = tidak ada data pembanding)']) };
+  }
+  function ovCell(key, inner, style, cls) { return '<td class="' + (cls == null ? 'num' : cls) + '" data-ov="' + esc(key) + '" role="button" tabindex="0" title="Klik: daftar outlet / DSE dengan FM, LMTD, MTD (Rp dan qty), gap dan growth; bisa disalin sebagai teks, gambar, PNG" style="cursor:pointer;' + (style || '') + '">' + inner + '</td>'; }
   function ovK(key, label, value, delta, cls, note) { return kpi(label, value, delta, cls, note).replace('<div class="card kpi">', '<div class="card kpi" data-ov="' + key + '" role="button" tabindex="0" title="Klik untuk daftar detail dan tombol salin">'); }
   function ovN(v) { return fmtCount(Math.round(v)); }
   /* Gap against the full month: gap = MTD − FM (negative = short); required running rate = shortfall ÷ days left after the report date */
@@ -8776,7 +8945,7 @@
     /* DSE identity = person id (KPI feed pid = visits feed person_id). Names alone are not unique (two DSEs are called SUSANTO) and 69 DSEs carry their login code as name in the territory, KPI, sell-in and GA feeds but their person name in the PJP feed. */
     var kByName = {}; if (K) (K.dses || []).forEach(function (d) { (kByName[dseNorm(d.n)] = kByName[dseNorm(d.n)] || []).push(d); });
     var pidOf = function (name, mc) { var L = kByName[dseNorm(name)]; if (!L) return null; if (L.length === 1) return L[0].pid; for (var i = 0; i < L.length; i++) if (L[i].mc === mc) return L[i].pid; return L[0].pid; };
-    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, spi: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
+    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, spi: 0, sp3: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
     var li = V ? ovVisitDay(V) : 0;
     if (V) (V.dses || []).forEach(function (d) {
       if (d.is_promotor || !ovIn(d.branch, d.micro_cluster, d.hoa_leader)) return;
@@ -8784,7 +8953,7 @@
       r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true; r.inM = !!d.in_master;
       r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0;
     });
-    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; r.spi += dkSpiOn() ? (d.spi_pcs || 0) : 0; });
+    if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; r.spi += dkSpiOn() ? (d.spi_pcs || 0) : 0; r.sp3 += dkSp3(d); });
     if (F && LD) pjOutlets(F).forEach(function (o) {
       if (o.tier !== 'M') return; var key = pidOf(o.dse, o.mc); if (!key || !T[key]) return; var r = T[key], sp = o.c.SP, sa = o.c.SALMO, dd = LD.W.day, pd = LD.W.prevDay, i;
       var day = function (c, d) { var v = 0, q = 0; ((o.c[c] || [])[10] || []).forEach(function (e) { if (e[0] === d) { v += e[1]; q += e[2]; } }); return [v, q]; };
@@ -8855,11 +9024,11 @@
     }
     // ---------------- Sell-In SP and SALMO
     if (F) {
-      var sp = A.SP, sa = A.SALMO, gSp = ovGrowth(sp.mq, sp.lq), gSa = ovGrowth(sa.mv, sa.lv), spI = T.reduce(function (t, r) { return t + r.spi; }, 0), spAct = sp.mq + spI, spPro = spTgt * n / md, spD = LD.D.SP, saD = LD.D.SALMO, mN = pjMasterInScope(F);
+      var sp = A.SP, sa = A.SALMO, gSp = ovGrowth(sp.mq, sp.lq), gSa = ovGrowth(sa.mv, sa.lv), spI = T.reduce(function (t, r) { return t + r.spi; }, 0), spAct = T.reduce(function (t, r) { return t + r.sp3; }, 0) + spI, spPro = spTgt * n / md, spD = LD.D.SP, saD = LD.D.SALMO, mN = pjMasterInScope(F);
       var dseSP = T.filter(function (r) { return r.sp || r.spL || r.spT; }), dseSA = T.filter(function (r) { return r.sa || r.saL; }), remD2 = md - n;
-      var lSp = ovFmLine('Sell-In SP' + (spI ? ' (incl. injection)' : '') + ' vs target FM', spAct, spTgt, remD2, n, 'n'), lSa = ovFmLine('SALMO vs September penuh', sa.mv, sa.fv, remD2, n, 'r');
+      var lSp = ovFmLine('SP 3GB' + (spI ? ' + injection' : '') + ' vs target FM', spAct, spTgt, remD2, n, 'n'), lSa = ovFmLine('SALMO vs September penuh', sa.mv, sa.fv, remD2, n, 'r');
       ovAdd('sp_mtd', 'Sell-In SP MTD vs LMTD dan September penuh · penurunan terbesar dulu', ['DSE', 'MC', 'SP MTD', 'SP LMTD', 'Δ vs LMTD', 'Growth', 'SP Sep (FM)', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari'], ovRows(dseSP.slice().sort(function (a, b) { return (a.sp - a.spL) - (b.sp - b.spL); }), function (r) { var f = ovFm(r.sp, r.spF, remD2, n, 'n'); return [r.name, r.mc, ovN(r.sp), ovN(r.spL), ovSN(r.sp - r.spL), r.spL ? ovSg(ovGrowth(r.sp, r.spL)) : 'baru', f[0], f[1], f[2], f[3]]; }), ['Total MTD ' + ovN(sp.mq) + ' pcs vs LMTD ' + ovN(sp.lq) + ' pcs · Δ ' + ovSN(sp.mq - sp.lq) + ' (' + ovSg(gSp) + ')', ovFmLine('Terhadap September penuh', sp.mq, sp.fq, remD2, n, 'n')]);
-      ovAdd('sp_ach', 'Achievement SP vs target FM · gap terbesar dulu', ['DSE', 'MC', 'SP MTD', 'Target FM', '% FM', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari', '% prorata'], ovRows(T.filter(function (r) { return r.spT > 0; }).sort(byGap(function (r) { return r.spT - r.sp - r.spi; })), function (r) { var sx = r.sp + r.spi, f = ovFm(sx, r.spT, remD2, n, 'n'); return [r.name, r.mc, ovN(sx) + (r.spi ? ' (' + ovN(r.spi) + ' inject)' : ''), f[0], ovP(sx / r.spT * 100), f[1], f[2], f[3], ovP(sx / (r.spT * n / md) * 100)]; }), [lSp, 'Prorata ' + n + '/' + md + ': target ' + ovN(spPro) + ' pcs (' + ovP(ovPct(sp.mq, spPro)) + ')']);
+      ovAdd('sp_ach', 'Achievement SP vs target FM · gap terbesar dulu', ['DSE', 'MC', 'SP MTD', 'Target FM', '% FM', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari', '% prorata'], ovRows(T.filter(function (r) { return r.spT > 0; }).sort(byGap(function (r) { return r.spT - r.sp3 - r.spi; })), function (r) { var sx = r.sp3 + r.spi, f = ovFm(sx, r.spT, remD2, n, 'n'); return [r.name, r.mc, ovN(sx) + (r.spi ? ' (' + ovN(r.spi) + ' inject)' : ''), f[0], ovP(sx / r.spT * 100), f[1], f[2], f[3], ovP(sx / (r.spT * n / md) * 100)]; }), [lSp, 'Prorata ' + n + '/' + md + ': target ' + ovN(spPro) + ' pcs (' + ovP(ovPct(sp.mq, spPro)) + ')']);
       ovAdd('sp_d1', 'Sell-In SP D-1 ' + LD.W.short + ' vs ' + LD.W.prevShort + ' dan kebutuhan harian', ['DSE', 'MC', 'D-1 pcs', LD.W.prevShort + ' pcs', 'Δ pcs', 'Req RR/hari (target FM)', 'D-1 vs Req'], ovRows(dseSP.slice().sort(function (a, b) { return (a.spD - a.spP) - (b.spD - b.spP); }), function (r) { var req = remD2 > 0 && r.spT ? Math.max(0, r.spT - r.sp) / remD2 : null; return [r.name, r.mc, ovN(r.spD), ovN(r.spP), ovSN(r.spD - r.spP), req == null ? '—' : ovN(req), req == null ? '—' : ovSN(r.spD - req)]; }), ['Total D-1 ' + ovN(spD.q) + ' pcs vs ' + ovN(LD.P.SP.q) + ' pcs · Δ ' + ovSN(spD.q - LD.P.SP.q), lSp]);
       ovAdd('sp_uar', 'UAR Sell-In SP · cakupan terendah dulu', ['DSE', 'MC', 'Outlet binaan', 'UAR MTD', '% UAR', 'UAR D-1'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.spU / a.asg - b.spU / b.asg; }), function (r) { return [r.name, r.mc, ovN(r.asg), ovN(r.spU), ovP(r.spU / r.asg * 100), ovN(r.spUD)]; }), ['UAR MTD ' + ovN(sp.om) + ' dari ' + ovN(mN) + ' outlet PJP (' + ovP(ovPct(sp.om, mN)) + ') · LMTD ' + ovN(sp.ol) + ' · Δ ' + ovSN(sp.om - sp.ol), 'D-1: ' + ovN(spD.u) + ' outlet beli SP']);
       ovAdd('sal_mtd', 'SALMO MTD vs LMTD dan September penuh · penurunan terbesar dulu', ['DSE', 'MC', 'SALMO MTD', 'SALMO LMTD', 'Δ vs LMTD', 'Growth', 'SALMO Sep (FM)', 'Gap vs FM', 'RR kini/hari', 'Req RR/hari'], ovRows(dseSA.slice().sort(function (a, b) { return (a.sa - a.saL) - (b.sa - b.saL); }), function (r) { var f = ovFm(r.sa, r.saF, remD2, n, 'r'); return [r.name, r.mc, pjRp(r.sa), pjRp(r.saL), ovSR(r.sa - r.saL), r.saL ? ovSg(ovGrowth(r.sa, r.saL)) : 'baru', f[0], f[1], f[2], f[3]]; }), ['Total MTD ' + pjRp(sa.mv) + ' vs LMTD ' + pjRp(sa.lv) + ' · Δ ' + ovSR(sa.mv - sa.lv) + ' (' + ovSg(gSa) + ')', lSa]);
@@ -8869,7 +9038,7 @@
       ovAdd('sal_uar_d1', 'UAR SALMO D-1 ' + LD.W.short, ['DSE', 'MC', 'Outlet binaan', 'UAR MTD', '% UAR', 'UAR D-1'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.saUD - b.saUD; }), rUar), ['D-1 ' + ovN(saD.u) + ' outlet menerima saldo vs ' + ovN(LD.P.SALMO.u) + ' pada ' + LD.W.prevShort + ' · Δ ' + ovSN(saD.u - LD.P.SALMO.u)]);
       out.push(ovKpiGroup('Sell-In SP · ' + scope, [
         ovK('sp_mtd', 'Sell-In SP MTD', ovN(sp.mq) + ' pcs', ovSg(gSp) + ' · Δ ' + ovSN(sp.mq - sp.lq) + ' vs LMTD ' + ovN(sp.lq), ovCls(gSp, 2), 'September penuh ' + ovN(sp.fq) + ' pcs'),
-        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(spAct, spTgt)) : '—', spTgt ? ovP(ovPct(spAct, spPro)) + ' prorata · gap ' + ovSN(spAct - spPro) + ' pcs' + (spI ? ' · incl. ' + ovN(spI) + ' injection' : '') : 'tanpa target', ovCls(ovPct(sp.mq, spPro), 100), spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - sp.mq) / Math.max(1, md - n)) + '/hari (kini ' + ovN(sp.mq / n) + ')' : ''),
+        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(spAct, spTgt)) : '—', spTgt ? ovP(ovPct(spAct, spPro)) + ' prorata · gap ' + ovSN(spAct - spPro) + ' pcs · SP 3GB' + (spI ? ' + ' + ovN(spI) + ' injection' : '') + ', SP0 tidak dihitung' : 'tanpa target', ovCls(ovPct(sp.mq, spPro), 100), spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - sp.mq) / Math.max(1, md - n)) + '/hari (kini ' + ovN(sp.mq / n) + ')' : ''),
         ovK('sp_d1', 'D-1 Sell-In SP · ' + LD.W.short, ovN(spD.q) + ' pcs', ovSg(ovGrowth(spD.q, LD.P.SP.q)) + ' · Δ ' + ovSN(spD.q - LD.P.SP.q) + ' vs ' + LD.W.prevShort, spD.q >= LD.P.SP.q ? 'up' : 'down', 'Rata-rata harian MTD ' + ovN(sp.mq / n) + ' pcs'),
         ovK('sp_uar', 'UAR Sell-In SP', ovN(sp.omM), ovP(ovPct(sp.omM, mN)) + ' dari ' + ovN(mN) + ' outlet PJP · Δ ' + ovSN(sp.omM - sp.olM) + ' vs LMTD', sp.omM >= sp.olM ? 'up' : 'down', 'LMTD ' + ovN(sp.olM) + ' outlet PJP · +' + ovN(sp.om - sp.omM) + ' non-PJP di luar master · D-1: ' + ovN(spD.u) + ' outlet (termasuk non-PJP)')]));
       out.push(ovKpiGroup('Saldo Mobo (SALMO) Sell-In · ' + scope, [
@@ -9626,7 +9795,7 @@
   function onClick(e) {
     if (e.target.closest && e.target.closest('#cut')) { dcOpen(); return; }
     if (e.target.closest && e.target.closest('#shareLink')) { rtCopy(); return; }
-    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-prod], [data-kro-meas], [data-kro-mode], [data-kro-prog], [data-kro-group], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-spi], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxslab], [data-pj-slabtog], [data-pj-slaball], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
+    var t = e.target.closest('button, [data-view], [data-period], [data-svd], [data-key], [data-act], [data-terr-sub], [data-terr-page], [data-terr-grp-page], [data-terr-outlet], [data-terr-drill], [data-map-layer], [data-map-status], [data-map-search-idx], [data-visits-sub], [data-visits-scope], [data-visits-brand], [data-visits-page], [data-visits-drill], [data-visits-level], [data-visits-detail], [data-unvis-entity], [data-unvis-group], [data-unvis-sel], tr[data-unvis-sel], [data-unvis-site], tr[data-unvis-site], [data-unvis-gomap], [data-inact-sort], [data-nv-outlet-grp], tr[data-nv-outlet-grp], [data-nv-site-grp], tr[data-nv-site-grp], [data-inact-flag], [data-sitemap-focus], [data-pj-tab], [data-pj-brand], [data-pj-cat], [data-pj-level], [data-pj-detail], [data-pj-page], [data-pj-slabcom], [data-pj-slabprod], [data-pj-slabent], [data-po-tab], [data-po-brand], [data-po-cat], [data-po-level], [data-po-detail], [data-po-page], [data-po-adhoc], [data-po-slabcom], [data-po-slabent], [data-po-prodcat], [data-op-tab], [data-op-program], [data-op-page], [data-op-cat], [data-op-basis], [data-op-week], [data-sellin-src], [data-sellin-brand], [data-sellin-cat], [data-sellin-flow], [data-sellin-level], [data-sellin-page], [data-sellin-drill], [data-sellin-sub], [data-sellin-loc], [data-sellin-group], [data-sellin-tab], [data-sellin-day], [data-sellin-pm], [data-sellin-pmode], [data-pjp-day], [data-pjp-opage], [data-mb-metric], [data-mb-poly], td[data-pjp-day], th[data-pjp-day], [data-rk-tab], [data-ga-tab], [data-ga-seg], [data-ga-page], [data-kro-tab], [data-kro-prod], [data-kro-meas], [data-kro-mode], [data-kro-prog], [data-kro-group], [data-kro-tog], [data-kro-class], [data-kro-per], [data-kro-flag], [data-kro-page], [data-sga-tab], [data-sga-metric], [data-sga-base], [data-sga-thr], [data-sga-seg], [data-sga-flag], [data-sga-page], [data-pj-mxarea], [data-pj-mxmc], [data-pj-mxall], [data-uar-sub], [data-uar-seg], [data-uar-page], [data-uar-tab], [data-uar-vc], [data-uar-thr], [data-uar-toggle], [data-uar-expand], [data-cf-tab], [data-cf-basis], [data-cf-toggle], [data-cf-expand], [data-cf-page], [data-dk-sp], [data-eb-tab], [data-eb-basis], [data-eb-seg], [data-eb-page], [data-eb-open], [data-eb-toggle], [data-eb-expand], [data-eb-site], [data-eb-export], [data-dk-basis], [data-dk-osa], [data-dk-spi], [data-dk-ec], [data-dk-sort], [data-dk-page], [data-dk-drill], [data-dk-open], [data-pj-group], [data-pjp-tab], [data-mx-sel], [data-mx-page], [data-mx-site], [data-mx-toggle], [data-mx-expand], [data-pj-mx], tr[data-pj-mx], [data-ov], [data-ov-close], [data-ov-copy], [data-pj-mxbrand], [data-pj-mxslab], [data-pj-slabtog], [data-pj-slaball], [data-pj-mxpage], tr[data-key], tr[data-terr-outlet]');
     if (!t) return;
     if (t.hasAttribute('data-ov-close')) { ovClose(); return; }
     if (t.hasAttribute('data-ov-copy')) { ovCopy(t.getAttribute('data-ov-copy'), t); return; }
@@ -9765,6 +9934,7 @@
     else if (t.hasAttribute('data-kro-meas')) { state.kroMeas = t.getAttribute('data-kro-meas'); state.kroPage = 1; state.kroFlag = 'all'; state.kroClass = 'all'; }
     else if (t.hasAttribute('data-kro-mode')) { state.kroMode = t.getAttribute('data-kro-mode'); state.kroPage = 1; state.kroSearch = ''; }
     else if (t.hasAttribute('data-kro-prog')) { state.kroProg = t.getAttribute('data-kro-prog'); state.kroPage = 1; }
+    else if (t.hasAttribute('data-kro-tog')) { var kt = t.getAttribute('data-kro-tog').split('|'); if (kt[0] === 'A') { state.kroOpenA = state.kroOpenA || {}; state.kroOpenA[kt[1]] = state.kroOpenA[kt[1]] === false; } else { state.kroOpenM = state.kroOpenM || {}; state.kroOpenM[kt[1]] = !state.kroOpenM[kt[1]]; } }
     else if (t.hasAttribute('data-kro-group')) { state.kroGroup = t.getAttribute('data-kro-group'); }
     else if (t.getAttribute('data-act') === 'kro-wl-apply') { var wli = document.getElementById('kroWlInput'); if (wli) state.kroWlText = wli.value; state.kroWl = kroParseIds(state.kroWlText); state.kroPage = 1; }
     else if (t.getAttribute('data-act') === 'kro-wl-clear') { state.kroWl = []; state.kroWlText = ''; state.kroPage = 1; }
