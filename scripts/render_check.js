@@ -266,6 +266,12 @@ for (const sp of ['target', 'policy']) { state.dkSp = sp; state.view = 'mb_ringk
 state.dkSp = 'target';
 for (const sv of ['on', 'off']) { state.dkSpi = sv; state.view = 'mb_ringkasan'; state.rkTab = 'dse'; check('dse-productivity/spi=' + sv, VIEWS.mb_ringkasan); state.view = 'cfg_target'; check('target-setting/spi=' + sv, VIEWS.cfg_target); state.view = 'mb_overall'; check('overall/spi=' + sv, VIEWS.mb_overall); }
 state.dkSpi = 'on';
+{ const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br, mc0 = mcp;
+for (const tb of ['partner', 'alokasi']) for (const br of ['IM3', '3ID']) { state.view = 'mb_partner'; state.ptTab = tb; state.ptBrand = br; state.branch = ''; state.kec = ''; check('partner/' + tb + '/' + br + '/all', VIEWS.mb_partner); state.branch = br0; check('partner/' + tb + '/' + br + '/branch', VIEWS.mb_partner); state.kec = mc0; check('partner/' + tb + '/' + br + '/mc', VIEWS.mb_partner); state.branch = ''; state.kec = ''; } }
+state.ptTab = 'partner'; state.ptBrand = 'IM3';
+{ const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br;
+for (const br of ['IM3', '3ID']) for (const sv of ['on', 'off']) { state.view = 'mb_partner_perf'; state.ppBrand = br; state.dkSpi = sv; state.branch = ''; state.kec = ''; check('partner-perf/' + br + '/spi=' + sv + '/all', VIEWS.mb_partner_perf); state.branch = br0; check('partner-perf/' + br + '/spi=' + sv + '/branch', VIEWS.mb_partner_perf); state.kec = mcp; check('partner-perf/' + br + '/spi=' + sv + '/mc', VIEWS.mb_partner_perf); state.branch = ''; state.kec = ''; } }
+state.ppBrand = 'IM3'; state.dkSpi = 'on';
 for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) for (const bs of ['stock', 'all']) { state.view = 'mb_endbal'; state.ebTab = tb; state.ebBasis = bs; state.ebPage = 1; check('endbal/' + tb + '/' + bs, VIEWS.mb_endbal); }
 state.ebBasis = 'stock';
 for (const sg of ['all', 'demand', 'sep', 'dormant']) { state.ebTab = 'zero'; state.ebSeg = sg; check('endbal/zero/seg=' + sg, VIEWS.mb_endbal); }

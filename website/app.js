@@ -107,6 +107,8 @@
     brief: ['Inner Jakarta · Morning Sales Brief', 'Performance against last month, supply against demand, in one daily view.'],
     terr:  ['Inner Jakarta · Leaders Territory Analysis', 'Drill from area to kecamatan and DSE. Click a row for detail.'],
     svd:   ['Inner Jakarta · Supply vs Demand', 'Stock In against customer demand, with stock available on the market.'],
+    mb_partner_perf: ['Morning DSE Briefing · Partner Territory Performance', 'Performa per Distributor terhadap Partner Territory (MC, agregat outlet) dan productivity DSE: OSA, SP incl. injection, effective call dan insentif.'],
+    mb_partner: ['Morning DSE Briefing · Partner & Alokasi Distributor', 'Partner territory (distributor dan sub-dealer per outlet, MC dan area) serta alokasi SP dan voucher ke MPC, SDP dan canvasser DSE dibandingkan sell-in ke outlet.'],
     mb_overall: ['Morning DSE Briefing · Overall Performance SA/MC', 'Pilih Sales Area dan DSO / MC: performa PJP Visit dan Penjualan ke Outlet teritori terpilih dalam satu halaman.'],
     mb_uar: ['Morning DSE Briefing · UAR', 'Unique Active Retailer per teritori: sell-in SP, voucher (zero dan value) dan saldo; plus SSO (SIM Selling Outlet) dari gross add RGUGA, dengan growth terhadap periode pembanding.'],
     mb_gatrend: ['Morning DSE Briefing · Daily GA Trend', 'GA harian D1–D31 dengan pilihan tanggal: Oktober MTD vs September LMTD (jumlah hari sama dan sejajar hari kerja), kumulatif, proyeksi akhir bulan, profil hari dan GA per hari per teritori; basis tagging outlet atau lokasi aktivasi.'],
@@ -354,6 +356,9 @@
     pmTab: 'ringkasan',      // PJP Mapping: ringkasan | dse | harian | pengecualian
     pmDate: defaultPjpDate(),
     pmSearch: '',
+    ptTab: 'partner',        // Partner & Alokasi Distributor: partner | alokasi
+    ppBrand: 'IM3',          // Partner Territory Performance: brand id of the partner name
+    ptBrand: 'IM3',          // partner territory brand: IM3 | 3ID
     cfTab: 'ringkasan',      // Target Setting: ringkasan | dse | rebalancing
     cfBasis: 'prorata',
     cfPage: 1,
@@ -8839,6 +8844,192 @@
     html += mbOverallLists();
     return html;
   }
+
+  /* ================= PARTNER TERRITORY & ALOKASI DISTRIBUTOR (owner, 20 Oct 2026; docs/assessments/partner_alokasi_distributor.md) ================= */
+  function ptSign(v) { return v == null ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '%'; }
+  function ptGrow(a, b) { return b > 0 ? (a / b - 1) * 100 : null; }
+  function ptTabNav() {
+    var t = [['partner', '🤝 Partner Territory'], ['alokasi', '📦 Alokasi Distributor']];
+    return '<div class="sub-nav" role="tablist">' + t.map(function (x) { var a = (state.ptTab || 'partner') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-pt-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
+  }
+  function ptTerrScope(o) {
+    return (!state.branch || o.branch === state.branch) && (!state.hoa || o.hoa_leader === state.hoa) && (!state.kec || o.micro_cluster === state.kec) && (!state.dse || dseNorm(o.dse_name) === state.dse);
+  }
+  function ptPartners(brand) {
+    var F = pjFeedRaw(), pj = {}, by = {}, terr = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null;
+    if (F) (F.outlets || []).forEach(function (o) { if (o.tier === 'M') pj[o.k] = o; });
+    ((terr && terr.outlets) || []).forEach(function (o) {
+      if (!ptTerrScope(o) || !(brand === 'IM3' ? o.outlet_id_im3 : o.outlet_id_3id)) return;
+      var nm = String((brand === 'IM3' ? o.partner_name_im3 : o.partner_name_3id) || '').trim() || '(tanpa partner)';
+      var r = by[nm] || (by[nm] = { name: nm, out: 0, areas: {}, mcs: {}, dses: {}, spu: 0, sp: 0, spl: 0, sa: 0, sal: 0 });
+      r.out++; r.areas[o.branch] = (r.areas[o.branch] || 0) + 1; r.mcs[o.micro_cluster] = 1;
+      var dn = dseNorm(o.dse_name); if (dn && dn !== '0' && dn.indexOf('UNASSIGNED') !== 0) r.dses[dn] = 1;
+      var b = pj[o.outlet_key] && pj[o.outlet_key].bs && pj[o.outlet_key].bs[brand];
+      if (b) { if (b.SP) { r.sp += b.SP[0]; r.spl += b.SP[2]; if (b.SP[0] > 0) r.spu++; } if (b.SALMO) { r.sa += b.SALMO[1]; r.sal += b.SALMO[3]; } }
+    });
+    return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.out - a.out; });
+  }
+  function ptPartnerView() {
+    var brand = state.ptBrand || 'IM3', L = ptPartners(brand), F = pjFeedRaw(), M = (F && F.metadata) || {};
+    var T = { out: 0, spu: 0, sp: 0, spl: 0, sa: 0, sal: 0 }, mcAll = {}, dsAll = {}, areaAll = {};
+    L.forEach(function (r) { ['out', 'spu', 'sp', 'spl', 'sa', 'sal'].forEach(function (k) { T[k] += r[k]; }); Object.keys(r.mcs).forEach(function (m) { mcAll[m] = 1; }); Object.keys(r.dses).forEach(function (d) { dsAll[d] = 1; }); Object.keys(r.areas).forEach(function (a) { areaAll[a] = r.areas[a] + (areaAll[a] || 0); }); });
+    var areas = Object.keys(areaAll).sort();
+    var tool = '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand ID outlet', 'pt-brand', [['IM3', 'IM3'], ['3ID', '3ID']], brand) + '</div>';
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('Partner', fmtCount(L.length), fmtCount(Object.keys(mcAll).length) + ' MC · ' + fmtCount(areas.length) + ' area', 'up', 'brand ' + brand + ' · nama partner dari master outlet') +
+      kpi('Outlet PJP di partner', fmtCount(T.out), fmtCount(Object.keys(dsAll).length) + ' DSE', 'up', 'outlet master yang punya id ' + brand) +
+      kpi('SP ' + brand + ' MTD', fmtCount(T.sp) + ' pcs', 'LMTD ' + fmtCount(T.spl) + ' · ' + ptSign(ptGrow(T.sp, T.spl)), T.sp >= T.spl ? 'up' : 'down', fmtCount(T.spu) + ' outlet aktif SP (' + pctOf(T.spu, T.out) + '%)') +
+      kpi('Saldo Mobo ' + brand + ' MTD', pjRp(T.sa), 'LMTD ' + pjRp(T.sal) + ' · ' + ptSign(ptGrow(T.sa, T.sal)), T.sa >= T.sal ? 'up' : 'down', 'Oktober terdampak migrasi MOBII (lihat catatan)') + '</div>';
+    var rows = L.map(function (r) {
+      var ar = Object.keys(r.areas).sort(function (a, b) { return r.areas[b] - r.areas[a]; });
+      return '<tr><td class="cur"><b>' + esc(r.name) + '</b></td><td>' + esc(ar.slice(0, 3).join(', ') + (ar.length > 3 ? ' +' + (ar.length - 3) : '')) + '</td><td class="num">' + fmtCount(Object.keys(r.mcs).length) + '</td><td class="num">' + fmtCount(Object.keys(r.dses).length) + '</td><td class="num">' + fmtCount(r.out) + '</td>' +
+        '<td class="num">' + fmtCount(r.spu) + '<div class="note">' + pctOf(r.spu, r.out) + '%</div></td><td class="num">' + fmtCount(r.sp) + '</td><td class="num">' + fmtCount(r.spl) + '</td><td class="num">' + ptSign(ptGrow(r.sp, r.spl)) + '</td>' +
+        '<td class="num">' + pjRp(r.sa) + '</td><td class="num">' + pjRp(r.sal) + '</td><td class="num">' + ptSign(ptGrow(r.sa, r.sal)) + '</td></tr>';
+    }).join('');
+    var tot = '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td><td></td><td class="num">' + fmtCount(Object.keys(mcAll).length) + '</td><td class="num">' + fmtCount(Object.keys(dsAll).length) + '</td><td class="num">' + fmtCount(T.out) + '</td><td class="num">' + fmtCount(T.spu) + '</td><td class="num">' + fmtCount(T.sp) + '</td><td class="num">' + fmtCount(T.spl) + '</td><td class="num">' + ptSign(ptGrow(T.sp, T.spl)) + '</td><td class="num">' + pjRp(T.sa) + '</td><td class="num">' + pjRp(T.sal) + '</td><td class="num">' + ptSign(ptGrow(T.sa, T.sal)) + '</td></tr>';
+    var tbl = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Partner') + th('Area') + th('MC', 1) + th('DSE', 1) + th('Outlet PJP', 1) + th('Outlet aktif SP', 1) + th('SP MTD', 1) + th('SP LMTD', 1) + th('Growth', 1) + th('Saldo MTD', 1) + th('Saldo LMTD', 1) + th('Growth', 1) + '</tr></thead><tbody>' + rows + tot + '</tbody></table></div>';
+    var mx = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Partner') + areas.map(function (a) { return th(esc(a), 1); }).join('') + th('Total', 1) + '</tr></thead><tbody>' +
+      L.map(function (r) { return '<tr><td class="cur"><b>' + esc(r.name) + '</b></td>' + areas.map(function (a) { return '<td class="num">' + (r.areas[a] ? fmtCount(r.areas[a]) : '<span class="note">·</span>') + '</td>'; }).join('') + '<td class="num"><b>' + fmtCount(r.out) + '</b></td></tr>'; }).join('') +
+      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + areas.map(function (a) { return '<td class="num">' + fmtCount(areaAll[a]) + '</td>'; }).join('') + '<td class="num">' + fmtCount(T.out) + '</td></tr></tbody></table></div>';
+    return cards + tool + card('Partner territory · ' + brand + ' · ' + esc(scopeText()), tbl + '<p class="note" style="margin-top:6px;">Partner = nama partner (distributor / sub-dealer) pada master outlet untuk id ' + brand + '. Sell-in per brand dihitung dari SP dan Saldo Mobo outlet (MOBII, cut ' + esc(M.cut || '—') + '). Oktober 2026 terdampak migrasi MOBII / MOBO pada 1–9 Okt, sehingga MTD vs LMTD tertekan secara struktural. Voucher tidak dipisah per brand di feed, jadi tidak ditampilkan di sini.</p>') +
+      card('Sebaran outlet partner per Area · ' + brand, mx);
+  }
+  function ptAlloc() {
+    var F = pjFeedRaw(), M = (F && F.metadata) || {}, mi = M.mc_info || {}, nodes = [];
+    if (!F) return null;
+    (F.allocation || []).forEach(function (x) {
+      var hoa = (mi[x.mc] || {}).hoa;
+      if (state.branch && x.br !== state.branch) return;
+      if (state.hoa && hoa !== state.hoa) return;
+      if (state.kec && x.mc !== state.kec) return;
+      nodes.push(x);
+    });
+    return { F: F, M: M, nodes: nodes };
+  }
+  function ptAllocView() {
+    var A = ptAlloc(); if (!A) return card('Alokasi Distributor', '<p class="note">Feed Penjualan belum dimuat.</p>');
+    var F = A.F, M = A.M, TIERS = [['MPC', 'MPC · distributor utama'], ['SDP', 'SDP · sub-dealer partner'], ['DSE', 'Canvasser (DSE) · fill-in'], ['OTHER', 'Lainnya (FWA stockist dll.)'], ['UNKNOWN', 'Node tanpa nama']];
+    var val = function (x, c, i) { var a = x.c && x.c[c]; return a ? (a[i] || 0) : 0; };
+    var byTier = {}; TIERS.forEach(function (t) { byTier[t[0]] = { n: 0, sp: 0, spl: 0, spv: 0, vc: 0, vcl: 0 }; });
+    A.nodes.forEach(function (x) { var r = byTier[x.tier] || (byTier[x.tier] = { n: 0, sp: 0, spl: 0, spv: 0, vc: 0, vcl: 0 }); r.n++; r.sp += val(x, 'SP', 0); r.spl += val(x, 'SP', 2); r.spv += val(x, 'SP', 1); r.vc += val(x, 'VCF', 1) + val(x, 'VCB', 1); r.vcl += val(x, 'VCF', 3) + val(x, 'VCB', 3); });
+    var out = { sp: 0, spl: 0, spv: 0, vc: 0 };
+    pjOutlets(F).forEach(function (o) { var c = o.c || {}; if (c.SP) { out.sp += c.SP[0]; out.spl += c.SP[2]; out.spv += c.SP[1]; } ['VCF', 'VCB'].forEach(function (k) { if (c[k]) out.vc += c[k][1]; }); });
+    var dse = byTier.DSE || { sp: 0 }, mpc = byTier.MPC || { sp: 0 };
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('SP diterima MPC', fmtCount(mpc.sp) + ' pcs', fmtCount(mpc.n) + ' node MPC · LMTD ' + fmtCount(mpc.spl) + ' · ' + ptSign(ptGrow(mpc.sp, mpc.spl)), 'up', 'Rp ' + (mpc.spv / 1e6).toFixed(0) + ' jt') +
+      kpi('SP fill-in ke DSE', fmtCount(dse.sp) + ' pcs', fmtCount(dse.n) + ' node canvasser · LMTD ' + fmtCount(dse.spl) + ' · ' + ptSign(ptGrow(dse.sp, dse.spl)), 'up', 'Rp ' + (dse.spv / 1e6).toFixed(0) + ' jt') +
+      kpi('SP sell-in ke outlet', fmtCount(out.sp) + ' pcs', 'LMTD ' + fmtCount(out.spl) + ' · ' + ptSign(ptGrow(out.sp, out.spl)), 'up', 'outlet master + non-PJP, MOBII') +
+      kpi('Outlet ÷ fill-in DSE', dse.sp ? pctOf(out.sp, dse.sp) + '%' : '—', 'selisih ' + fmtCount(dse.sp - out.sp) + ' pcs masih di DSE / belum tercatat ke outlet', dse.sp && out.sp / dse.sp >= 0.8 ? 'up' : 'down', 'SP, MTD sampai cut ' + esc(M.cut || '—')) + '</div>';
+    var trows = TIERS.map(function (t) { var r = byTier[t[0]]; return '<tr><td class="cur"><b>' + t[1] + '</b></td><td class="num">' + fmtCount(r.n) + '</td><td class="num">' + fmtCount(r.sp) + '</td><td class="num">' + fmtCount(r.spl) + '</td><td class="num">' + ptSign(ptGrow(r.sp, r.spl)) + '</td><td class="num">' + pjRp(r.spv) + '</td><td class="num">' + pjRp(r.vc) + '</td><td class="num">' + pjRp(r.vcl) + '</td></tr>'; }).join('');
+    var ttot = Object.keys(byTier).reduce(function (a, k) { var r = byTier[k]; a.n += r.n; a.sp += r.sp; a.spl += r.spl; a.spv += r.spv; a.vc += r.vc; a.vcl += r.vcl; return a; }, { n: 0, sp: 0, spl: 0, spv: 0, vc: 0, vcl: 0 });
+    var tierTbl = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Tipe node penerima') + th('Node', 1) + th('SP MTD (pcs)', 1) + th('SP LMTD', 1) + th('Growth', 1) + th('SP MTD (Rp)', 1) + th('Voucher MTD (Rp)', 1) + th('Voucher LMTD (Rp)', 1) + '</tr></thead><tbody>' + trows +
+      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL ALOKASI</b></td><td class="num">' + fmtCount(ttot.n) + '</td><td class="num">' + fmtCount(ttot.sp) + '</td><td class="num">' + fmtCount(ttot.spl) + '</td><td class="num">' + ptSign(ptGrow(ttot.sp, ttot.spl)) + '</td><td class="num">' + pjRp(ttot.spv) + '</td><td class="num">' + pjRp(ttot.vc) + '</td><td class="num">' + pjRp(ttot.vcl) + '</td></tr></tbody></table></div>';
+    // per MC: fill-in vs outlet sell-in
+    var mc = {}, get = function (m, br) { return mc[m] || (mc[m] = { mc: m || '(tanpa MC)', br: br || '', mpc: 0, dse: 0, oth: 0, out: 0 }); };
+    A.nodes.forEach(function (x) { var r = get(x.mc, x.br), q = val(x, 'SP', 0); if (x.tier === 'MPC') r.mpc += q; else if (x.tier === 'DSE') r.dse += q; else r.oth += q; if (!r.br && x.br) r.br = x.br; });
+    pjOutlets(F).forEach(function (o) { var q = o.c && o.c.SP ? o.c.SP[0] : 0; if (q) { var r = get(o.mc, ((M.mc_info || {})[o.mc] || {}).br); r.out += q; } });
+    var mrows = Object.keys(mc).map(function (k) { return mc[k]; }).sort(function (a, b) { return (a.br + a.mc).localeCompare(b.br + b.mc); });
+    var mt = { mpc: 0, dse: 0, oth: 0, out: 0 };
+    var mb = mrows.map(function (r) { mt.mpc += r.mpc; mt.dse += r.dse; mt.oth += r.oth; mt.out += r.out; var ratio = r.dse ? r.out / r.dse * 100 : null; return '<tr><td class="cur"><b>' + esc(r.mc) + '</b><div class="note">' + esc(r.br) + '</div></td><td class="num">' + fmtCount(r.mpc) + '</td><td class="num">' + fmtCount(r.dse) + '</td><td class="num">' + fmtCount(r.out) + '</td><td class="num">' + (ratio == null ? '—' : ratio.toFixed(0) + '%') + '</td><td class="num">' + fmtCount(r.dse - r.out) + '</td></tr>'; }).join('');
+    var mcTbl = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Micro Cluster') + th('Diterima MPC (SP pcs)', 1) + th('Fill-in ke DSE (SP pcs)', 1) + th('Sell-in ke outlet (SP pcs)', 1) + th('Outlet ÷ fill-in', 1) + th('Fill-in − outlet', 1) + '</tr></thead><tbody>' + mb +
+      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td><td class="num">' + fmtCount(mt.mpc) + '</td><td class="num">' + fmtCount(mt.dse) + '</td><td class="num">' + fmtCount(mt.out) + '</td><td class="num">' + (mt.dse ? (mt.out / mt.dse * 100).toFixed(0) + '%' : '—') + '</td><td class="num">' + fmtCount(mt.dse - mt.out) + '</td></tr></tbody></table></div>';
+    // node list
+    var top = A.nodes.filter(function (x) { return val(x, 'SP', 0) > 0 || val(x, 'VCF', 1) > 0; }).sort(function (a, b) { return val(b, 'SP', 0) - val(a, 'SP', 0); }).slice(0, 40);
+    var nrows = top.map(function (x, i) { return '<tr><td class="num">' + (i + 1) + '</td><td class="cur">' + esc(x.n || x.id || '(tanpa nama)') + '</td><td>' + esc(x.tier) + '</td><td>' + esc(x.b) + '</td><td>' + esc(x.mc || '—') + '<div class="note">' + esc(x.br || '') + '</div></td><td class="num">' + fmtCount(val(x, 'SP', 0)) + '</td><td class="num">' + fmtCount(val(x, 'SP', 2)) + '</td><td class="num">' + pjRp(val(x, 'VCF', 1) + val(x, 'VCB', 1)) + '</td></tr>'; }).join('');
+    var nodeTbl = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('#', 1) + th('Node penerima') + th('Tipe') + th('Brand') + th('MC') + th('SP MTD', 1) + th('SP LMTD', 1) + th('Voucher MTD (Rp)', 1) + '</tr></thead><tbody>' + nrows + '</tbody></table></div>';
+    var note = '<p class="note" style="margin-top:6px;">Alokasi = SP dan voucher yang dikirim ke node bukan outlet (MPC, SDP, canvasser DSE, stockist) pada laporan MOBII; sell-in ke outlet dihitung terpisah (DSE → outlet, MPX / SDP → outlet). Fill-in ke DSE adalah stok yang dititipkan ke canvasser, sehingga selisih terhadap sell-in ke outlet adalah stok yang masih dibawa DSE atau belum tercatat ke outlet. MTD sampai cut ' + esc(M.cut || '—') + '; Oktober 1–9 terdampak migrasi MOBII. Nama distributor (perusahaan) tidak ada di laporan alokasi ini, hanya tipe dan MC node; node tanpa nama (' + fmtCount((byTier.UNKNOWN || {}).n || 0) + ') tidak bisa dipetakan ke MC.</p>';
+    return cards + card('Alokasi per tipe node · ' + esc(scopeText()), tierTbl + note) + card('Fill-in DSE vs sell-in outlet per Micro Cluster', mcTbl) + card('40 node penerima terbesar (SP MTD)', nodeTbl);
+  }
+  function viewPartner() {
+    var tab = state.ptTab || 'partner';
+    return ptTabNav() + (tab === 'alokasi' ? ptAllocView() : ptPartnerView());
+  }
+
+  /* ================= PARTNER TERRITORY PERFORMANCE (owner, 20 Oct 2026) =================
+     Distributor (partner) x Partner Territory (MC = aggregate of the outlets in the MC) x DSE: sell-in of the outlets plus DSE productivity (OSA, SP incl. injection, effective call, incentive).
+     A DSE belongs to one distributor (checked: 272 of 272 DSEs have >= 90% of their outlets under one partner), so DSE productivity rolls up cleanly. */
+  function ppModel() {
+    var brand = state.ppBrand || 'IM3', F = pjFeedRaw(), K = dkFeed(), pj = {}, terr = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null;
+    if (!terr || !K) return null;
+    if (F) (F.outlets || []).forEach(function (o) { if (o.tier === 'M') pj[o.k] = o; });
+    var byDM = {}, dsePart = {}, cnt = {};
+    ((terr && terr.outlets) || []).forEach(function (o) {
+      if (!(brand === 'IM3' ? o.outlet_id_im3 : o.outlet_id_3id)) return;
+      var nm = String((brand === 'IM3' ? o.partner_name_im3 : o.partner_name_3id) || '').trim() || '(tanpa partner)';
+      var dn = dseNorm(o.dse_name), hasD = dn && dn !== '0' && dn.indexOf('UNASSIGNED') !== 0;
+      if (hasD) { var ck = dn + '|' + o.micro_cluster; (cnt[ck] = cnt[ck] || {})[nm] = (cnt[ck][nm] || 0) + 1; }
+      if (!ptTerrScope(o)) return;
+      var k = nm + '||' + o.micro_cluster, r = byDM[k] || (byDM[k] = { p: nm, mc: o.micro_cluster, br: o.branch, dso: o.dso_leader || '', out: 0, spu: 0, sp: 0, spl: 0, sa: 0, sal: 0, dses: {} });
+      r.out++; if (hasD) r.dses[dn] = 1;
+      var b = pj[o.outlet_key] && pj[o.outlet_key].bs && pj[o.outlet_key].bs[brand];
+      if (b) { if (b.SP) { r.sp += b.SP[0]; r.spl += b.SP[2]; if (b.SP[0] > 0) r.spu++; } if (b.SALMO) { r.sa += b.SALMO[1]; r.sal += b.SALMO[3]; } }
+    });
+    Object.keys(cnt).forEach(function (ck) { var best = null; Object.keys(cnt[ck]).forEach(function (n) { if (best === null || cnt[ck][n] > cnt[ck][best]) best = n; }); dsePart[ck] = best; });
+    var opt = dkOpt(), kp = {};                                  // DSE KPI rows in scope, by partner and (partner, MC)
+    K.dses.filter(dkInScope).forEach(function (r) { var p = dsePart[dseNorm(r.n) + '|' + r.mc] || '(DSE tanpa outlet ' + brand + ')'; (kp[p] = kp[p] || []).push(r); });   // a DSE whose outlets carry no id of this brand stays in the totals under its own line
+    return { brand: brand, F: F, K: K, opt: opt, byDM: byDM, kp: kp, rows: Object.keys(byDM).map(function (k) { return byDM[k]; }) };
+  }
+  function ppSum(list) {
+    var T = { out: 0, spu: 0, sp: 0, spl: 0, sa: 0, sal: 0, mcs: {}, dses: {} };
+    list.forEach(function (r) { ['out', 'spu', 'sp', 'spl', 'sa', 'sal'].forEach(function (k) { T[k] += r[k]; }); T.mcs[r.mc] = 1; Object.keys(r.dses).forEach(function (d) { T.dses[d] = 1; }); });
+    return T;
+  }
+  function ppPct(v) { return v == null ? '—' : (v * 100).toFixed(0) + '%'; }
+  function ppCells(S, A) {
+    return '<td class="num">' + fmtCount(S.out) + '</td><td class="num">' + fmtCount(S.sp) + '<div class="note">LMTD ' + fmtCount(S.spl) + ' · ' + ptSign(ptGrow(S.sp, S.spl)) + '</div></td><td class="num">' + pjRp(S.sa) + '<div class="note">LMTD ' + pjRp(S.sal) + ' · ' + ptSign(ptGrow(S.sa, S.sal)) + '</div></td>' +
+      (A && A.n ? '<td class="num">' + pjRp(A.amt) + '</td><td class="num">' + (A.tgt > 0 ? pjRp(A.tgt) : '—') + '</td><td class="num">' + (A.osaAch == null ? '—' : dkPctTag(A.osaAch, 1, 0.9)) + '</td><td class="num"><b>' + fmtCount(A.sp) + '</b>' + dkSpiNote(A.sp1, A.spi) + '</td><td class="num">' + (A.spTgt > 0 ? fmtCount(Math.round(A.spTgt)) : '—') + '</td><td class="num">' + (A.spTgt > 0 ? dkPctTag(A.spOfAch, 1, 0.9) : '—') + '</td><td class="num">' + ppPct(A.ec) + '</td><td class="num">' + pjRp(A.final) + '</td>'
+        : '<td class="num" colspan="8"><span class="note">tanpa DSE di KPI</span></td>');
+  }
+  function ppHead(first, withMc) {
+    return '<thead><tr>' + th(first) + th('Outlet', 1) + th('SP sell-in MTD', 1) + th('Saldo MTD', 1) + th('OSA amount', 1) + th('OSA target', 1) + th('OSA ach.', 1) + th('SP pcs', 1) + th('SP target', 1) + th('SP ach.', 1) + th('Eff. call', 1) + th('Insentif final', 1) + '</tr></thead>';
+  }
+  function viewPartnerPerf() {
+    var M = ppModel();
+    if (!M) return card('Partner Territory Performance', '<p class="note">Feed teritori atau KPI DSE belum dimuat.</p>');
+    var F = M.K, opt = M.opt, brand = M.brand, parts = {};
+    M.rows.forEach(function (r) { (parts[r.p] = parts[r.p] || []).push(r); });
+    Object.keys(M.kp).forEach(function (p) { if (!parts[p]) parts[p] = []; });
+    var pnames = Object.keys(parts).sort(function (a, b) { return ppSum(parts[b]).out - ppSum(parts[a]).out; });
+    var allList = [].concat.apply([], pnames.map(function (p) { return M.kp[p] || []; }));
+    var AT = dkAgg(allList, F, opt), ST = ppSum(M.rows);
+    var tool = '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand id partner', 'pp-brand', [['IM3', 'IM3'], ['3ID', '3ID']], brand) +
+      sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD'], ['full', 'Target penuh bulan']], opt.basis) +
+      sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') + '</div>';
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('Distributor · Partner Territory', fmtCount(pnames.length) + ' · ' + fmtCount(Object.keys(ST.mcs).length) + ' MC', fmtCount(Object.keys(ST.dses).length) + ' DSE · ' + fmtCount(ST.out) + ' outlet', 'up', 'brand ' + brand + ' · MC = agregat outlet') +
+      kpi('OSA pencapaian (KPI DSE)', AT.osaAch == null ? '—' : (AT.osaAch * 100).toFixed(1) + '%', pjRp(AT.amt) + ' dari ' + pjRp(AT.tgt), AT.osaAch != null && AT.osaAch >= 0.9 ? 'up' : 'down', opt.basis === 'full' ? 'target penuh bulan' : 'target prorata MTD') +
+      kpi('SP pencapaian', AT.spTgt > 0 ? (AT.spOfAch * 100).toFixed(1) + '%' : '—', fmtCount(AT.sp) + ' pcs' + (AT.spi ? ' (incl. ' + fmtCount(AT.spi) + ' injection)' : ''), AT.spTgt > 0 && AT.spOfAch >= 0.9 ? 'up' : 'down', 'target SP ' + fmtCount(Math.round(AT.spTgt)) + ' pcs') +
+      kpi('Effective call', ppPct(AT.ec), 'visit produktif ÷ rencana PJP', AT.ec != null && AT.ec >= 0.5 ? 'up' : 'down', 'insentif final ' + pjRp(AT.final)) + '</div>';
+    // A. distributor summary
+    var rowsA = pnames.map(function (p) { var S = ppSum(parts[p]), A = dkAgg(M.kp[p] || [], F, opt); return '<tr><td class="cur"><b>' + esc(p) + '</b><div class="note">' + fmtCount(Object.keys(S.mcs).length) + ' MC · ' + fmtCount((M.kp[p] || []).length) + ' DSE</div></td>' + ppCells(S, A) + '</tr>'; }).join('');
+    var tblA = '<div class="tbl-wrap"><table class="tbl" data-nosort="1">' + ppHead('Distributor') + '<tbody>' + rowsA + '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + ppCells(ST, AT).replace(/<div class="note">/g, '<div class="note" style="color:#fff;">') + '</tr></tbody></table></div>';
+    // B. distributor -> partner territory (MC)
+    var rowsB = '';
+    pnames.forEach(function (p) {
+      var S0 = ppSum(parts[p]), A0 = dkAgg(M.kp[p] || [], F, opt);
+      rowsB += '<tr style="background:#e9e5e0; font-weight:700;"><td class="cur"><b>' + esc(p) + '</b> <span class="note">' + fmtCount(Object.keys(S0.mcs).length) + ' MC</span></td>' + ppCells(S0, A0) + '</tr>';
+      parts[p].sort(function (a, b) { return b.out - a.out; }).forEach(function (r) {
+        var A = dkAgg((M.kp[p] || []).filter(function (k) { return k.mc === r.mc; }), F, opt);
+        rowsB += '<tr><td class="cur" style="padding-left:22px;">' + esc(r.mc) + '<div class="note">' + esc(r.br) + (r.dso ? ' · DSO ' + esc(r.dso) : '') + ' · ' + fmtCount(Object.keys(r.dses).length) + ' DSE</div></td>' + ppCells(r, A) + '</tr>';
+      });
+    });
+    var tblB = '<div class="tbl-wrap"><table class="tbl" data-nosort="1">' + ppHead('Distributor › Partner Territory (MC)') + '<tbody>' + rowsB + '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + ppCells(ST, AT).replace(/<div class="note">/g, '<div class="note" style="color:#fff;">') + '</tr></tbody></table></div>';
+    // C. DSE productivity under distributor / MC
+    var rowsC = '', nDse = 0;
+    pnames.forEach(function (p) {
+      var L = (M.kp[p] || []).slice().sort(function (a, b) { return (a.mc + a.n).localeCompare(b.mc + b.n); }); if (!L.length) return;
+      var A0 = dkAgg(L, F, opt);
+      rowsC += '<tr style="background:#e9e5e0; font-weight:700;"><td colspan="2"><b>' + esc(p) + '</b> <span class="note">' + fmtCount(L.length) + ' DSE</span></td><td class="num">' + pjRp(A0.amt) + '</td><td class="num">' + (A0.tgt > 0 ? pjRp(A0.tgt) : '—') + '</td><td class="num">' + (A0.osaAch == null ? '—' : dkPctTag(A0.osaAch, 1, 0.9)) + '</td><td class="num">' + fmtCount(A0.sp) + '</td><td class="num">' + (A0.spTgt > 0 ? fmtCount(Math.round(A0.spTgt)) : '—') + '</td><td class="num">' + (A0.spTgt > 0 ? dkPctTag(A0.spOfAch, 1, 0.9) : '—') + '</td><td class="num">' + ppPct(A0.ec) + '</td><td class="num">' + pjRp(A0.final) + '</td></tr>';
+      L.forEach(function (r) {
+        var o = dkScore(r, F, opt); nDse++;
+        rowsC += '<tr><td class="cur" style="padding-left:22px;"><b>' + esc(r.n) + '</b></td><td>' + esc(r.mc) + '</td><td class="num">' + pjRp(o.osaAmt) + '</td><td class="num">' + (o.osaTgt > 0 ? pjRp(o.osaTgt) : '—') + '</td><td class="num">' + (o.osaAch == null ? '—' : dkPctTag(o.osaAch, 1, 0.9)) + '</td><td class="num">' + fmtCount(o.sp) + dkSpiNote(o.sp1, o.spi) + '</td><td class="num">' + (o.spOfficial ? fmtCount(Math.round(o.spTgt)) : '—') + '</td><td class="num">' + (o.spAch == null ? '—' : dkPctTag(o.spAch, 1, 0.9)) + '</td><td class="num">' + ppPct(o.ec) + '</td><td class="num">' + pjRp(o.final) + '</td></tr>';
+      });
+    });
+    var tblC = '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Distributor › DSE') + th('MC') + th('OSA amount', 1) + th('OSA target', 1) + th('OSA ach.', 1) + th('SP pcs', 1) + th('SP target', 1) + th('SP ach.', 1) + th('Eff. call', 1) + th('Insentif final', 1) + '</tr></thead><tbody>' + rowsC +
+      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b> <span style="font-weight:500;">' + fmtCount(nDse) + ' DSE</span></td><td></td><td class="num">' + pjRp(AT.amt) + '</td><td class="num">' + (AT.tgt > 0 ? pjRp(AT.tgt) : '—') + '</td><td class="num">' + ppPct(AT.osaAch) + '</td><td class="num">' + fmtCount(AT.sp) + '</td><td class="num">' + (AT.spTgt > 0 ? fmtCount(Math.round(AT.spTgt)) : '—') + '</td><td class="num">' + (AT.spTgt > 0 ? ppPct(AT.spOfAch) : '—') + '</td><td class="num">' + ppPct(AT.ec) + '</td><td class="num">' + pjRp(AT.final) + '</td></tr></tbody></table></div>';
+    var note = '<p class="note" style="margin-top:6px;">Partner Territory = Micro Cluster; angkanya agregat dari outlet di MC itu untuk brand ' + brand + ' (nama partner pada master outlet). Sell-in per brand = SP dan Saldo Mobo MOBII (cut ' + esc(((M.F || {}).metadata || {}).cut || '—') + '). Productivity DSE (OSA, SP, effective call, insentif) memakai aturan KPI DSE yang sama dengan menu DSE Productivity, dengan target IOH gabungan IM3 + 3ID; SP sudah termasuk SP Injection kecuali dimatikan. Setiap DSE masuk ke satu distributor (partner dengan outlet terbanyak; 272 dari 272 DSE punya ≥ 90% outlet di satu partner). DSE yang outletnya tidak punya id brand terpilih tetap dihitung di baris "DSE tanpa outlet", supaya total productivity sama dengan menu DSE Productivity. Oktober 2026 terdampak migrasi MOBII / MOBO, sehingga MTD vs LMTD dan pencapaian tertekan secara struktural.</p>';
+    return cards + tool + card('Performa per Distributor · ' + brand + ' · ' + esc(scopeText()), tblA + note) + card('Distributor › Partner Territory (MC)', tblB) + card('Productivity DSE per Distributor', tblC);
+  }
   function viewMbPenjualan() {
     return viewPenjualan();
   }
@@ -8874,7 +9065,7 @@
         return '<tr><td class="cur"><code>' + esc(r[0]) + '</code></td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>';
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
-  var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   /* ---------- shell: filters, header, events ---------- */
   function $(s) { return typeof document !== 'undefined' && document.querySelector ? document.querySelector(s) : null; }
@@ -9396,6 +9587,9 @@
     else if (t.hasAttribute('data-uar-toggle')) { var ut = t.getAttribute('data-uar-toggle'); state.uarCollapsed = state.uarCollapsed || {}; state.uarCollapsed[ut] = !state.uarCollapsed[ut]; }
     else if (t.hasAttribute('data-uar-expand')) { state.uarCollapsed = {}; if (t.getAttribute('data-uar-expand') === 'none') { var uf = pjFeed(); if (uf) Object.keys(uf.metadata.mc_info || {}).forEach(function (m) { state.uarCollapsed[uf.metadata.mc_info[m].br] = true; }); } }
     else if (t.hasAttribute('data-pm-tab')) { state.pmTab = t.getAttribute('data-pm-tab'); }
+    else if (t.hasAttribute('data-pt-tab')) { state.ptTab = t.getAttribute('data-pt-tab'); }
+    else if (t.hasAttribute('data-pp-brand')) { state.ppBrand = t.getAttribute('data-pp-brand'); }
+    else if (t.hasAttribute('data-pt-brand')) { state.ptBrand = t.getAttribute('data-pt-brand'); }
     else if (t.hasAttribute('data-cf-tab')) { state.cfTab = t.getAttribute('data-cf-tab'); state.cfPage = 1; }
     else if (t.hasAttribute('data-cf-basis')) { state.cfBasis = t.getAttribute('data-cf-basis'); }
     else if (t.hasAttribute('data-cf-toggle')) { var cft = t.getAttribute('data-cf-toggle'); state.cfCollapsed = state.cfCollapsed || {}; state.cfCollapsed[cft] = !state.cfCollapsed[cft]; }
@@ -9913,7 +10107,7 @@
   var RT_VIEW_TABS = {
     mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
     mb_kro: ['kroTab'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
-    mb_performance: ['poTab'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
+    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
   var RT_DEFAULTS = null, RT_LAST_VIEW = null;
