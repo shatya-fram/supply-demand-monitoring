@@ -107,8 +107,8 @@
     brief: ['Inner Jakarta · Morning Sales Brief', 'Performance against last month, supply against demand, in one daily view.'],
     terr:  ['Inner Jakarta · Leaders Territory Analysis', 'Drill from area to kecamatan and DSE. Click a row for detail.'],
     svd:   ['Inner Jakarta · Supply vs Demand', 'Stock In against customer demand, with stock available on the market.'],
-    mb_partner_perf: ['Morning DSE Briefing · Partner Territory Performance', 'Performa per Distributor terhadap Partner Territory (MC, agregat outlet) dan productivity DSE: OSA, SP incl. injection, effective call dan insentif.'],
-    mb_partner: ['Morning DSE Briefing · Partner & Alokasi Distributor', 'Partner territory (distributor dan sub-dealer per outlet, MC dan area) serta alokasi SP dan voucher ke MPC, SDP dan canvasser DSE dibandingkan sell-in ke outlet.'],
+    mb_partner_perf: ['Morning DSE Briefing · PT Partner Distribusi · Partner Territory Performance', 'Performa per Distributor terhadap Partner Territory (MC, agregat outlet) dan productivity DSE: OSA, SP incl. injection, effective call dan insentif.'],
+    mb_partner: ['Morning DSE Briefing · PT Partner Distribusi · Partner & Alokasi Distributor', 'Partner territory (distributor dan sub-dealer per outlet, MC dan area) serta alokasi SP dan voucher ke MPC, SDP dan canvasser DSE dibandingkan sell-in ke outlet.'],
     mb_overall: ['Morning DSE Briefing · Overall Performance SA/MC', 'Pilih Sales Area dan DSO / MC: performa PJP Visit dan Penjualan ke Outlet teritori terpilih dalam satu halaman.'],
     mb_uar: ['Morning DSE Briefing · UAR', 'Unique Active Retailer per teritori: sell-in SP, voucher (zero dan value) dan saldo; plus SSO (SIM Selling Outlet) dari gross add RGUGA, dengan growth terhadap periode pembanding.'],
     mb_gatrend: ['Morning DSE Briefing · Daily GA Trend', 'GA harian D1–D31 dengan pilihan tanggal: Oktober MTD vs September LMTD (jumlah hari sama dan sejajar hari kerja), kumulatif, proyeksi akhir bulan, profil hari dan GA per hari per teritori; basis tagging outlet atau lokasi aktivasi.'],
@@ -380,6 +380,7 @@
     opdSec: 'visit', opdSeg: 'all', opdEb: 'outlet', opdLayers: {}, opdMapBase: '',   // Ringkasan Performance > Opportunity: section, GA/SP segment, ENDBAL view
     dse: '',                 // global DSE filter (header): normalised DSE name, synced to pjDse / poDse / visitsDse
     dkSort: 'final',
+    ppGroup: 'dist_mc',      // Partner Territory Performance grouping: dist_mc | dist | area_mc | mc | none
     dkGroupBy: 'area_mc',    // DSE scorecard grouping: none | area | mc | dso | area_mc
     dkSortCol: 'final',      // DSE scorecard sort column key
     dkSortDir: 'desc',
@@ -7334,6 +7335,8 @@
     { k: 'final', band: 'inc', label: 'Final', t: 'rp', row: function (x) { return x.o.final; }, grp: function (g) { return g.a.final; } }
   ];
   var DK_GROUPS = [['none', 'Tanpa grup'], ['area', 'Area'], ['mc', 'Teritori (MC)'], ['dso', 'DSO'], ['area_mc', 'Area → MC']];
+  var PP_GROUPS = [['dist_mc', 'Distributor → MC'], ['dist', 'Distributor'], ['area_mc', 'Area → MC'], ['mc', 'Teritori (MC)'], ['none', 'Tanpa grup']];
+  function dkGb() { return state.view === 'mb_partner_perf' ? (state.ppGroup || 'dist_mc') : (state.dkGroupBy || 'area_mc'); }
   var DK_OPS = [['ge', '≥ minimal'], ['le', '≤ maksimal'], ['eq', '= sama dengan'], ['bt', 'antara'], ['ct', 'mengandung teks']];
   function dkCol(k) { for (var i = 0; i < DK_COLS.length; i++) if (DK_COLS[i].k === k) return DK_COLS[i]; return DK_COLS[0]; }
   function dkParseNum(txt, type) {
@@ -7381,7 +7384,8 @@
   }
   // Builds everything the scorecard needs (also used by the CSV export): filtered, sorted, grouped
   function dkModel(F, opt, list) {
-    var gb = state.dkGroupBy || 'area_mc', col = dkCol(state.dkSortCol || 'final'), dir = state.dkSortDir || 'desc', isText = col.t === 'text';
+    var gb = dkGb(), col = dkCol(state.dkSortCol || 'final'), dir = state.dkSortDir || 'desc', isText = col.t === 'text';
+    if (gb === 'dist_mc' || gb === 'dist') ppAssign(F);
     var q = (state.dkSearch || '').toLowerCase(), filters = state.dkFilters || [];
     var all = list.map(function (r) { return { r: r, o: dkScore(r, F, opt) }; });
     var rows = all.filter(function (x) { return dkPass(x, filters, q); });
@@ -7401,6 +7405,7 @@
     };
     if (gb === 'area') M.groups = sortG(by(rows, function (x) { return x.r.br; }).map(function (e) { return mk('A|' + e[0], e[0], e[1], { level: 'area', br: e[0], sub: 'HoA ' + (e[1][0].r.hoa || '—') }); }));
     else if (gb === 'mc') M.groups = mcGroup(rows, '', null);
+    else if (gb === 'dist' || gb === 'dist_mc') M.groups = sortG(by(rows, function (x) { return x.r.dist; }).map(function (e) { var mcs = {}; e[1].forEach(function (x) { mcs[x.r.mc] = 1; }); var g = mk('P|' + e[0], e[0], e[1], { level: 'dist', sub: fmtCount(Object.keys(mcs).length) + ' MC' }); if (gb === 'dist_mc') g.children = mcGroup(e[1], 'P|' + e[0] + '|', null); return g; }));
     else if (gb === 'dso') M.groups = sortG(by(rows, function (x) { return x.r.dso || '—'; }).map(function (e) { var mcs = {}; e[1].forEach(function (x) { mcs[x.r.mc] = 1; }); return mk('D|' + e[0], e[0], e[1], { level: 'dso', dso: e[0], br: e[1][0].r.br, mcLabel: Object.keys(mcs).join(', '), sub: Object.keys(mcs).join(', ') }); }));
     else M.groups = sortG(by(rows, function (x) { return x.r.br; }).map(function (e) { var g = mk('A|' + e[0], e[0], e[1], { level: 'area', br: e[0], sub: 'HoA ' + (e[1][0].r.hoa || '—') }); g.children = mcGroup(e[1], 'A|' + e[0] + '|', e[0]); return g; }));
     return M;
@@ -7409,7 +7414,7 @@
     var tg = state.dkTog || {};
     if (Object.prototype.hasOwnProperty.call(tg, key)) return !!tg[key];
     if (state.dkAll) return state.dkAll === 'open';
-    return gb === 'area_mc' && depth === 0;
+    return (gb === 'area_mc' || gb === 'dist_mc') && depth === 0;
   }
   function dkCsv(rows) {
     return rows.map(function (r) { return r.map(function (v) { var s = v == null ? '' : String(v); return /[",\r\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(','); }).join('\r\n');
@@ -7423,7 +7428,7 @@
     if (kind === 'grp' && M.groups) {
       out.push(['Level', 'Grup', 'Area', 'DSO / MC', 'Jumlah DSE', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Insentif', 'SP Pcs (Sell-In + Injection)', 'SP Pcs Sell-In', 'SP Pcs Injection', 'SP Target', 'SP Ach (%)', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance rata-rata (%)', 'Insentif Total', 'Insentif Final']);
       var walk = function (gs, lv) { gs.forEach(function (g) { var a = g.a; out.push([lv, g.label, g.br || '', g.sub || '', a.n, rp(a.amt), rp(a.tgt), pc(a.osaAch), rp(a.osaInc), rp(a.sp), rp(a.sp1), rp(a.spi), a.spTgt > 0 ? rp(a.spTgt) : '', a.spTgt > 0 ? pc(a.spOfAch) : '', rp(a.spInc), a.uar, rp(a.uarTgt), pc(a.ec), pc(a.compAvg), rp(a.total), rp(a.final)]); if (g.children) walk(g.children, 'MC'); }); };
-      walk(M.groups, M.gb === 'mc' ? 'MC' : (M.gb === 'dso' ? 'DSO' : 'Area'));
+      walk(M.groups, M.gb === 'mc' ? 'MC' : (M.gb === 'dso' ? 'DSO' : (M.gb === 'dist' || M.gb === 'dist_mc' ? 'Distributor' : 'Area')));
     } else {
       out.push(['Area', 'Head of Area', 'Micro Cluster', 'DSO', 'DSE', 'Kelas', 'OSA Amount', 'OSA Target', 'OSA Ach (%)', 'OSA Slab', 'OSA Insentif', 'SP Pcs (Sell-In + Injection)', 'SP Pcs Sell-In', 'SP Pcs Injection', 'SP Target', 'SP Ach (%)', 'SP Slab', 'SP Insentif', 'UAR >=5 pcs', 'UAR Target', 'Effective call (%)', 'Skor compliance (%)', 'Index', 'Insentif Total', 'Insentif Final']);
       var flat = M.groups ? [] : M.rows;
@@ -7496,7 +7501,7 @@
         });
       };
       emit(M.groups, 0);
-      pagerHtml = '<p class="note">' + fmtCount(M.rows.length) + ' DSE dalam ' + fmtCount(M.groups.reduce(function (s, g) { return s + (g.children ? g.children.length : 1); }, 0)) + ' ' + (gb === 'area' ? 'area' : (gb === 'dso' ? 'DSO' : 'Micro Cluster')) + '. Klik ▸ / ▾ untuk membuka atau menutup grup; baris grup berisi subtotal dan sebaran slab dari DSE yang lolos filter.</p>';
+      pagerHtml = '<p class="note">' + fmtCount(M.rows.length) + ' DSE dalam ' + fmtCount(M.groups.reduce(function (s, g) { return s + (g.children ? g.children.length : 1); }, 0)) + ' ' + (gb === 'area' ? 'area' : (gb === 'dso' ? 'DSO' : (gb === 'dist' ? 'distributor' : 'Micro Cluster'))) + '. Klik ▸ / ▾ untuk membuka atau menutup grup; baris grup berisi subtotal dan sebaran slab dari DSE yang lolos filter.</p>';
     }
     if (M.rows.length > 1) {
       var allA = dkAgg(M.rows.map(function (x) { return x.r; }), F, opt);
@@ -7514,7 +7519,7 @@
     var colOpts = DK_COLS.map(function (c) { return '<option value="' + c.k + '">' + (c.band ? { osa: 'OSA · ', sp: 'SP · ', cmp: 'Compliance · ', inc: 'Insentif · ' }[c.band] : '') + c.label + '</option>'; }).join('');
     var opOpts = DK_OPS.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
     var chips = fl.map(function (x, i) { return '<span class="chip" style="margin-right:6px;">' + esc(dkFilterText(x)) + ' <button type="button" class="dk-chipx" data-dk-fdel="' + i + '" aria-label="Hapus filter ' + esc(dkFilterText(x)) + '">✕</button></span>'; }).join('');
-    var bar = '<div class="map-toolbar" style="margin-bottom:8px;">' + sellinBtnGroup('Kelompokkan', 'dk-groupby', DK_GROUPS, gb) +
+    var bar = '<div class="map-toolbar" style="margin-bottom:8px;">' + sellinBtnGroup('Kelompokkan', 'dk-groupby', state.view === 'mb_partner_perf' ? PP_GROUPS : DK_GROUPS, gb) +
       (gb !== 'none' ? '<div class="map-toolbar-group"><button type="button" class="btn" data-dk-all="open" style="font-size:13px; padding:5px 10px;">⊞ Buka semua</button><button type="button" class="btn" data-dk-all="close" style="font-size:13px; padding:5px 10px;">⊟ Tutup semua</button></div>' : '') +
       '<div class="map-toolbar-group"><button type="button" class="btn" data-dk-dl="dse" style="font-size:13px; padding:5px 10px;">⬇ Download CSV (DSE)</button>' + (gb !== 'none' ? '<button type="button" class="btn" data-dk-dl="grp" style="font-size:13px; padding:5px 10px;">⬇ Download CSV (grup)</button>' : '') + '</div></div>' +
       '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><input type="text" id="dkSearchInput" class="map-select" aria-label="Cari DSE, MC atau DSO" placeholder="🔍 Cari DSE, MC, DSO..." value="' + esc(state.dkSearch || '') + '" style="min-width:220px;"></div>' +
@@ -7525,12 +7530,12 @@
       (state.dkFErr ? '<p class="note" style="color:#991b1b; font-weight:700; margin:0 0 6px;" role="alert">' + esc(state.dkFErr) + '</p>' : '') +
       (chips ? '<div style="margin-bottom:8px;">' + chips + '</div>' : '');
     var cnt = M.rows.length === M.total ? fmtCount(M.rows.length) + ' DSE' : fmtCount(M.rows.length) + ' dari ' + fmtCount(M.total) + ' DSE (terfilter)';
-    return card('Scorecard per DSE · ' + scope + ' · ' + cnt,
+    return card((state.view === 'mb_partner_perf' ? 'Scorecard Distributor › Partner Territory (MC) › DSE · ' : 'Scorecard per DSE · ') + scope + ' · ' + cnt,
       bar + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + dHead + '</thead><tbody>' + (body || '<tr><td colspan="' + dCols + '" class="note">Tidak ada DSE yang lolos filter.</td></tr>') + '</tbody></table></div>' + pagerHtml +
       '<p class="note">Setiap kolom punya tombol ▲ (kecil ke besar) dan ▼ (besar ke kecil); urutan berlaku untuk DSE dan, bila dikelompokkan, juga untuk urutan grup menurut subtotalnya. Filter nilai menerima angka biasa, satuan rb / jt / M (M = milyar), dan persen untuk kolom Ach., Effective call dan Skor (mis. ≥ 40jt, antara 80% dan 100%). Download CSV memuat seluruh DSE yang lolos filter dengan urutan yang sedang tampil. Klik "▸ Rincian" untuk melihat perhitungan satu DSE langkah demi langkah. Skor UAR dan effective call dibatasi 100%.</p>' +
       (proxy ? '<p class="note">* Target OSA individual belum tersedia: dipakai proxy = nilai OSA bulan September penuh per DSE (' + fmtCount(proxy) + ' DSE). Isi <code>data/catalogues/dse_kpi_targets.csv</code> (template: dse_kpi_targets_template.csv) lalu jalankan <code>python3 scripts/build_dse_kpi_feed.py</code> untuk memakai target resmi.</p>' : ''));
   }
-  function viewDseProductivity() {
+  function viewDseProductivity(pp) {
     var F = dkFeed();
     if (!F) return card('DSE Productivity', '<p class="note">Feed KPI DSE belum dibangun. Jalankan <code>python3 scripts/build_dse_kpi_feed.py</code>.</p>');
     var opt = dkOpt(), P = F.policy, M = F.metadata, f = opt.basis === 'full' ? 1 : M.cut_day / M.month_days;
@@ -7538,7 +7543,7 @@
     var proxy = list.filter(function (r) { return r.osa_tgt_src === 'proxy'; }).length;
     var scope = esc(scopeText());
     // toolbar
-    var tool = '<div class="map-toolbar" style="margin-top:8px;">' +
+    var tool = '<div class="map-toolbar" style="margin-top:8px;">' + (pp ? sellinBtnGroup('Brand id partner', 'pp-brand', [['IM3', 'IM3'], ['3ID', '3ID']], state.ppBrand || 'IM3') : '') +
       sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD (' + M.cut_day + '/' + M.month_days + ')'], ['full', 'Target penuh bulan']], opt.basis) +
       sellinBtnGroup('Amount OSA', 'dk-osa', [['all', 'Semua outlet'], ['q', 'Outlet ≥ Rp 300K']], opt.osa) +
       sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') +
@@ -7558,18 +7563,18 @@
       '<div><b>SP Data Sell In · slab pcs</b>' + dkStack([['&lt; ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)), A.spSl[0], 'bad'], ['≥ ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' (90%)', A.spSl[1], 'ok'], ['≥ ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' (100%)', A.spSl[2], 'top']]) + '</div>' +
       '<div><b>Compliance index</b>' + dkStack([['× 0 (&lt; 80%)', A.idx['0'], 'bad'], ['× 0.95', A.idx['0.95'], 'warn'], ['× 0.97', A.idx['0.97'], 'ok'], ['× 1 (≥ 100%)', A.idx['1'], 'top']]) + '</div></div>';
     // group table (follows the filter): area -> MC -> DSE, columns grouped by parameter
-    var mode = state.kec ? 'dse' : ((state.branch || state.hoa) ? 'mc' : 'area'), groupHtml = '';
+    var mode = pp ? 'dist' : (state.kec ? 'dse' : ((state.branch || state.hoa) ? 'mc' : 'area')), groupHtml = '';
     var legend = '<p class="note" style="margin-bottom:6px;">Bar = jumlah DSE per slab: ' + [['bad', 'di bawah slab / × 0'], ['warn', '× 0.95'], ['ok', 'slab 90% / × 0.97'], ['top', 'slab 100% / × 1']].map(function (x) { return '<span style="display:inline-block; width:11px; height:11px; background:' + DK_COL[x[0]][0] + '; border:1px solid ' + DK_COL[x[0]][1] + '; vertical-align:middle;"></span> ' + x[1]; }).join(' &nbsp; ') + '</p>';
     if (mode !== 'dse') {
       var groups = {};
-      list.forEach(function (r) { var k = mode === 'area' ? r.br : r.mc; (groups[k] || (groups[k] = [])).push(r); });
+      list.forEach(function (r) { var k = mode === 'area' ? r.br : (mode === 'dist' ? r.dist : r.mc); (groups[k] || (groups[k] = [])).push(r); });
       var gl = Object.keys(groups).map(function (k) { var g = dkAgg(groups[k], F, opt); g.key = k; g.br = groups[k][0].br; g.dso = groups[k][0].dso; g.hoa = groups[k][0].hoa; return g; });
       gl.sort(function (x, y) { return y.final - x.final || y.total - x.total || y.n - x.n; });
       var hasDso = mode === 'mc', gCols = 1 + (hasDso ? 1 : 0) + 1 + 5 + 4 + 3 + 2 + 1;
       function gRow(g, tot) {
         var bg = tot ? 'background:var(--ij-ink); color:#fff; font-weight:800;' : '';
-        var name = tot ? (mode === 'area' ? 'INNER JAKARTA' : esc(state.branch || state.hoa)) : '<b>' + esc(g.key) + '</b>';
-        var drill = tot ? '' : (mode === 'area' ? '<button type="button" class="btn" data-dk-drill="' + esc(g.key) + '" data-dk-lv="area" style="font-size:13px; padding:4px 9px;">MC →</button>' : '<button type="button" class="btn" data-dk-drill="' + esc(g.key) + '" data-dk-lv="mc" data-br="' + esc(g.br) + '" style="font-size:13px; padding:4px 9px;">DSE →</button>');
+        var name = tot ? (mode === 'area' ? 'INNER JAKARTA' : (mode === 'dist' ? 'SEMUA DISTRIBUTOR' : esc(state.branch || state.hoa))) : '<b>' + esc(g.key) + '</b>' + (mode === 'dist' ? '<div class="note">' + fmtCount(new Set(groups[g.key].map(function (r) { return r.mc; })).size) + ' MC</div>' : '');
+        var drill = (tot || mode === 'dist') ? '' : (mode === 'area' ? '<button type="button" class="btn" data-dk-drill="' + esc(g.key) + '" data-dk-lv="area" style="font-size:13px; padding:4px 9px;">MC →</button>' : '<button type="button" class="btn" data-dk-drill="' + esc(g.key) + '" data-dk-lv="mc" data-br="' + esc(g.br) + '" style="font-size:13px; padding:4px 9px;">DSE →</button>');
         var pctT = function (v, hi, mid) { return tot ? (v == null ? '—' : (v * 100).toFixed(1) + '%') : dkPctTag(v, hi, mid); };
         return '<tr style="' + bg + '">' + (tot ? '<td class="cur" style="' + DK_STICKY + ' background:var(--ij-ink); color:#fff;">' + name + '</td>' : dkStickyTd(name)) + (hasDso ? '<td>' + (tot ? '' : esc(g.dso || '—')) + '</td>' : '') + '<td class="num">' + fmtCount(g.n) + '</td>' +
           dkTd(pjRp(g.amt), true, 'num') + dkTd(g.tgt > 0 ? pjRp(g.tgt) : '—', false, 'num') + dkTd(pctT(g.osaAch, 1, 0.9), false, 'num') + dkTd(dkMini([['&lt; 90%', g.osaSl[0], 'bad'], ['90%', g.osaSl[1], 'ok'], ['100%', g.osaSl[2], 'top']]), false, '') + dkTd(pjRp(g.osaInc), false, 'num') +
@@ -7578,14 +7583,14 @@
           dkTd(pjRp(g.total), true, 'num') + dkTd('<b>' + pjRp(g.final) + '</b>', false, 'num') + '<td>' + drill + '</td></tr>';
       }
       A.key = 'T';
-      var gHead = '<tr>' + dkStickyTh(mode === 'area' ? 'Area' : 'Micro Cluster', 2) + (hasDso ? '<th rowspan="2" style="vertical-align:bottom;">DSO</th>' : '') + '<th rowspan="2" class="num" style="vertical-align:bottom;">DSE</th>' +
+      var gHead = '<tr>' + dkStickyTh(mode === 'area' ? 'Area' : (mode === 'dist' ? 'Distributor' : 'Micro Cluster'), 2) + (hasDso ? '<th rowspan="2" style="vertical-align:bottom;">DSO</th>' : '') + '<th rowspan="2" class="num" style="vertical-align:bottom;">DSE</th>' +
         dkBandTh('osa', 'OSA', 'bobot 40% · 0.2% / 0.4% · maks Rp 1 Jt', 5) + dkBandTh('sp', 'SP Data Sell In', 'bobot 60% · ' + (opt.sp === 'policy' ? 'tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)) + ' pcs' : 'slab 90% / 100% dari target resmi'), 5) +
         dkBandTh('cmp', 'Compliance', 'UAR 50% + effective call 50% → index', 3) + dkBandTh('inc', 'Insentif', 'total × index', 2) + '<th rowspan="2" style="vertical-align:bottom;">Detail</th></tr>' +
         '<tr>' + dkSubTh('osa', 'Amount', true, true) + dkSubTh('osa', 'Target', false, true) + dkSubTh('osa', 'Ach.', false, true) + dkSubTh('osa', 'Sebaran DSE', false) + dkSubTh('osa', 'Insentif', false, true) +
         dkSubTh('sp', 'Pcs', true, true) + dkSubTh('sp', 'Target', false, true) + dkSubTh('sp', 'Ach.', false, true) + dkSubTh('sp', 'Sebaran DSE', false) + dkSubTh('sp', 'Insentif', false, true) +
         dkSubTh('cmp', 'UAR ≥5 / target', true, true) + dkSubTh('cmp', 'Eff. call', false, true) + dkSubTh('cmp', 'Sebaran index', false) +
         dkSubTh('inc', 'Total', true, true) + dkSubTh('inc', 'Final', false, true) + '</tr>';
-      groupHtml = card('Performance ' + (mode === 'area' ? 'per Area' : 'per Micro Cluster') + ' · ' + scope,
+      groupHtml = card('Performance ' + (mode === 'area' ? 'per Area' : (mode === 'dist' ? 'per Distributor (partner brand ' + (state.ppBrand || 'IM3') + ')' : 'per Micro Cluster')) + ' · ' + scope,
         legend + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + gHead + '</thead><tbody>' + gl.map(function (g) { return gRow(g, false); }).join('') + gRow(A, true) + '</tbody></table></div>');
     }
     // DSE scorecard: grouping (Area / MC / DSO) with collapse-expand, sortable columns, value filters, CSV download
@@ -8942,7 +8947,7 @@
   }
   function viewPartner() {
     var tab = state.ptTab || 'partner';
-    return ptTabNav() + (tab === 'alokasi' ? ptAllocView() : ptPartnerView());
+    return ptMenuNav() + ptTabNav() + (tab === 'alokasi' ? ptAllocView() : ptPartnerView());
   }
 
   /* ================= PARTNER TERRITORY PERFORMANCE (owner, 20 Oct 2026) =================
@@ -8983,52 +8988,47 @@
   function ppHead(first, withMc) {
     return '<thead><tr>' + th(first) + th('Outlet', 1) + th('SP sell-in MTD', 1) + th('Saldo MTD', 1) + th('OSA amount', 1) + th('OSA target', 1) + th('OSA ach.', 1) + th('SP pcs', 1) + th('SP target', 1) + th('SP ach.', 1) + th('Eff. call', 1) + th('Insentif final', 1) + '</tr></thead>';
   }
+  /* assign every KPI DSE row to a distributor (partner with most of the DSE's outlets for the brand id in state.ppBrand) */
+  function ppAssign(F) {
+    var brand = state.ppBrand || 'IM3', terr = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null;
+    if (F._ppBrand === brand) return;
+    var cnt = {};
+    ((terr && terr.outlets) || []).forEach(function (o) {
+      if (!(brand === 'IM3' ? o.outlet_id_im3 : o.outlet_id_3id)) return;
+      var dn = dseNorm(o.dse_name); if (!dn || dn === '0' || dn.indexOf('UNASSIGNED') === 0) return;
+      var nm = String((brand === 'IM3' ? o.partner_name_im3 : o.partner_name_3id) || '').trim() || '(tanpa partner)', ck = dn + '|' + o.micro_cluster;
+      (cnt[ck] = cnt[ck] || {})[nm] = (cnt[ck][nm] || 0) + 1;
+    });
+    F.dses.forEach(function (r) {
+      var c = cnt[dseNorm(r.n) + '|' + r.mc], best = null;
+      if (c) Object.keys(c).forEach(function (n) { if (best === null || c[n] > c[best]) best = n; });
+      r.dist = best || '(DSE tanpa outlet ' + brand + ')';
+    });
+    F._ppBrand = brand;
+  }
+  function ptMenuNav() {
+    var t = [['mb_partner', '🤝 Partner & Alokasi Distributor'], ['mb_partner_perf', '🏆 Partner Territory Performance']];
+    return '<div class="sub-nav" role="tablist" aria-label="PT · Partner Distribusi" style="margin-bottom:6px;">' + t.map(function (x) { var a = state.view === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-view="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
+  }
+  function ppSellInCard(F) {
+    var M = ppModel(); if (!M) return '';
+    var parts = {}; M.rows.forEach(function (r) { (parts[r.p] = parts[r.p] || []).push(r); });
+    var pn = Object.keys(parts).sort(function (a, b) { return ppSum(parts[b]).out - ppSum(parts[a]).out; }), ST = ppSum(M.rows);
+    var cells = function (S) { return '<td class="num">' + fmtCount(S.out) + '</td><td class="num">' + fmtCount(S.spu) + '<div class="note">' + pctOf(S.spu, S.out) + '%</div></td><td class="num">' + fmtCount(S.sp) + '</td><td class="num">' + fmtCount(S.spl) + '</td><td class="num">' + ptSign(ptGrow(S.sp, S.spl)) + '</td><td class="num">' + pjRp(S.sa) + '</td><td class="num">' + pjRp(S.sal) + '</td><td class="num">' + ptSign(ptGrow(S.sa, S.sal)) + '</td>'; };
+    var body = pn.map(function (p) {
+      var S0 = ppSum(parts[p]);
+      return '<tr style="background:#e9e5e0; font-weight:700;"><td class="cur"><b>' + esc(p) + '</b> <span class="note">' + fmtCount(Object.keys(S0.mcs).length) + ' MC</span></td>' + cells(S0) + '</tr>' +
+        parts[p].sort(function (a, b) { return b.out - a.out; }).map(function (r) { return '<tr><td class="cur" style="padding-left:22px;">' + esc(r.mc) + '<div class="note">' + esc(r.br) + (r.dso ? ' · DSO ' + esc(r.dso) : '') + '</div></td>' + cells(r) + '</tr>'; }).join('');
+    }).join('');
+    var hd = '<thead><tr>' + th('Distributor › Partner Territory (MC)') + th('Outlet', 1) + th('Outlet aktif SP', 1) + th('SP sell-in MTD', 1) + th('SP LMTD', 1) + th('Growth', 1) + th('Saldo MTD', 1) + th('Saldo LMTD', 1) + th('Growth', 1) + '</tr></thead>';
+    return card('Sell-in outlet per Distributor › Partner Territory (MC) · brand ' + M.brand, '<div class="tbl-wrap"><table class="tbl" data-nosort="1">' + hd + '<tbody>' + body +
+      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + cells(ST).replace(/<div class="note">/g, '<div class="note" style="color:#fff;">') + '</tr></tbody></table></div><p class="note" style="margin-top:6px;">Partner Territory = Micro Cluster, agregat outlet di MC itu untuk brand ' + M.brand + ' (nama partner pada master outlet). Sell-in per brand = SP dan Saldo Mobo MOBII; Oktober 2026 terdampak migrasi MOBII / MOBO.</p>');
+  }
   function viewPartnerPerf() {
-    var M = ppModel();
-    if (!M) return card('Partner Territory Performance', '<p class="note">Feed teritori atau KPI DSE belum dimuat.</p>');
-    var F = M.K, opt = M.opt, brand = M.brand, parts = {};
-    M.rows.forEach(function (r) { (parts[r.p] = parts[r.p] || []).push(r); });
-    Object.keys(M.kp).forEach(function (p) { if (!parts[p]) parts[p] = []; });
-    var pnames = Object.keys(parts).sort(function (a, b) { return ppSum(parts[b]).out - ppSum(parts[a]).out; });
-    var allList = [].concat.apply([], pnames.map(function (p) { return M.kp[p] || []; }));
-    var AT = dkAgg(allList, F, opt), ST = ppSum(M.rows);
-    var tool = '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand id partner', 'pp-brand', [['IM3', 'IM3'], ['3ID', '3ID']], brand) +
-      sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD'], ['full', 'Target penuh bulan']], opt.basis) +
-      sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') + '</div>';
-    var cards = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Distributor · Partner Territory', fmtCount(pnames.length) + ' · ' + fmtCount(Object.keys(ST.mcs).length) + ' MC', fmtCount(Object.keys(ST.dses).length) + ' DSE · ' + fmtCount(ST.out) + ' outlet', 'up', 'brand ' + brand + ' · MC = agregat outlet') +
-      kpi('OSA pencapaian (KPI DSE)', AT.osaAch == null ? '—' : (AT.osaAch * 100).toFixed(1) + '%', pjRp(AT.amt) + ' dari ' + pjRp(AT.tgt), AT.osaAch != null && AT.osaAch >= 0.9 ? 'up' : 'down', opt.basis === 'full' ? 'target penuh bulan' : 'target prorata MTD') +
-      kpi('SP pencapaian', AT.spTgt > 0 ? (AT.spOfAch * 100).toFixed(1) + '%' : '—', fmtCount(AT.sp) + ' pcs' + (AT.spi ? ' (incl. ' + fmtCount(AT.spi) + ' injection)' : ''), AT.spTgt > 0 && AT.spOfAch >= 0.9 ? 'up' : 'down', 'target SP ' + fmtCount(Math.round(AT.spTgt)) + ' pcs') +
-      kpi('Effective call', ppPct(AT.ec), 'visit produktif ÷ rencana PJP', AT.ec != null && AT.ec >= 0.5 ? 'up' : 'down', 'insentif final ' + pjRp(AT.final)) + '</div>';
-    // A. distributor summary
-    var rowsA = pnames.map(function (p) { var S = ppSum(parts[p]), A = dkAgg(M.kp[p] || [], F, opt); return '<tr><td class="cur"><b>' + esc(p) + '</b><div class="note">' + fmtCount(Object.keys(S.mcs).length) + ' MC · ' + fmtCount((M.kp[p] || []).length) + ' DSE</div></td>' + ppCells(S, A) + '</tr>'; }).join('');
-    var tblA = '<div class="tbl-wrap"><table class="tbl" data-nosort="1">' + ppHead('Distributor') + '<tbody>' + rowsA + '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + ppCells(ST, AT).replace(/<div class="note">/g, '<div class="note" style="color:#fff;">') + '</tr></tbody></table></div>';
-    // B. distributor -> partner territory (MC)
-    var rowsB = '';
-    pnames.forEach(function (p) {
-      var S0 = ppSum(parts[p]), A0 = dkAgg(M.kp[p] || [], F, opt);
-      rowsB += '<tr style="background:#e9e5e0; font-weight:700;"><td class="cur"><b>' + esc(p) + '</b> <span class="note">' + fmtCount(Object.keys(S0.mcs).length) + ' MC</span></td>' + ppCells(S0, A0) + '</tr>';
-      parts[p].sort(function (a, b) { return b.out - a.out; }).forEach(function (r) {
-        var A = dkAgg((M.kp[p] || []).filter(function (k) { return k.mc === r.mc; }), F, opt);
-        rowsB += '<tr><td class="cur" style="padding-left:22px;">' + esc(r.mc) + '<div class="note">' + esc(r.br) + (r.dso ? ' · DSO ' + esc(r.dso) : '') + ' · ' + fmtCount(Object.keys(r.dses).length) + ' DSE</div></td>' + ppCells(r, A) + '</tr>';
-      });
-    });
-    var tblB = '<div class="tbl-wrap"><table class="tbl" data-nosort="1">' + ppHead('Distributor › Partner Territory (MC)') + '<tbody>' + rowsB + '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b></td>' + ppCells(ST, AT).replace(/<div class="note">/g, '<div class="note" style="color:#fff;">') + '</tr></tbody></table></div>';
-    // C. DSE productivity under distributor / MC
-    var rowsC = '', nDse = 0;
-    pnames.forEach(function (p) {
-      var L = (M.kp[p] || []).slice().sort(function (a, b) { return (a.mc + a.n).localeCompare(b.mc + b.n); }); if (!L.length) return;
-      var A0 = dkAgg(L, F, opt);
-      rowsC += '<tr style="background:#e9e5e0; font-weight:700;"><td colspan="2"><b>' + esc(p) + '</b> <span class="note">' + fmtCount(L.length) + ' DSE</span></td><td class="num">' + pjRp(A0.amt) + '</td><td class="num">' + (A0.tgt > 0 ? pjRp(A0.tgt) : '—') + '</td><td class="num">' + (A0.osaAch == null ? '—' : dkPctTag(A0.osaAch, 1, 0.9)) + '</td><td class="num">' + fmtCount(A0.sp) + '</td><td class="num">' + (A0.spTgt > 0 ? fmtCount(Math.round(A0.spTgt)) : '—') + '</td><td class="num">' + (A0.spTgt > 0 ? dkPctTag(A0.spOfAch, 1, 0.9) : '—') + '</td><td class="num">' + ppPct(A0.ec) + '</td><td class="num">' + pjRp(A0.final) + '</td></tr>';
-      L.forEach(function (r) {
-        var o = dkScore(r, F, opt); nDse++;
-        rowsC += '<tr><td class="cur" style="padding-left:22px;"><b>' + esc(r.n) + '</b></td><td>' + esc(r.mc) + '</td><td class="num">' + pjRp(o.osaAmt) + '</td><td class="num">' + (o.osaTgt > 0 ? pjRp(o.osaTgt) : '—') + '</td><td class="num">' + (o.osaAch == null ? '—' : dkPctTag(o.osaAch, 1, 0.9)) + '</td><td class="num">' + fmtCount(o.sp) + dkSpiNote(o.sp1, o.spi) + '</td><td class="num">' + (o.spOfficial ? fmtCount(Math.round(o.spTgt)) : '—') + '</td><td class="num">' + (o.spAch == null ? '—' : dkPctTag(o.spAch, 1, 0.9)) + '</td><td class="num">' + ppPct(o.ec) + '</td><td class="num">' + pjRp(o.final) + '</td></tr>';
-      });
-    });
-    var tblC = '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Distributor › DSE') + th('MC') + th('OSA amount', 1) + th('OSA target', 1) + th('OSA ach.', 1) + th('SP pcs', 1) + th('SP target', 1) + th('SP ach.', 1) + th('Eff. call', 1) + th('Insentif final', 1) + '</tr></thead><tbody>' + rowsC +
-      '<tr class="tot-row" style="' + TOT_ST + '"><td class="cur"><b>TOTAL</b> <span style="font-weight:500;">' + fmtCount(nDse) + ' DSE</span></td><td></td><td class="num">' + pjRp(AT.amt) + '</td><td class="num">' + (AT.tgt > 0 ? pjRp(AT.tgt) : '—') + '</td><td class="num">' + ppPct(AT.osaAch) + '</td><td class="num">' + fmtCount(AT.sp) + '</td><td class="num">' + (AT.spTgt > 0 ? fmtCount(Math.round(AT.spTgt)) : '—') + '</td><td class="num">' + (AT.spTgt > 0 ? ppPct(AT.spOfAch) : '—') + '</td><td class="num">' + ppPct(AT.ec) + '</td><td class="num">' + pjRp(AT.final) + '</td></tr></tbody></table></div>';
-    var note = '<p class="note" style="margin-top:6px;">Partner Territory = Micro Cluster; angkanya agregat dari outlet di MC itu untuk brand ' + brand + ' (nama partner pada master outlet). Sell-in per brand = SP dan Saldo Mobo MOBII (cut ' + esc(((M.F || {}).metadata || {}).cut || '—') + '). Productivity DSE (OSA, SP, effective call, insentif) memakai aturan KPI DSE yang sama dengan menu DSE Productivity, dengan target IOH gabungan IM3 + 3ID; SP sudah termasuk SP Injection kecuali dimatikan. Setiap DSE masuk ke satu distributor (partner dengan outlet terbanyak; 272 dari 272 DSE punya ≥ 90% outlet di satu partner). DSE yang outletnya tidak punya id brand terpilih tetap dihitung di baris "DSE tanpa outlet", supaya total productivity sama dengan menu DSE Productivity. Oktober 2026 terdampak migrasi MOBII / MOBO, sehingga MTD vs LMTD dan pencapaian tertekan secara struktural.</p>';
-    return cards + tool + card('Performa per Distributor · ' + brand + ' · ' + esc(scopeText()), tblA + note) + card('Distributor › Partner Territory (MC)', tblB) + card('Productivity DSE per Distributor', tblC);
+    var F = dkFeed(), terr = (typeof window !== 'undefined') ? window.TERRITORY_FEED : null;
+    if (!F || !terr) return ptMenuNav() + card('Partner Territory Performance', '<p class="note">Feed teritori atau KPI DSE belum dimuat.</p>');
+    ppAssign(F);
+    return ptMenuNav() + viewDseProductivity(true) + ppSellInCard(F);
   }
   function viewMbPenjualan() {
     return viewPenjualan();
@@ -9377,7 +9377,7 @@
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
     if (typeof document !== 'undefined' && document.querySelectorAll) {
       Array.prototype.forEach.call(document.querySelectorAll('.nav button'), function (b) {
-        if (b.getAttribute('data-view') === state.view) {
+        if (b.getAttribute('data-view') === state.view || (state.view === 'mb_partner_perf' && b.getAttribute('data-view') === 'mb_partner')) {
           b.setAttribute('aria-current', 'page');
           b.classList.add('active');
         } else {
@@ -9620,7 +9620,7 @@
     else if (t.hasAttribute('data-dk-ec')) { state.dkEc = t.getAttribute('data-dk-ec'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-sort')) { state.dkSort = t.getAttribute('data-dk-sort'); state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-sortcol')) { state.dkSortCol = t.getAttribute('data-dk-sortcol'); state.dkSortDir = t.getAttribute('data-dir') === 'asc' ? 'asc' : 'desc'; state.dkPage = 1; }
-    else if (t.hasAttribute('data-dk-groupby')) { state.dkGroupBy = t.getAttribute('data-dk-groupby'); state.dkTog = {}; state.dkAll = null; state.dkPage = 1; }
+    else if (t.hasAttribute('data-dk-groupby')) { if (state.view === 'mb_partner_perf') state.ppGroup = t.getAttribute('data-dk-groupby'); else state.dkGroupBy = t.getAttribute('data-dk-groupby'); state.dkTog = {}; state.dkAll = null; state.dkPage = 1; }
     else if (t.hasAttribute('data-dk-grp')) { var dgk = t.getAttribute('data-dk-grp'), dgd = parseInt(t.getAttribute('data-depth'), 10) || 0; state.dkTog = state.dkTog || {}; state.dkTog[dgk] = !dkExpanded(dgk, dgd, state.dkGroupBy || 'area_mc'); }
     else if (t.hasAttribute('data-dk-all')) { state.dkAll = t.getAttribute('data-dk-all'); state.dkTog = {}; }
     else if (t.hasAttribute('data-dk-dl')) { dkDownload(t.getAttribute('data-dk-dl')); return; }
@@ -10107,7 +10107,7 @@
   var RT_VIEW_TABS = {
     mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
     mb_kro: ['kroTab'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
-    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
+    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
   var RT_DEFAULTS = null, RT_LAST_VIEW = null;

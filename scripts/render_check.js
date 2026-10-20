@@ -272,6 +272,8 @@ state.ptTab = 'partner'; state.ptBrand = 'IM3';
 { const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br;
 for (const br of ['IM3', '3ID']) for (const sv of ['on', 'off']) { state.view = 'mb_partner_perf'; state.ppBrand = br; state.dkSpi = sv; state.branch = ''; state.kec = ''; check('partner-perf/' + br + '/spi=' + sv + '/all', VIEWS.mb_partner_perf); state.branch = br0; check('partner-perf/' + br + '/spi=' + sv + '/branch', VIEWS.mb_partner_perf); state.kec = mcp; check('partner-perf/' + br + '/spi=' + sv + '/mc', VIEWS.mb_partner_perf); state.branch = ''; state.kec = ''; } }
 state.ppBrand = 'IM3'; state.dkSpi = 'on';
+for (const g of ['dist_mc', 'dist', 'area_mc', 'mc', 'none']) { state.view = 'mb_partner_perf'; state.ppGroup = g; check('partner-perf/group=' + g, VIEWS.mb_partner_perf); }
+state.ppGroup = 'dist_mc';
 for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) for (const bs of ['stock', 'all']) { state.view = 'mb_endbal'; state.ebTab = tb; state.ebBasis = bs; state.ebPage = 1; check('endbal/' + tb + '/' + bs, VIEWS.mb_endbal); }
 state.ebBasis = 'stock';
 for (const sg of ['all', 'demand', 'sep', 'dormant']) { state.ebTab = 'zero'; state.ebSeg = sg; check('endbal/zero/seg=' + sg, VIEWS.mb_endbal); }
