@@ -1,0 +1,2 @@
+program,outlet_id,note
+BOSS,"<id outlet IM3 atau 3ID, atau outlet key>",satu baris per outlet per program; salin file ini menjadi kro_program_outlets.csv lalu jalankan build_kro_feed.py (atau unggah langsung di menu)

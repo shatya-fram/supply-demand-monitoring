@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'pjp_mapping_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -207,12 +207,33 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   state.branch = br0; check('gatrend/branch', VIEWS.mb_gatrend); state.kec = mc0; check('gatrend/mc', VIEWS.mb_gatrend);
   state.gaSg = 'PJP'; check('gatrend/mc/pjp', VIEWS.mb_gatrend); state.gaSg = 'all'; state.gaCover = 'master'; check('gatrend/mc/master', VIEWS.mb_gatrend); state.gaCover = 'all';
   state.view = 'mb_grossadd'; state.gaTab = 'ringkasan'; state.gaBasis = 'site'; check('grossadd/site-cards/mc', VIEWS.mb_grossadd); state.gaBasis = 'outlet'; check('grossadd/outlet-cards/mc', VIEWS.mb_grossadd);
-  for (const b of ['ga', 'sup']) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { state.view = 'mb_kro'; state.kroBasis = b; state.kroTab = tb; check('kro/' + b + '/' + tb + '/mc', VIEWS.mb_kro); }
+  // Outlet & KRO Management: every product / measure, tab, catalogue mode, summary grouping, plus whitelist, program and popup checks
+  const KRO_COMBOS = [['sp', 'si'], ['vc', 'si'], ['vc', 'so'], ['sl', 'si'], ['sl', 'so'], ['ga', 'si']];
+  const kroSet = (prod, meas, tab) => { state.view = 'mb_kro'; state.kroProd = prod; state.kroMeas = meas; state.kroTab = tab; state.kroMode = 'slab'; state.kroGroup = ''; state.kroClass = 'all'; state.kroPer = 'pr'; state.kroFlag = 'all'; state.kroSearch = ''; state.kroPage = 1; };
+  for (const [pr, me] of KRO_COMBOS) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { kroSet(pr, me, tb); check('kro/' + pr + '-' + me + '/' + tb + '/mc', VIEWS.mb_kro); }
   state.branch = ''; state.kec = '';
-  for (const b of ['ga', 'sup']) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { state.view = 'mb_kro'; state.kroBasis = b; state.kroTab = tb; check('kro/' + b + '/' + tb, VIEWS.mb_kro); }
-  for (const cl of ['all', 'W', 'K', 'R']) for (const per of ['fm', 'pr']) { state.view = 'mb_kro'; state.kroTab = 'katalog'; state.kroBasis = 'ga'; state.kroClass = cl; state.kroPer = per; check('kro/katalog/' + cl + '/' + per, VIEWS.mb_kro); }
-  for (const fl of Object.keys(global.KRO_FEED.rows.reduce((a, r) => { r.fl.forEach(f => { a[f] = 1; }); return a; }, {}))) { state.kroClass = 'all'; state.kroFlag = fl; check('kro/katalog/flag=' + fl, VIEWS.mb_kro); }
-  state.kroFlag = 'all'; state.kroSearch = 'cell'; state.kroPage = 3; check('kro/katalog/search-page3', VIEWS.mb_kro); state.kroSearch = ''; state.kroPage = 1; state.kroClass = 'all'; state.kroTab = 'ringkasan'; state.kroBasis = 'ga'; state.gaBasis = 'outlet'; }
+  for (const [pr, me] of KRO_COMBOS) for (const tb of ['ringkasan', 'katalog', 'tracking', 'aksi']) { kroSet(pr, me, tb); check('kro/' + pr + '-' + me + '/' + tb, VIEWS.mb_kro); }
+  for (const [pr, me] of KRO_COMBOS) for (const gr of ['area', 'mc', 'type', 'perf']) { kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; check('kro/' + pr + '-' + me + '/group=' + gr, VIEWS.mb_kro); }
+  for (const [pr, me] of KRO_COMBOS) for (const cl of ['all', 'W', 'K', 'R']) for (const per of ['fm', 'pr']) { kroSet(pr, me, 'katalog'); state.kroClass = cl; state.kroPer = per; check('kro/katalog/' + pr + '-' + me + '/' + cl + '/' + per, VIEWS.mb_kro); }
+  for (const key of Object.keys(global.KRO_FEED.rows.reduce((a, r) => { Object.values(r.fl).forEach(l => l.forEach(f => { a[f] = 1; })); return a; }, {}))) { kroSet('sp', 'si', 'katalog'); state.kroFlag = key; check('kro/katalog/flag=' + key, VIEWS.mb_kro); }
+  kroSet('sp', 'si', 'katalog'); state.kroSearch = 'cell'; state.kroPage = 3; check('kro/katalog/search-page3', VIEWS.mb_kro);
+  // whitelist (ids resolved from rows and from the Retail slim file) and program modes
+  { global.KRO_SLIM = global.KRO_SLIM || []; const K = global.KRO_FEED, row = K.rows[10], sl = global.KRO_SLIM[5];
+    const text = 'outlet_id,nama\n' + [row.id.IM3 || row.id['3ID'], sl && (sl[3] || sl[4]), 'ID-TIDAK-ADA-1'].filter(Boolean).map(x => x + ',x').join('\n');
+    for (const [pr, me] of KRO_COMBOS) { kroSet(pr, me, 'katalog'); state.kroMode = 'wl'; state.kroWlText = text; state.kroWl = app.kroParseIds(text); check('kro/whitelist/' + pr + '-' + me, VIEWS.mb_kro); }
+    if (app.kroParseIds(text).length !== 3) { failures++; console.log('✗ whitelist parse: ' + JSON.stringify(app.kroParseIds(text))); }
+    state.kroProgUp = app.kroParseProgram('program,outlet_id\nBOSS,' + (row.id.IM3 || row.id['3ID']) + '\nBOSS,' + (sl ? (sl[3] || sl[4]) : '') + '\nTebus Murah,' + row.k + '\nTebus Murah,NOPE');
+    for (const [pr, me] of KRO_COMBOS) for (const pg of ['BOSS', 'Tebus Murah']) { kroSet(pr, me, 'katalog'); state.kroMode = 'prog'; state.kroProg = pg; check('kro/program/' + pr + '-' + me + '/' + pg, VIEWS.mb_kro); }
+    kroSet('sp', 'si', 'katalog'); state.kroMode = 'prog'; state.kroProgUp = {}; check('kro/program/empty', VIEWS.mb_kro);
+    state.kroMode = 'wl'; state.kroWl = []; check('kro/whitelist/empty', VIEWS.mb_kro); state.kroWlText = ''; }
+  // clickable counts (popup entries 'kr|...') must resolve and carry no undefined / NaN
+  for (const [pr, me] of KRO_COMBOS) for (const gr of ['area', 'mc', 'type', 'perf']) {
+    kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; let html = ''; check('kro/drill/' + pr + '-' + me + '/' + gr, () => (html = VIEWS.mb_kro()));
+    const keys = [...new Set([...html.matchAll(/data-ov="(kr\|[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))]; let n = 0;
+    for (const k of keys) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ kro popup ' + k); continue; } const t = app.ovText(e); if (/undefined|NaN/.test(t)) { failures++; console.log('✗ kro popup undefined/NaN ' + k); } else n++; }
+    if (!keys.length) { failures++; console.log('✗ no kro popup keys for ' + pr + '-' + me + '/' + gr); }
+  }
+  kroSet('sp', 'si', 'ringkasan'); state.gaBasis = 'outlet'; }
 // GA target per kecamatan (M2S KECAMATAN), rolled up to MC and Area
 { const mc0 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br0 = global.GA_FEED.metadata.mc_info[mc0].br;
   for (const br of ['all', 'IM3', '3ID']) { state.view = 'mb_grossadd'; state.gaTab = 'target'; state.gaBrand = br; state.branch = ''; state.hoa = ''; state.kec = ''; check('grossadd/target/' + br, VIEWS.mb_grossadd);
