@@ -7599,8 +7599,8 @@
     o.spSlab = o.sp >= o.spT[1] - 1e-9 ? 1 : (o.sp >= o.spT[0] - 1e-9 ? 0 : -1);
     o.spInc = o.spSlab < 0 ? 0 : P.sp.max_rp * T[o.spSlab].payout;
     var U = P.compliance.uar, E = P.compliance.ec, cap = P.compliance.cap;
-    o.uarTgt = (r.cls === 'R' ? U.target_rural : U.target_urban) * f; o.uar = r.sp_uar5;
-    o.uarAch = o.uarTgt > 0 ? Math.min(cap, r.sp_uar5 / o.uarTgt) : 0;
+    o.uarTgt = (r.cls === 'R' ? U.target_rural : U.target_urban) * f; o.uar = (!opt.spi && r.sp_uar5_ns != null) ? r.sp_uar5_ns : r.sp_uar5;   // UAR >= 5 pcs = SP 3GB + SP Injection (SP0 excluded); "Tanpa Injection" uses the 3GB-only count
+    o.uarAch = o.uarTgt > 0 ? Math.min(cap, o.uar / o.uarTgt) : 0;
     o.ecNum = opt.ec === 'exec' ? r.actual : r.prod; o.ecDen = r.planned;
     o.ec = r.planned > 0 ? o.ecNum / r.planned : null;
     o.ecAch = o.ec == null ? 0 : Math.min(cap, o.ec / E.target);
@@ -7657,7 +7657,7 @@
       'Slab: ' + dkSlabSpTag(o) + ' → insentif <b>' + pjRp(o.spInc) + '</b>' + (o.spSlab < 0 ? ' <span class="note">(kurang ' + fmtCount(Math.max(0, Math.round(o.spT[0] - o.sp))) + ' pcs ke tier 1)</span>' : '')
     ];
     var cmpRows = [
-      'UAR ≥ 5 pcs: <b>' + fmtCount(o.uar) + '</b> outlet · target <b>' + (Math.round(o.uarTgt * 10) / 10) + '</b> (' + (r.cls === 'R' ? P.compliance.uar.target_rural + ' rural' : P.compliance.uar.target_urban + ' urban') + (f < 1 ? ' × ' + M.cut_day + '/' + M.month_days : '') + ') → skor ' + dkPctTag(o.uarAch, 1, 0.9),
+      'UAR ≥ 5 pcs (SP 3GB' + (opt.spi ? ' + Injection' : '') + '; SP0 tidak dihitung): <b>' + fmtCount(o.uar) + '</b> outlet · target <b>' + (Math.round(o.uarTgt * 10) / 10) + '</b> (' + (r.cls === 'R' ? P.compliance.uar.target_rural + ' rural' : P.compliance.uar.target_urban + ' urban') + (f < 1 ? ' × ' + M.cut_day + '/' + M.month_days : '') + ') → skor ' + dkPctTag(o.uarAch, 1, 0.9),
       'Effective call: <b>' + fmtCount(o.ecNum) + '</b> ' + (state.dkEc === 'exec' ? 'visit terlaksana' : 'visit produktif') + ' ÷ <b>' + fmtCount(o.ecDen) + '</b> rencana' + (r.vis ? ' = ' + (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : ' <span class="note">(tanpa data PJP)</span>') + ' · target 50% → skor ' + dkPctTag(o.ecAch, 1, 0.9),
       'Skor compliance = ' + (P.compliance.uar.weight * 100) + '% × ' + (o.uarAch * 100).toFixed(0) + '% + ' + (P.compliance.ec.weight * 100) + '% × ' + (o.ecAch * 100).toFixed(0) + '% = <b>' + (o.comp * 100).toFixed(1) + '%</b> → index ' + dkIdxTag(o.idx)
     ];
@@ -7697,7 +7697,7 @@
     { k: 'spTgt', band: 'sp', label: 'Target', t: 'num', row: function (x) { return x.o.spOfficial ? x.o.spTgt : null; }, grp: function (g) { return g.a.spTgt > 0 ? g.a.spTgt : null; } },
     { k: 'spAch', band: 'sp', label: 'Ach. · slab', t: 'pct', row: function (x) { return x.o.spAch; }, grp: function (g) { return g.a.spTgt > 0 ? g.a.spOfAch : null; } },
     { k: 'spInc', band: 'sp', label: 'Insentif', t: 'rp', row: function (x) { return x.o.spInc; }, grp: function (g) { return g.a.spInc; } },
-    { k: 'uar', band: 'cmp', label: 'UAR ≥5 pcs / target', t: 'num', first: true, row: function (x) { return x.o.uar; }, grp: function (g) { return g.a.uar; } },
+    { k: 'uar', band: 'cmp', label: 'UAR ≥5 pcs (3GB + inj.) / target', t: 'num', first: true, row: function (x) { return x.o.uar; }, grp: function (g) { return g.a.uar; } },
     { k: 'ec', band: 'cmp', label: 'Effective call', t: 'pct', row: function (x) { return x.o.ec; }, grp: function (g) { return g.a.ec; } },
     { k: 'comp', band: 'cmp', label: 'Skor · index', t: 'pct', row: function (x) { return x.o.comp; }, grp: function (g) { return g.a.compAvg; } },
     { k: 'total', band: 'inc', label: 'Total', t: 'rp', first: true, row: function (x) { return x.o.total; }, grp: function (g) { return g.a.total; } },

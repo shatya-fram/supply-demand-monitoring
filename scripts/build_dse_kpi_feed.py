@@ -55,7 +55,7 @@ POLICY = {
         'max_rp': 1000000,
     },
     'compliance': {
-        'uar': {'label': 'Outlet mapping sell in SP data >= 5 pcs', 'weight': 0.50, 'min_pcs': 5, 'target_urban': 30, 'target_rural': 25},
+        'uar': {'label': 'Outlet mapping sell in SP data (SP 3GB + SP Injection, SP0 excluded) >= 5 pcs', 'weight': 0.50, 'min_pcs': 5, 'target_urban': 30, 'target_rural': 25},
         'ec': {'label': 'Effective call (fix PJP)', 'weight': 0.50, 'target': 0.50},
         'cap': 1.0,                                       # GAPLOK "Total EF (cap 100%)": each component capped at 100%
         'index': [{'min': 1.00, 'x': 1.00}, {'min': 0.90, 'x': 0.97}, {'min': 0.80, 'x': 0.95}, {'min': 0.0, 'x': 0.0}],
@@ -131,7 +131,7 @@ def main():
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
     # ---- sell-in per master outlet, rolled up to its DSE
-    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
+    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
                                 'osa_amt': 0, 'osa_all': 0, 'sep_all': 0, 'osa_out': 0, 'sep_saldo': 0, 'sep_osa_amt': 0, 'sep_osa_out': 0, 'sp_sep_pcs': 0, 'outlets_seen': 0})
     qmin = POLICY['osa']['qualify_min_rp']
     unmatched = 0
@@ -154,8 +154,6 @@ def main():
         vc_f = g('VCF', 5) + g('VCB', 5)
         a['saldo_mtd'] += sal_m; a['saldo_lmtd'] += sal_l; a['sep_saldo'] += sal_f
         a['sp_pcs'] += sp_q; a['sp_amt'] += sp_v; a['sp_lpcs'] += sp_lq; a['sp_sep_pcs'] += sp_fq
-        if sp_q >= POLICY['compliance']['uar']['min_pcs']:
-            a['sp_uar5'] += 1
         if sp_q > 0:
             a['sp_out'] += 1
         s3 = [0, 0, 0]                                 # SP 3GB MTD / LMTD / September full, from the per-product columns p[product index] = [mq, mv, lq, lv, fq, fv]
@@ -175,6 +173,11 @@ def main():
             a['sp3_out'] += 1
         spi_q = g('SPI', 0)                           # SP Injection (digital, MOBO), MTD pcs; part of Sell-In SP achievement (owner, 19 Oct 2026)
         a['spi_pcs'] += spi_q; a['spi_amt'] += g('SPI', 1)
+        umin = POLICY['compliance']['uar']['min_pcs']      # UAR >= 5 pcs counts SP 3GB + SP Injection, SP0 / Zero excluded (owner, 20 Oct 2026)
+        if s3[0] + spi_q >= umin:
+            a['sp_uar5'] += 1
+        if s3[0] >= umin:
+            a['sp_uar5_ns'] += 1                           # same without injection (app switch "Tanpa Injection")
         if spi_q > 0:
             a['spi_out'] += 1
         tot_m = sal_m + sp_v + vc_m                   # OSA value = SP + voucher + saldo Mobo sell-in value
@@ -257,7 +260,7 @@ def main():
             'osa_tgt': round(osa_tgt), 'osa_tgt_all': round(a['sep_all']), 'osa_tgt_src': tgt_src,
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
-            'sp_uar5': a['sp_uar5'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
+            'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
             'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))

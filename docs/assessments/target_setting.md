@@ -31,3 +31,5 @@ Sell-In SP: IM3 182,199 + 3ID 84,566 = **266,770 pcs**. OSA: IM3 Rp 52.57 B + 3I
 
 ## Update 19 Oct 2026: target from the new SELL-IN_TAG workbook
 `raw/SELL-IN_TAG_RGUGA_OSA_OUTLET_IM3_3ID_202610.xlsb`, sheet **DSE** (cols 3 / 4 DSE id IM3 / 3ID, 7-9 Sell-In SP target IM3 / 3ID / IOH, 10-12 OSA target IM3 / 3ID / IOH) is now the source of the per-DSE targets in `build_target_feed.py` (the older rebalancing workbook still supplies outlets and the original, pre-rebalancing target). All 272 DSE ids match; values equal the earlier rebalanced targets within rounding (sheet total SP 182,202 + 84,567 = 266,769; the feed sums rounded DSE targets, so it can sit 3 pcs lower). IM3, 3ID and IOH are kept separate; achievement stays on the blended IOH target (IM3 + 3ID) for now.
+
+**Update 20 Oct 2026 (owner):** the Sell-In SP target is the target for SP 3GB + SP Injection, SP Zero excluded. This closes point 3 above (the target does include SP injection) and the achievement now uses the same basis (see `dse_kpi_policy.md`).
