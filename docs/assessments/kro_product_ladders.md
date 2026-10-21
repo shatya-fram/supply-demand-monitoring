@@ -9,7 +9,7 @@ Ditulis 20 Okt 2026 sebelum perubahan skema atau kode (CLAUDE.md §2). Memperlua
 3. Katalog outlet punya tiga mode: (a) Slab performa bulan lalu, (b) Whitelist outlet (unggah / tempel daftar id, diparse di browser), (c) Program (BOSS, Tebus Murah, dst.).
 4. Ringkasan KRO mengikuti produk di filter utama dan bisa dikelompokkan per Area, MC, tipe KRO, dan performa.
 
-**Asumsi yang dinyatakan di layar:** pemilik menulis Retail 0–5 / 5–10 dan KRO mulai 10 jt tanpa celah; batas 10 jt diperlakukan sebagai batas, **batas atas masuk slab bawah** (sama dengan tangga pcs): 10 jt tepat = Retail 5–10, KRO 10–30 dimulai di atas 10 jt, 30 jt tepat = KRO 10–30, dst. Tangga nilai: `W3` > 400, `W2` > 200–400, `W1` > 90–200, `K3` > 60–90, `K2` > 30–60, `K1` > 10–30, `R2` > 5–10, `R1` 0–5 (> 0), `N` = 0.
+**Dikonfirmasi pemilik (21 Okt 2026, "10 jt saja"; semula asumsi):** pemilik menulis Retail 0–5 / 5–10 dan KRO mulai 10 jt tanpa celah; batas 10 jt diperlakukan sebagai batas, **batas atas masuk slab bawah** (sama dengan tangga pcs): 10 jt tepat = Retail 5–10, KRO 10–30 dimulai di atas 10 jt, 30 jt tepat = KRO 10–30, dst. Tangga nilai: `W3` > 400, `W2` > 200–400, `W1` > 90–200, `K3` > 60–90, `K2` > 30–60, `K1` > 10–30, `R2` > 5–10, `R1` 0–5 (> 0), `N` = 0.
 
 ## 2. Sumber per produk dan ukuran
 
@@ -83,3 +83,7 @@ Catatan: kelas SP di Okt lebih tinggi dari di September karena SP Injection ikut
 - Setiap angka di tabel slab membuka popup daftar outlet dengan FM, LMTD, MTD dalam Rp dan qty, gap MTD−FM dan growth vs LMTD (salin teks / gambar / PNG). Feed KRO membawa `q2` (nilai Rp untuk kunci pcs, qty untuk kunci Rp; `null` = n/a). Helper umum: `ovMeasEntry`, `ovCell`, `ovLazy`.
 - Cakupan: KRO (`kr|`), Slab Sell-In Penjualan (`sl|`), Slab SGA (`sg|`), Slab GA (`gs|`), slab UAR (`ur|`), slab voucher Matrix Outlet x Produk (`vm|`). Belum: slab stock balance / inventory days (End Balance), slab inaktivitas kunjungan, slab outlet per site, slab OSA (bukan ukuran FM / LMTD / MTD).
 - Rekonsiliasi otomatis: `render_check.js` membandingkan jumlah baris popup dengan angka di sel (KRO semua produk × ukuran dengan semua MC dibuka; Slab SGA; Slab GA; UAR; voucher).
+
+## 11. Pencarian katalog (21 Okt 2026)
+
+Di Katalog (mode slab) pencarian yang diketik mengabaikan filter Kategori / Periode kelas (Flag dan lingkup wilayah tetap) dan mencari ke semua outlet: baris feed ditambah catatan Retail `kro_slim.js` (dimuat sesuai kebutuhan). Catatan "Pencarian mengabaikan filter kategori: N outlet ditemukan" dan kolom Slab menunjukkan kelas outlet. Contoh: outlet 677871 (GA Retail 10–30, KRO pada Saldo). Tab Aksi tidak diubah (daftar tetap KRO berflag).

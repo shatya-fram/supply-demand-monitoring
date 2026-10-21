@@ -6737,7 +6737,7 @@
   function kroPair(key) { return { ga: 'sp', sp: 'ga', vsi: 'vso', vso: 'vsi', ssi: 'sso', sso: 'ssi' }[key]; }
   function kroLadderNote(key) {
     if (!kroIsVal(key)) return '<b>Retail</b> 0 · 1–10 · 10–30 &nbsp;|&nbsp; <b>KRO</b> 30–60 · 60–100 &nbsp;|&nbsp; <b>Wholesaler</b> 100–200 · 200–500 · 500–1000 · &gt; 1000 pcs per outlet per bulan (batas atas masuk slab bawah).';
-    return '<b>Retail</b> 0–5 jt · 5–10 jt &nbsp;|&nbsp; <b>KRO</b> 10–30 · 30–60 · 60–90 jt &nbsp;|&nbsp; <b>Wholesaler</b> 90–200 · 200–400 · &gt; 400 jt, nilai Rupiah per outlet per bulan. <b>Asumsi:</b> batas 10 jt adalah batas Retail / KRO dan batas atas masuk slab bawah (tepat 10 jt = Retail 5–10 jt, KRO mulai di atas 10 jt); 30, 60, 90, 200 dan 400 jt mengikuti aturan yang sama.';
+    return '<b>Retail</b> 0–5 jt · 5–10 jt &nbsp;|&nbsp; <b>KRO</b> 10–30 · 30–60 · 60–90 jt &nbsp;|&nbsp; <b>Wholesaler</b> 90–200 · 200–400 · &gt; 400 jt, nilai Rupiah per outlet per bulan. <b>Dikonfirmasi pemilik, 21 Okt 2026:</b> batas atas masuk slab bawah (tepat 10 jt = Retail 5–10 jt, KRO mulai di atas 10 jt); 30, 60, 90, 200 dan 400 jt mengikuti aturan yang sama.';
   }
   function kroProductNote(key) {
     var M = kroFeed().metadata, c = M.cuts;
@@ -7060,6 +7060,12 @@
       return kroMatchSearch(r, q);
     }).sort(function (a, c) { return (c.pri[key] - a.pri[key]) || ((c.q[key][hasFm ? 0 : 3] || 0) - (a.q[key][hasFm ? 0 : 3] || 0)); });
   }
+  /* search (owner, 21 Okt 2026): a typed search finds any outlet of the feed rows plus the Retail records of kro_slim.js, whatever the Kategori / Periode filter says (Flag and territory scope stay) */
+  function kroSearchRows(K, key) {
+    var fl = state.kroFlag || 'all', q = (state.kroSearch || '').toLowerCase(), hasFm = kroHasFm(key);
+    return kroUniv(K).filter(kroInScope).filter(function (r) { return (fl === 'all' || kroFl(r, key).indexOf(fl) >= 0) && kroMatchSearch(r, q); })
+      .sort(function (a, c) { return ((c.pri && c.pri[key]) || 0) - ((a.pri && a.pri[key]) || 0) || ((c.q[key][hasFm ? 0 : 3] || 0) - (a.q[key][hasFm ? 0 : 3] || 0)); });
+  }
   function kroMatchSearch(r, q) { return !q || (String(r.n || '') + ' ' + Object.keys(r.id).map(function (x) { return r.id[x]; }).join(' ') + ' ' + (r.site || '') + ' ' + r.mc + ' ' + r.dse + ' ' + (r.kec || '')).toLowerCase().indexOf(q) !== -1; }
   /* ---------- catalogue table: period column groups per outlet ---------- */
   function kroPCell(r, key, p) {
@@ -7109,7 +7115,7 @@
     var modeBar = action ? '' : '<div class="map-toolbar" style="margin:10px 0 0;">' + sellinBtnGroup('Mode katalog', 'kro-mode', [['slab', '📒 Slab performa bulan lalu'], ['wl', '📋 Whitelist outlet'], ['prog', '🎯 Program']], mode) + '</div>';
     if (mode === 'wl') return kroNav(K) + modeBar + kroWhitelist(K, key);
     if (mode === 'prog') return kroNav(K) + modeBar + kroProgram(K, key);
-    var L = kroFilterRows(K, rows, key, action), M = K.metadata, cnt = { W: 0, K: 0, R: 0 };
+    var searching = !action && !!(state.kroSearch || '').trim(), L = searching ? kroSearchRows(K, key) : kroFilterRows(K, rows, key, action), M = K.metadata, cnt = { W: 0, K: 0, R: 0 };
     var per = hasFm ? (state.kroPer || 'pr') : 'pr';
     rows.forEach(function (r) { var v = kroV(r, key), c = kroCat(per === 'fm' ? v.cf : v.cp); if (cnt[c] != null) cnt[c]++; });
     var clsBtn = sellinBtnGroup('Kategori', 'kro-class', [['all', 'KRO + Wholesaler'], ['W', 'Wholesaler (' + fmtCount(cnt.W) + ')'], ['K', 'KRO (' + fmtCount(cnt.K) + ')'], ['R', 'Watch list Retail (' + fmtCount(cnt.R) + ')']], state.kroClass || 'all');
@@ -7117,6 +7123,8 @@
     var flc = {}; rows.forEach(function (r) { kroFl(r, key).forEach(function (f) { flc[f] = (flc[f] || 0) + 1; }); });
     var flBtn = sellinBtnGroup('Flag', 'kro-flag', [['all', 'Semua']].concat(Object.keys(KRO_FLAGS).filter(function (f) { return flc[f]; }).map(function (f) { return [f, KRO_FLAGS[f][0] + ' (' + fmtCount(flc[f]) + ')']; })), state.kroFlag || 'all');
     var top = '<div class="map-toolbar" style="margin:10px 0 8px;">' + (action ? '' : clsBtn + perBtn) + '</div><div class="map-toolbar" style="margin:0 0 8px;">' + flBtn + '</div>' + kroSearchBar();
+    var sNote = searching ? '<p class="note"><b>Pencarian mengabaikan filter kategori: ' + fmtCount(L.length) + ' outlet ditemukan</b> (semua outlet di lingkup, termasuk Retail; kolom Slab menunjukkan kelas outlet pada ' + esc(kroKeyName(key)) + ').' + (kroSlim() ? '' : ' <i>Memuat daftar Retail (kro_slim.js)…</i>') + '</p>' : '';
+    top += sNote;
     var title = action ? 'Aksi prioritas · KRO dan Wholesaler yang perlu ditindaklanjuti · ' + kroKeyName(key) : 'Katalog outlet · slab performa bulan lalu · ' + kroKeyName(key);
     var note = action ? 'Diurutkan dari prioritas tertinggi (slab × flag). Aksi = saran untuk flag teratas outlet itu.' : 'Mode slab bulan lalu: outlet berslab KRO ke atas pada September (bulan penuh terakhir) atau proyeksi Oktober; file lengkap: <code>data/catalogues/kro_outlet_catalogue.csv</code>.';
     return kroNav(K) + modeBar + kroTable(L, key, action, title, top, note);

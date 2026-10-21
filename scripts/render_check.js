@@ -228,6 +228,11 @@ for (const br of ['IM3', '3ID']) for (const bs of ['fm', 'lm', 'mtd', 'pr']) {
   if (!n) { failures++; console.log('✗ no vm popups ' + br + '/' + bs); }
 }
 state.pjMxSlab = 'fm';
+// Katalog search ignores the class filter: Retail outlet 677871 is found on product GA with the shared-link scope
+{ state.view = 'mb_kro'; state.kroProd = 'ga'; state.kroMeas = 'si'; state.kroTab = 'katalog'; state.kroMode = 'slab'; state.kroFlag = 'all'; state.kroPage = 1; state.branch = 'SOUTH JAKARTA DEPOK'; state.kec = 'MC-PANCORAN'; state.kroSearch = '677871'; state.kroClass = 'all';
+  let html = ''; check('kro/katalog/search-677871', () => (html = VIEWS.mb_kro()));
+  if (!/677871/.test(html.split('Pencarian mengabaikan')[1] || '') || !/Pencarian mengabaikan filter kategori: [1-9]/.test(html)) { failures++; console.log('✗ katalog search 677871 not found on product ga'); }
+  state.kroSearch = ''; state.branch = ''; state.kec = ''; }
 // Opportunity > UAR slab (uarSlabView): popups per slab cell
 for (const tab of ['sp', 'vc', 'sal', 'spi']) {
   state.view = 'mb_uar'; state.uarTab = tab; state.uarSub = 'slab'; state.branch = ''; state.kec = ''; state.hoa = '';
