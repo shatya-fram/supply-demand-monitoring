@@ -120,8 +120,27 @@ def run(label, cmd, env=None):
     return rc
 
 
+def unpack_endbal_zips():
+    """ENDBAL arrives as endbal_<date>.zip (one CSV pair per snapshot). Extract the CSV members that are not in the folder yet, by base name only."""
+    import glob, zipfile
+    for zp in glob.glob(os.path.join(RAW, "ENDBAL*", "*.zip")):
+        folder = os.path.dirname(zp)
+        try:
+            with zipfile.ZipFile(zp) as z:
+                for m in z.namelist():
+                    base = os.path.basename(m)
+                    if not base.lower().endswith(".csv") or os.path.exists(os.path.join(folder, base)):
+                        continue
+                    with z.open(m) as src, open(os.path.join(folder, base), "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    print(f"  ENDBAL: extracted {base} from {os.path.basename(zp)}")
+        except zipfile.BadZipFile:
+            print(f"  ENDBAL: {zp} is not a valid zip, skipped")
+
+
 def main():
     check_only = "--check" in sys.argv
+    unpack_endbal_zips()
     mobii, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), pick_visits()
     mobo_all = find(r"^DAILY_DATA_MOBO_\d{6}.*\.xlsb$")      # SALMO files do not match (no month right after MOBO_)
     tags = sorted({re.match(r"^DAILY_DATA_MOBO_(\d{6})", os.path.basename(p)).group(1) for p in mobo_all})
@@ -153,7 +172,12 @@ def main():
     show("Demand  · MOBO bulan lalu " + str(lm_tag) + " (LMTD dan Last FM demand)", mobo_lm[:2])
     if not mobo_lm:
         warn.append(f"No MOBO workbook for {lm_tag}: LMTD and Last FM demand are not refreshed")
-    show("Demand  · MOBO_SALMO (Saldo Mobo ke pelanggan; ikut demand feed, di luar total)", find(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$")[:2])
+    salmo_all = find(r"^DAILY_DATA_MOBO_SALMO_\d{6}.*\.xlsb$")
+    salmo = [p for p in salmo_all if cur_tag and ("_SALMO_" + cur_tag) in os.path.basename(p)]
+    salmo_lm = [p for p in salmo_all if lm_tag and ("_SALMO_" + lm_tag) in os.path.basename(p)]
+    show("Demand  · MOBO_SALMO bulan berjalan " + str(cur_tag) + " (Saldo Mobo ke pelanggan; ikut demand feed, di luar total)", salmo[:2])
+    show("Demand  · MOBO_SALMO bulan lalu " + str(lm_tag) + " (belum dipakai: baseline SAL September menunggu keputusan)", salmo_lm[:2])
+    show("PJP     · Weekly PJP (permanent beat plan; newest file is used)", find(r"^(Weekly_PJP_.*|.*WEEKLY_PJP.*)\.xlsx$")[:3])
     show("PJP     · DSE visits (journey plan zip/csv, all ranges are merged)", visits)
     endbal = find(r"^(endbal_.*|.*Stock Balance Daily Report.*)\.csv$")
     show("ENDBAL  · Stock Balance Daily Report (only the newest snapshot date is used)", endbal[:4])
@@ -183,6 +207,8 @@ def main():
     env = {"MOBII_SRC": mobii[0], "MOBO_SRC": mobo[0], "VISIT_ZIPS": os.pathsep.join(visits)}
     if mobo_lm:
         env["MOBO_LM_SRC"] = mobo_lm[0]
+    if salmo:
+        env["MOBO_SALMO_SRC"] = salmo[0]
     ga_ok = bool(find(r"^Daily_RGUGA_OUTLET_\d{6}\.xlsb$"))
     steps = [
         ("1/5 Demand · demand feed (MOBO)", [py, "scripts/build_demand_feed.py"]),   # first: Sell-In feed merges SP Injection from it
@@ -190,7 +216,9 @@ def main():
         ("3/5 PJP · DSE visits feed", [py, "scripts/generate_dse_visits_feed.py"]),
         ("4/5 DSE KPI inputs", [py, "scripts/build_dse_kpi_feed.py"]),
     ]
-    steps.append(("ENDBAL · Stock balance feed (latest snapshot)", [py, "scripts/build_endbal_feed.py"]))   # needs the penjualan feed (saldo sell-in)
+    steps.append(("ENDBAL · Stock balance feed (latest snapshot)", [py, "scripts/build_endbal_feed.py"]))
+    if find(r"^(Weekly_PJP_.*|.*WEEKLY_PJP.*)\.xlsx$"):
+        steps.append(("PJP · Weekly mapping (permanent outlet -> DSE)", [py, "scripts/build_pjp_mapping_feed.py"]))   # needs the penjualan feed (saldo sell-in)
     if ga_ok:   # Gross Add / SSO feed (raw/GA); needs no other feed
         steps.append(("GA · Gross Add / SSO feed (RGUGA)", [py, "scripts/build_ga_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last

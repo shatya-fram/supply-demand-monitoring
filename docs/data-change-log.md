@@ -2,6 +2,19 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 22 Oct 2026 (refresh to 21 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (21 Oct 23:08) | Cut 20 → **21 Oct**. MTD Rp B: SP 0.54 → 0.73, voucher isi 1.60 → 2.03, voucher blank 0.26 → 0.30, saldo transfer 9.16 → 10.58, SP Injection 0.62 → 0.67. 21 Oct: saldo Rp 1.42 B, SP Rp 0.19 B. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (21 Oct 23:08) | Cut 20 → **21 Oct**. Total demand MTD (RLD + VCI + CVM + PKT) Rp 76.45 → **80.34 B**; 21 Oct Rp 3.89 B. RLD 12.16, VCI 11.75, CVM 2.39, PKT 54.04 B. CVM sheet again carried RECARGE copies (58,229 rows, Rp 36.1 B removed; CVM stays about Rp 0.1 B per day). |
+| SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` and, **new**, `DAILY_DATA_MOBO_SALMO_202609.xlsb` | October Saldo Mobo demand Rp 86.33 → **90.42 B** (to 21 Oct). The **September** file is the first one available (23,432 rows, 30 days, Rp 143.39 B; LMTD 1–21 Sep Rp 90.35 B vs October 100.75 B in the file, +11.5%): not wired into the screens yet, awaiting the owner's go-ahead. Both SALMO files had the same file time, so the builder used to pick by file time; it now takes the file of the same month as the MOBO file (`daily_update.py` passes `MOBO_SALMO_SRC`). |
+| PJP visits | MOBI VISIT DSE zips | Still to **20 Oct** (no 21 Oct export yet); 20 days in the feed, no missing day. KPI feed: sell-in cut 21, visits cut 20. |
+| PJP Weekly | `SMARTBEAT_WEEKLY_PJP.xlsx` (21 Oct 23:08) | New weekly beat plan, same columns as `Weekly_PJP_*_ALL_MC.xlsx`: 15,085 outlet rows (was 14,755; 13,424 keys in common, 1,661 new, 1,331 gone). Builder now reads any `*Weekly_PJP*.xlsx` (newest). Mapping: exceptions 2,805 → 2,306, outlets missing in the master 1,489 → 1,272, F12 744 → 993; 11 rows carry a compound frequency ("F4 / F12", "F8 / F4") and are flagged as exceptions (F0). |
+| ENDBAL | `endbal_20261021.zip` (22 Oct 06:11, not extracted) | The zip holds the report of 22 Oct 02:48 = snapshot **21 Oct** (was 20 Oct). `daily_update.py` now extracts new CSVs from `ENDBAL*/*.zip` itself. 128,463 rows, 18,165 outlets (master 16,025, adhoc 2,140). |
+| Not consumed | `SMARTBEAT_DAILY_PJP_20261022.xlsx`, `IOH SELL IN (D-2) & OUTLET LATEST TAGGING (D-1) 20 OCT UPDATE 2026.xlsb` | The daily PJP file is the **plan** for 22 Oct (7,646 routes, 552 DSE ids, 4,154 IM3 + 3,492 3ID outlets, all non-dynamic), not executed visits; no builder reads it. The IOH Sell-In / tagging workbook is a single `Sheet1`; it is not the `SELL-IN_TAG_RGUGA_OSA_OUTLET_*` target source. Both listed for the owner to decide. |
+| GA | `Daily_RGUGA_OUTLET_202610.xlsb` | Unchanged (21 Oct 16:33), cut 20 Oct. |
+| Checks | | `render_check`, `audit_scorecard.js` (152) and `audit_ga.js` (4,672) pass. |
+
 ## 21 Oct 2026 (GA to 20 Oct)
 | Scope | Source | Change |
 |---|---|---|

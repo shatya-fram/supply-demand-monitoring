@@ -33,9 +33,13 @@ import struct, zipfile  # noqa: E402
 
 SRC_CANDIDATES = [os.environ["MOBO_SRC"]] if os.environ.get("MOBO_SRC") else ["raw/Data as of 14 Oct /DAILY_DATA_MOBO_202610.xlsb"]   # MOBO_SRC: set by scripts/daily_update.py
 ADHOC = "raw/Outlet & Mapping/adhoc_outlet_im3_3id_data_gcp.xlsb"
-SALMO_SRC = os.environ.get("MOBO_SALMO_SRC") or next(iter(sorted(
-    (os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$", f, re.I)),
-    key=os.path.getmtime, reverse=True)), None)      # newest MOBO_SALMO report (Saldo Mobo demand), optional
+def _salmo_default():
+    """SALMO workbook of the same month as the MOBO source (the Sept file arrived on 22 Oct and has the same mtime as the Oct one, so mtime alone is not safe)."""
+    files = [os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBO_SALMO_.*\.xlsb$", f, re.I)]
+    tag = re.search(r"DAILY_DATA_MOBO_(\d{6})", os.environ.get("MOBO_SRC") or "")
+    same = [p for p in files if tag and ("_SALMO_" + tag.group(1)) in os.path.basename(p)]
+    return next(iter(sorted(same or files, key=os.path.getmtime, reverse=True)), None)
+SALMO_SRC = os.environ.get("MOBO_SALMO_SRC") or _salmo_default()      # MOBO_SALMO report of the running month (Saldo Mobo demand), optional
 TERRITORY = "website/data/territory_feed.js"
 PENJUALAN_JSON = "data/processed/penjualan_feed.json"
 OUT_JS = "website/data/demand_feed.js"

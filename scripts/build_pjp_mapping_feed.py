@@ -2,7 +2,7 @@
 """
 build_pjp_mapping_feed.py  ·  permanent PJP outlet -> DSE mapping from the weekly PJP template
 
-Source : newest raw/**/Weekly_PJP_*_ALL_MC.xlsx (or env PJP_WEEKLY_SRC)
+Source : newest raw/**/*Weekly_PJP*.xlsx (Weekly_PJP_<date>_ALL_MC.xlsx or SMARTBEAT_WEEKLY_PJP.xlsx; or env PJP_WEEKLY_SRC)
           one row per outlet: DSE IM3 / DSE 3ID code, outlet ids, frequency (F4/F8/F12/F16 visits a month),
           visit days Mon..Sat as 0/1 flags (the weekly beat-plan template).
 Output : data/catalogues/pjp_outlet_mapping.csv        governed catalogue (one row per outlet, exceptions flagged)
@@ -99,12 +99,13 @@ def read_xlsx(path):
 
 src = os.environ.get("PJP_WEEKLY_SRC")
 if not src:
-    hits = [p for p in glob.glob("raw/**/Weekly_PJP_*.xlsx", recursive=True) if not os.path.basename(p).startswith("~$")]
+    hits = [p for p in glob.glob("raw/**/*.xlsx", recursive=True)      # Weekly_PJP_<date>_ALL_MC.xlsx and, since 22 Oct 2026, SMARTBEAT_WEEKLY_PJP.xlsx (same layout)
+            if re.search(r"weekly_pjp", os.path.basename(p), re.I) and not os.path.basename(p).startswith("~$")]
     if not hits:
         raise SystemExit("Weekly_PJP_*.xlsx tidak ditemukan di raw/ (taruh di raw/PJP Weekly/)")
     src = max(hits, key=os.path.getmtime)
 m = re.search(r"(\d{4}-\d{2}-\d{2})", os.path.basename(src))
-week_of = m.group(1) if m else ""
+week_of = m.group(1) if m else datetime.fromtimestamp(os.path.getmtime(src)).strftime("%Y-%m-%d")   # Smartbeat file has no date in its name: file date
 print("[1/5] Membaca", src)
 rows = read_xlsx(src)
 hdr = [str(rows[0].get(i, "")).strip() for i in range(len(EXPECTED_COLS))]
