@@ -2,6 +2,11 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 22 Oct 2026 (PJP visits to 21 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `im3_visit_dse_202610__21_21.zip`, `3id_visit_dse_202610__21_21.zip` (21 Oct 23:42, PERIOD 21 Oct) | Cut 20 → **21 Oct**: 21 days, 18 business days, no missing day; KPI feed visits cut 21. 21 Oct: planned 8,771, executed 8,068 (92%), productive 4,829, SP 17,118 pcs, voucher 114,152, saldo Rp 584 Jt. MTD: coverage of PJP outlets 89.8% → **93.4%** (not visited 1,522 → 992), target hit 71.9% → 73.3%, productive 41.5% → 43.2%. `render_check`, `audit_scorecard`, `audit_ga`, `audit_kro` pass. |
+
 ## 22 Oct 2026 (refresh to 21 Oct)
 | Scope | Source | Change |
 |---|---|---|

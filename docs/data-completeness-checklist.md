@@ -46,11 +46,11 @@ Caveats: 3ID outlets that the outlet sheets omit are carried through `data/catal
 
 ## 5. Checklist kelengkapan (MTD, LMTD, FM) · update 22 Oct 2026
 
-Cut data: MOBII, MOBO, SALMO = 21 Okt · PJP visit = 20 Okt · GA = 20 Okt · ENDBAL snapshot = 21 Okt. LMTD = 1–21 Sep, FM = 1–30 Sep. ✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di `raw/`
+Cut data: MOBII, MOBO, SALMO = 21 Okt · PJP visit = 21 Okt · GA = 20 Okt · ENDBAL snapshot = 21 Okt. LMTD = 1–21 Sep, FM = 1–30 Sep. ✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di `raw/`
 
 | Komponen | MTD Okt | LMTD Sep | FM Sep |
 |---|---|---|---|
-| **Visit PJP** | ✅ 1–20 Okt, tanpa hari kosong (21 Okt belum ada export) | ❌ | ❌ |
+| **Visit PJP** | ✅ 1–21 Okt, tanpa hari kosong | ❌ | ❌ |
 | **PJP Weekly** (beat plan permanen) | ✅ `SMARTBEAT_WEEKLY_PJP.xlsx`, 15,085 baris | n/a | n/a |
 | **MOBII**: SP | ✅ 20/21 hari (18 Okt Minggu, nol) | ✅ | ✅ 29/30 (6 Sep, Minggu, nol) |
 | MOBII: Voucher isi | ✅ 21/21 | ✅ | ✅ 30/30 |
@@ -68,4 +68,4 @@ Cut data: MOBII, MOBO, SALMO = 21 Okt · PJP visit = 20 Okt · GA = 20 Okt · EN
 | GA lokasi aktivasi sebenarnya (M2S) | ❌ Oktober | ⚠️ tidak dapat dipakai | ⚠️ September sampai ±26 Sep |
 | ENDBAL (stok dan saldo outlet) | ✅ snapshot 21 Okt (dari `endbal_20261021.zip`) | n/a | n/a |
 
-Yang masih perlu: export PJP 21 Okt, export PJP September, baseline SAL September dipasang ke layar (menunggu persetujuan), dan M2S Oktober. Tidak dipakai builder mana pun: `SMARTBEAT_DAILY_PJP_20261022.xlsx` (rencana rute 22 Okt) dan `IOH SELL IN (D-2) & OUTLET LATEST TAGGING (D-1) 20 OCT UPDATE 2026.xlsb`.
+Yang masih perlu: export PJP September, baseline SAL September dipasang ke layar (menunggu persetujuan), dan M2S Oktober. Tidak dipakai builder mana pun: `SMARTBEAT_DAILY_PJP_20261022.xlsx` (rencana rute 22 Okt) dan `IOH SELL IN (D-2) & OUTLET LATEST TAGGING (D-1) 20 OCT UPDATE 2026.xlsb`.
