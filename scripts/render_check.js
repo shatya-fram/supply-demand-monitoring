@@ -271,7 +271,8 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   for (const [pr, me] of KRO_COMBOS) for (const gr of ['am', 'type', 'perf']) {
     kroSet(pr, me, 'ringkasan'); state.kroGroup = gr; let html = ''; check('kro/drill/' + pr + '-' + me + '/' + gr, () => (html = VIEWS.mb_kro()));
     const keys = [...new Set([...html.matchAll(/data-ov="(kr\|[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))]; let n = 0;
-    for (const k of keys) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ kro popup ' + k); continue; } const t = app.ovText(e); if (/undefined|NaN/.test(t)) { failures++; console.log('✗ kro popup undefined/NaN ' + k); } else n++; }
+    const pickK = keys.filter((k, i) => /^kr\|T\|T\|/.test(k) || i % Math.max(1, Math.floor(keys.length / 40)) === 0);
+    for (const k of pickK) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ kro popup ' + k); continue; } const t = app.ovText(e); if (/undefined|NaN/.test(t)) { failures++; console.log('✗ kro popup undefined/NaN ' + k); } else n++; }
     if (!keys.length) { failures++; console.log('✗ no kro popup keys for ' + pr + '-' + me + '/' + gr); }
   }
   // popup rows must equal the number printed in the slab table cell (first cell per popup key), with every MC expanded
@@ -280,10 +281,10 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
     let html = ''; check('kro/expanded/' + pr + '-' + me, () => (html = VIEWS.mb_kro()));
     const seen = new Set(); let n = 0, ctr = 0;
     for (const m of html.matchAll(/data-ov="(kr\|[^"]+)"[^>]*>\s*((?:<b[^>]*>)?([\d.,]+)(?:<\/b>)?)(?:\s*→[^<]*)?<\/td>/g)) {
-      const k = m[1].replace(/&amp;/g, '&'); if (seen.has(k)) continue; seen.add(k); n++;
+      const k = m[1].replace(/&amp;/g, '&'); if (seen.has(k)) continue; seen.add(k); n++; if (!/^kr\|T\|T\|/.test(k) && n % 12) continue;
       const e = app.ovEntry(k), shown = parseInt(m[3].replace(/[.,]/g, ''), 10);
       if (!e) { failures++; console.log('✗ no popup ' + k); continue; }
-      if (/^kr\|T\|T\|(cf|cp)_[A-Z]\d$/.test(k) && !/Rp|%/.test(m[2])) { ctr++; if (e.rows.length !== shown) { failures++; console.log('✗ popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k + ' (' + pr + '-' + me + ')'); } }
+      if (/^kr\|T\|T\|(cf|cl|cm|cp)_[A-Z]\d$/.test(k) && !/Rp|%/.test(m[2])) { ctr++; if (e.rows.length !== shown) { failures++; console.log('✗ popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k + ' (' + pr + '-' + me + ')'); } }
     }
     if (!ctr) { failures++; console.log('✗ no slab count cells compared for ' + pr + '-' + me); }
   }

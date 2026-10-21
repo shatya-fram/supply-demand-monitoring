@@ -17,7 +17,7 @@ const g = (a, i) => (a && a[i]) || 0, ORD = K.metadata.key_order;
 // 1. volume reconciliation: [mtd, lmtd, fm]
 const got = {}; ORD.forEach(k => { got[k] = [0, 0, 0]; });
 K.rows.forEach(r => ORD.forEach(k => { const q = r.q[k]; got[k][0] += q[2] || 0; got[k][1] += q[1] || 0; got[k][2] += q[0] || 0; }));
-SL.forEach(s => ORD.forEach((k, i) => { got[k][0] += s[9][i * 3 + 1]; got[k][2] += s[9][i * 3]; }));   // slim carries fm and mtd only
+SL.forEach(s => ORD.forEach((k, i) => { got[k][0] += s[9][i * 4 + 2]; got[k][1] += s[9][i * 4 + 1]; got[k][2] += s[9][i * 4]; }));   // slim: fm, lm, mtd, pr per key
 const src = {}; ORD.forEach(k => { src[k] = [0, 0, 0]; });
 P.outlets.forEach(o => { const c = o.c || {};
   src.sp[0] += g(c.SP, 0); src.sp[1] += g(c.SP, 2); src.sp[2] += g(c.SP, 4);
@@ -28,8 +28,8 @@ D.outlets.forEach(o => { const c = o.c || {}, l = o.l || {};
   src.vso[0] += g(c.VCI, 1); src.vso[1] += g(l.VCI, 1); src.vso[2] += g(l.VCI, 3);
   src.sso[0] += g(c.SAL, 1); });
 GA.outlets.forEach(o => { const cut = GA.metadata.cut_day; let m = 0, f = 0, lm = 0; for (let i = 0; i < (o.o || []).length; i += 2) if (o.o[i] <= cut) m += o.o[i + 1]; for (let i = 0; i < (o.s || []).length; i += 2) { f += o.s[i + 1]; if (o.s[i] <= cut) lm += o.s[i + 1]; } src.ga[0] += m; src.ga[1] += lm; src.ga[2] += f; });
-ORD.forEach(k => [0, 2].concat(k === 'ga' || k === 'sp' || k === 'vso' || k === 'vsi' || k === 'ssi' ? [] : []).forEach(i => {
-  const lab = ['MTD', 'LMTD', 'Last FM'][i]; if (k === 'sso' && i === 2) return;
+ORD.forEach(k => [0, 1, 2].forEach(i => {
+  const lab = ['MTD', 'LMTD', 'Last FM'][i]; if (k === 'sso' && i > 0) return;
   ok(Math.abs(got[k][i] - src[k][i]) <= Math.max(1, Math.abs(src[k][i]) * 1e-9), k + ' ' + lab + ': feed ' + Math.round(got[k][i]) + ' = source ' + Math.round(src[k][i]));
 }));
 // 2. classifier: KRO and Wholesaler counts per key, September and projection, from the stored q values

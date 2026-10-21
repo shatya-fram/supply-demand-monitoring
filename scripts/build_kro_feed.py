@@ -354,14 +354,18 @@ def main():
                 m["qf"][c[key + "_fm"]] = m["qf"].get(c[key + "_fm"], 0) + q[key][0]
             m["cp"][c[key + "_pr"]] = m["cp"].get(c[key + "_pr"], 0) + 1
             m["qp"][c[key + "_pr"]] = m["qp"].get(c[key + "_pr"], 0) + q[key][3]
-        top = max(RANK[v] for v in c.values() if v)      # RANK K1 = KRO 30–60 (pcs) / 10–30 jt (value) and above
+        top = max(RANK[v] for v in c.values() if v)
+        for key, (lad, hasfm, _lab) in KEYS.items():        # an outlet that is KRO+ only on LMTD or MTD must be in rows too (period columns count them)
+            for qi in (1, 2):
+                if q[key][qi] is not None:
+                    top = max(top, RANK[cls(q[key][qi], lad)])      # RANK K1 = KRO 30–60 (pcs) / 10–30 jt (value) and above
         v = vis.get(k)
         m = tmaster.get(k) or {}
         info = mi.get(o["mc"], {})
         vv = {"x": v["x"], "p": v["p"] + v["x"], "d": "".join(v["d"]), "by": [n for n, _ in v["by"].most_common(3)], "dses": len(v["dse"])} if v else {"x": 0, "p": 0, "d": "." * vis_cut, "by": [], "dses": 0}
         if top < RANK["K1"] and not near:
             # slim record: lets the browser find any outlet (whitelist / program) including Retail
-            flat = [x for key in KEYORDER for x in (q[key][0], q[key][2], q[key][3])]
+            flat = [x for key in KEYORDER for x in (q[key][0], q[key][1], q[key][2], q[key][3])]
             if any(flat):
                 ids = o["ids"]
                 slim.append([k, o["t"], (o["n"] or m.get("outlet_name", ""))[:40], ids.get("IM3", ""), ids.get("3ID", ""), o["mc"], o["dse"], vv["x"], vv["p"], [0 if x is None else x for x in flat]])
@@ -461,7 +465,7 @@ def main():
         "contract": "docs/assessments/kro_product_ladders.md",
         "ladders": lad_meta,
         "keys": {key: {"ladder": lad, "has_fm": hasfm, "label": lab, "near": NEAR[lad]} for key, (lad, hasfm, lab) in KEYS.items()},
-        "slim_columns": ["k", "t", "n", "id_im3", "id_3id", "mc", "dse", "visit_x", "visit_p", "q: per key " + ",".join(KEYORDER) + " x [fm, mtd, pr]"],
+        "slim_columns": ["k", "t", "n", "id_im3", "id_3id", "mc", "dse", "visit_x", "visit_p", "q: per key " + ",".join(KEYORDER) + " x [fm, lm, mtd, pr]"],
         "key_order": KEYORDER,
         "thresholds": {"kro_min": 30, "wholesaler_min": 100, "kro_min_value": 10e6, "wholesaler_min_value": 90e6},
         "cuts": {"ga": ga_cut, "supply": sup_cut, "demand": dem_cut, "visits": vis_cut, "ga_month_days": 31, "base_days": 30},
