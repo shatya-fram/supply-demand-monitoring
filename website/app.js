@@ -493,6 +493,94 @@
   function pgBar(tid, groups) {
     return '<div class="map-toolbar-group" style="margin:0 0 8px;"><span class="map-label">Grup kolom:</span>' + groups.map(function (g) { var on = pgOn(tid, g.id); return '<button type="button" class="map-btn' + (on ? ' active' : '') + '" data-pg-cg="' + tid + '|' + g.id + '" aria-pressed="' + on + '" style="background-image:linear-gradient(to bottom,' + PG_TONE[g.id] + ',' + PG_TONE[g.id] + ');">' + (on ? '✔ ' : '') + (g.label || PG_LABEL[g.id]) + '</button>'; }).join('') + '</div>';
   }
+  /* pgPost: regroup an already built table by its header labels, without touching the row builders. A table opts in with data-pg="<tid>" and a spec registered by
+     pgSpec(tid, [{ id, label?, always?, cols: [header text | RegExp, ...] }]). Columns named in a group move into it (group order = spec order, columns inside a group keep spec order);
+     columns not named keep their order as lead (before the first grouped column) or tail. Rows whose cells span grouped columns are left as they are. Hidden groups drop their cells. */
+  var PG_SPECS = {}, PG_SIG = [];
+  function pgSpec(tid, groups, need) { PG_SPECS[tid] = groups; if (need) PG_SIG.push({ tid: tid, need: need }); }
+  function pgHeaderTexts(inner) {
+    var th = /<thead>([\s\S]*?)<\/thead>/.exec(inner); if (!th) return null;
+    var rows = th[1].match(/<tr[\s\S]*?<\/tr>/g) || []; if (rows.length !== 1) return null;
+    return pgCells(rows[0]).map(function (c) { return c.html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim(); });
+  }
+  function pgPost(html) {
+    if (typeof html !== 'string' || html.indexOf('<thead>') < 0) return html;
+    return html.replace(/<table([^>]*)>([\s\S]*?)<\/table>/g, function (m, attrs, inner) {
+      if (m.length < 400) return m;
+      var tid = (/ data-pg="(\w+)"/.exec(attrs) || [])[1], txt = null;
+      if (!tid) {
+        txt = pgHeaderTexts(inner); if (!txt) return m;
+        for (var i = 0; i < PG_SIG.length && !tid; i++) { var s = PG_SIG[i]; if (s.need.every(function (n) { return txt.some(function (t) { return n instanceof RegExp ? n.test(t) : t === n; }); })) tid = s.tid; }
+      }
+      var spec = tid && PG_SPECS[tid]; if (!spec) return m;
+      try { return pgRegroup(tid, spec, '<table' + attrs.replace(/ ?data-pg="\w+"/, '') + '>', inner) || m; } catch (e) { return m; }
+    });
+  }
+  function pgCells(rowHtml) {
+    var out = [], re = /<(td|th)([^>]*)>([\s\S]*?)<\/\1>/g, x;
+    while ((x = re.exec(rowHtml))) { var cs = /colspan="(\d+)"/.exec(x[2]); out.push({ tag: x[1], attrs: x[2], html: x[3], span: cs ? +cs[1] : 1, raw: x[0] }); }
+    return out;
+  }
+  function pgRegroup(tid, spec, open, inner) {
+    var th = /<thead>([\s\S]*?)<\/thead>/.exec(inner), tb = /<tbody>([\s\S]*?)<\/tbody>/.exec(inner); if (!th || !tb) return null;
+    var hrows = th[1].match(/<tr[\s\S]*?<\/tr>/g) || []; if (hrows.length !== 1) return null;
+    var H = pgCells(hrows[0]); if (H.some(function (c) { return c.span !== 1 || /rowspan="[2-9]/.test(c.attrs); })) return null;
+    var txt = H.map(function (c) { return c.html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim(); }), taken = {}, gi = [];
+    spec.forEach(function (g) {
+      var idx = []; g.cols.forEach(function (lab) { for (var i = 0; i < txt.length; i++) { if (taken[i]) continue; if (lab instanceof RegExp ? lab.test(txt[i]) : txt[i] === lab) { taken[i] = 1; idx.push(i); break; } } });
+      gi.push(idx);
+    });
+    var allIdx = []; gi.forEach(function (x) { allIdx = allIdx.concat(x); }); if (!allIdx.length) return null;
+    var first = Math.min.apply(null, allIdx), lead = [], tail = [];
+    for (var i = 0; i < txt.length; i++) if (!taken[i]) (i < first ? lead : tail).push(i);
+    var vis = []; spec.forEach(function (g, k) { if (gi[k].length && (g.always || pgOn(tid, g.id))) vis.push(k); });
+    var wrapTh = function (c, extra) { return '<th' + c.attrs.replace(/ ?(rowspan|style)="[^"]*"/g, '') + ' rowspan="2" style="vertical-align:bottom;">' + c.html + '</th>'; };
+    var h1 = lead.map(function (i) { return wrapTh(H[i]); }).join('') + vis.map(function (k) { var g = spec[k]; return '<th colspan="' + gi[k].length + '" class="num" style="text-align:center; background:' + PG_TONE[g.id] + '; border-left:2px solid var(--ij-ink);">' + (g.label || PG_LABEL[g.id]) + '</th>'; }).join('') + tail.map(function (i) { return wrapTh(H[i]); }).join('');
+    var h2 = vis.map(function (k) { return gi[k].map(function (i, j) { return '<th class="num" style="background:' + PG_TONE[spec[k].id] + ';' + (j === 0 ? ' border-left:2px solid var(--ij-ink);' : '') + '">' + H[i].html + '</th>'; }).join(''); }).join('');
+    var order = lead.slice(); vis.forEach(function (k) { order = order.concat(gi[k]); }); order = order.concat(tail);
+    var n = H.length, rows = tb[1].replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/g, function (m, ra, rc) {
+      var cells = pgCells(rc), tot = 0; cells.forEach(function (c) { tot += c.span; });
+      if (tot !== n || cells.some(function (c) { return c.span !== 1; }) && !pgSpanOk(cells, lead, tail, first)) return m;
+      var at = [], cov = {}, pos = 0; cells.forEach(function (c) { at[pos] = c; for (var q = 1; q < c.span; q++) cov[pos + q] = 1; pos += c.span; });
+      var ok = true, outCells = order.map(function (i) { if (cov[i]) return ''; var c = at[i]; if (!c) ok = false; return c ? c.raw : ''; });
+      return ok ? '<tr' + ra + '>' + outCells.join('') + '</tr>' : m;
+    });
+    var chips = pgBar(tid, spec.filter(function (g, k) { return gi[k].length && !g.always; }));
+    return chips + open + '<thead><tr>' + h1 + '</tr><tr>' + h2 + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  function pgSpanOk(cells, lead, tail, first) {   // a spanning cell is kept only when it lies wholly in the lead region (before the first grouped column)
+    var pos = 0, ok = true; cells.forEach(function (c) { if (c.span > 1 && pos + c.span > first) ok = false; pos += c.span; }); return ok && lead.length >= 0;
+  }
+  /* ---- registered specs: tables are recognised by their header labels (`need`), columns move into period groups; see docs/assessments/kro_table_layout.md section 6 ---- */
+  var PG_MEAS = /^(Demand MTD|SP Injection.*)$/, PG_NODAY = /^Hari kerja terakhir/;
+  // Demand Customer
+  pgSpec('po_kom', [{ id: 'fm', cols: ['Last FM'] }, { id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: ['Nilai MTD', 'Hits (unit)', '% nilai', 'Rata-rata / hari', 'Rata-rata / UAR'] }, { id: 'pr', cols: ['Run-rate Okt'] },
+    { id: 'gg', cols: ['Growth', 'Gap vs FM', 'Req RR / hari'] }, { id: 'ua', cols: ['UAR MTD', 'UAR LMTD'] }, { id: 'ot', label: 'Hari kerja terakhir', cols: [PG_NODAY, /^vs \d+ /] }], ['Last FM', 'Req RR / hari', 'UAR LMTD']);
+  pgSpec('po_ter', [{ id: 'fm', cols: ['Last FM'] }, { id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: [PG_MEAS, 'Reload', 'Voucher Inj', 'CVM', 'Paket Data', 'SP Inj (pcs)', 'Saldo Sell-In', 'Demand ÷ Saldo'] },
+    { id: 'gg', cols: ['Growth', 'Gap vs FM', 'Req RR / hari'] }, { id: 'ua', cols: ['UAR demand'] }], ['Last FM', 'Req RR / hari', 'UAR demand']);
+  pgSpec('po_prod', [{ id: 'fm', cols: ['Last FM'] }, { id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: ['Hits', 'Nilai MTD', '% nilai', 'Outlet'] }, { id: 'gg', cols: ['Growth'] }], ['Last FM', 'Rp/hit', 'Produk / nominal']);
+  pgSpec('po_out', [{ id: 'fm', cols: ['Last FM'] }, { id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: ['Demand MTD', 'Reload', 'Voucher Injection', 'CVM', 'Paket Data', 'Saldo Sell-In', 'SP Sell-In (pcs)'] }, { id: 'gg', cols: ['Growth', 'Gap vs FM', 'Req RR / hari'] }], ['Last FM', 'Req RR / hari', 'Status supply']);
+  // Gross Add and Daily GA Trend
+  pgSpec('ga_ter', [{ id: 'fm', cols: ['GA Last FM (Sep)', 'SSO Last FM (30 hari)'] }, { id: 'lm', cols: ['GA LMTD (pcs)', 'Run-rate / hari LMTD', 'SSO LMTD'] }, { id: 'mt', cols: ['GA MTD (pcs)', 'Run-rate / hari MTD', 'GA / SSO', 'GA di luar master'] }, { id: 'pr', cols: ['Proyeksi Okt'] },
+    { id: 'gg', cols: ['Growth GA', 'Gap MTD vs FM', 'Δ run-rate', 'Growth SSO', 'SSO / hari vs LMTD'] }, { id: 'ua', label: 'UAR (SSO)', cols: ['SSO MTD (semua outlet)', '% SSO', 'SSO PJP', '% SSO PJP', 'SSO baru', 'SSO hilang'] }, { id: 'ot', label: 'Target Okt', cols: ['Target Okt', '% target (pro-rata)'] }], ['GA Last FM (Sep)', 'Run-rate / hari MTD']);
+  pgSpec('ga_src', [{ id: 'lm', cols: ['GA LMTD', 'SSO LMTD'] }, { id: 'mt', cols: ['GA MTD', '% GA', 'SSO MTD', '% SSO', 'GA / SSO'] }, { id: 'gg', cols: ['Growth', 'Growth SSO'] }], ['Sumber outlet', '% GA', 'GA LMTD']);
+  pgSpec('ga_out', [{ id: 'fm', cols: ['GA Sep penuh'] }, { id: 'lm', cols: ['GA LMTD'] }, { id: 'mt', cols: ['GA MTD', 'Hari aktif'] }, { id: 'gg', cols: ['Growth'] }], ['GA Sep penuh', 'GA LMTD', 'Slab SSO']);
+  pgSpec('ga_day', [{ id: 'lm', cols: ['GA Sep (tgl sama)', 'SSO Sep (semua)', 'SSO PJP Sep'] }, { id: 'mt', cols: ['GA Okt (pcs)', 'Bar', 'SSO Okt (semua)', 'SSO PJP Okt', 'GA / SSO'] }, { id: 'gg', cols: ['Δ vs Sep'] }], ['GA Okt (pcs)', 'GA Sep (tgl sama)', 'GA tanpa tag outlet']);
+  pgSpec('ga_trend', [{ id: 'lm', cols: ['GA Sep (tgl sama)', 'Kumulatif Sep (LMTD)', 'SSO Sep', 'GA/SSO Sep'] }, { id: 'mt', cols: ['GA Okt (pcs)', 'Bar', 'Rata-rata 7 hari', 'Kumulatif Okt (MTD)', 'SSO Okt', 'GA/SSO Okt'] }, { id: 'gg', cols: ['Δ vs Sep', 'Δ kumulatif', '% vs pro-rata'] },
+    { id: 'ot', label: 'Target pro-rata', cols: ['Target pro-rata kumulatif', 'GA kecamatan target (kumulatif)'] }], ['Kumulatif Okt (MTD)', 'Kumulatif Sep (LMTD)']);
+  pgSpec('ga_trterr', [{ id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: ['MTD'] }, { id: 'gg', cols: ['Growth', '% target (pro-rata)'] }, { id: 'ot', label: 'Target Okt', cols: ['Target Okt'] }], ['MTD', 'LMTD', 'D1']);
+  pgSpec('ga_tgt', [{ id: 'fm', cols: ['GA Sep penuh'] }, { id: 'lm', cols: ['GA LMTD'] }, { id: 'mt', cols: ['GA MTD', 'Run-rate / hari'] }, { id: 'pr', cols: ['Proyeksi Okt', 'Proyeksi % target'] }, { id: 'gg', cols: ['Growth', '% target bulan', '% vs pro-rata', 'Gap ke target', 'Perlu / hari'] }, { id: 'ot', label: 'Target Okt', cols: ['Target Okt', 'Target ÷ Sep'] }], ['Gap ke target', 'GA Sep penuh', 'Perlu / hari']);
+  // UAR growth (Penjualan / UAR menus, also inside Ringkasan Performance)
+  pgSpec('uar_src', [{ id: 'lm', cols: [/^Volume LMTD/, /^Saldo LMTD/] }, { id: 'mt', cols: [/^Volume MTD/, /^Saldo MTD/] }, { id: 'gg', cols: ['Growth'] }, { id: 'ua', cols: [/^UAR MTD/, '% UAR', /^UAR LMTD/, 'Δ UAR', 'Growth UAR'] }], ['Sumber outlet', /^UAR LMTD/, 'Δ UAR']);
+  pgSpec('uar_ter', [{ id: 'lm', cols: [/^Volume LMTD/, /^Saldo LMTD/, /^Nilai LMTD/] }, { id: 'mt', cols: [/^Volume MTD/, /^Saldo MTD/, /^Nilai MTD/] }, { id: 'gg', cols: ['Growth', 'Growth nilai'] }, { id: 'ua', cols: [/^UAR MTD/, '% outlet', /^UAR LMTD/, 'Δ UAR', 'Growth UAR'] }], ['DSO / ket.', /^UAR LMTD/, 'Δ UAR']);
+  pgSpec('uar_act', [{ id: 'lm', cols: [/^Volume bulan lalu/] }, { id: 'mt', cols: [/^Volume bulan ini/] }], [/^Volume bulan lalu/, /^Volume bulan ini/]);
+  // Partner and allocation
+  pgSpec('pt_ter', [{ id: 'lm', cols: ['SP LMTD', 'Saldo LMTD'] }, { id: 'mt', cols: ['Outlet aktif SP', /^SP (sell-in )?MTD$/, 'Saldo MTD'] }, { id: 'gg', cols: ['Growth', 'Growth'] }], ['SP LMTD', 'Saldo LMTD', 'Outlet aktif SP']);
+  pgSpec('pt_alo', [{ id: 'lm', cols: ['SP LMTD', 'Voucher LMTD (Rp)'] }, { id: 'mt', cols: ['SP MTD (pcs)', 'SP MTD (Rp)', 'Voucher MTD (Rp)'] }, { id: 'gg', cols: ['Growth'] }], ['SP LMTD', 'Voucher LMTD (Rp)']);
+  pgSpec('pt_node', [{ id: 'lm', cols: ['SP LMTD'] }, { id: 'mt', cols: ['SP MTD', 'Voucher MTD (Rp)'] }], ['Node penerima', 'SP LMTD']);
+  // End Balance (outlet counts and balance bands have no second period and stay as they are)
+  pgSpec('eb_zero', [{ id: 'fm', cols: ['Sell-in Sep'] }, { id: 'mt', cols: ['Sell-in kemarin', 'Sell-in MTD'] }, { id: 'vs', cols: ['Jumlah visit MTD', 'Last visit'] }], ['Sell-in MTD', 'Sell-in Sep', 'Jumlah visit MTD']);
+  pgSpec('eb_rk', [{ id: 'mt', cols: [/^Sell-in saldo \d+ Okt$/, 'Sell-in MTD'] }, { id: 'ua', cols: ['UAR'] }], [/^Sell-in saldo \d+ Okt$/, 'Sell-in MTD']);
   function pgHead(tid, lead, groups, tail) {
     var rs = function (h) { return String(h || '').replace(/<th class="num"/g, '<th rowspan="2" class="num" style="vertical-align:bottom;"').replace(/<th>/g, '<th rowspan="2" style="vertical-align:bottom;">'); };
     var g = groups.filter(function (x) { return pgOn(tid, x.id); });
@@ -5239,7 +5327,7 @@
         '<td class="num cur" style="border-left:2px solid var(--ij-ink);"><b>' + (gl ? fmtCount(gD.O[gl].q) + ' pcs' : '·') + '</b><br><span class="note">' + (gl ? gl + ' Okt · SSO ' + fmtCount(gD.O[gl].u) : '') + '</span></td><td class="num">' + (gl && gp ? pjGrowth(gD.O[gl].q, gD.O[gp].q) : '·') + '</td></tr>';
     }
     var sc = card('Scorecard demand · MTD 1–' + n + ' Okt 2026 · ' + esc(scopeText()) + (state.poDse ? ' · DSE ' + esc(state.poDse) : ''),
-      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Komoditas') + th('Nilai MTD', 1) + poLmHead() + th('Hits (unit)', 1) + th('UAR MTD', 1) + th('UAR LMTD', 1) + th('% nilai', 1) + th('Rata-rata / hari', 1) + th('Run-rate Okt', 1) + th('Rata-rata / UAR', 1) + th('Hari kerja terakhir · ' + LD.W.label, 1) + th('vs ' + LD.W.prevShort, 1) + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
+      '<div class="tbl-wrap"><table data-pg="po_kom" class="tbl"><thead><tr>' + th('Komoditas') + th('Nilai MTD', 1) + poLmHead() + th('Hits (unit)', 1) + th('UAR MTD', 1) + th('UAR LMTD', 1) + th('% nilai', 1) + th('Rata-rata / hari', 1) + th('Run-rate Okt', 1) + th('Rata-rata / UAR', 1) + th('Hari kerja terakhir · ' + LD.W.label, 1) + th('vs ' + LD.W.prevShort, 1) + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
       '<p class="note">Baris Gross Add dari Daily_RGUGA_OUTLET (cut ' + (GS ? GS.G.cut : '—') + ' Okt, MTD vs LMTD September ada di menu Gross Add); UAR pada baris itu = SSO. Sumber DAILY_DATA_MOBO (sell-out outlet ke konsumen). LMTD = September 1–' + n + ' dan Last FM = September penuh (DAILY_DATA_MOBO bulan lalu); Gap vs FM = MTD − Last FM (negatif = masih di bawah September); Req RR / hari = kekurangan ÷ ' + rem + ' hari tersisa setelah tanggal ' + n + ' Okt. Baris Saldo Mobo (SALMO) dari DAILY_DATA_MOBO_SALMO: saldo yang ditransaksikan outlet ke pelanggan; belum dikonfirmasi apakah sudah mencakup Reload / Voucher / Paket Data, sehingga tidak dijumlahkan ke total dan hari terakhirnya masih parsial. UAR = outlet dengan nilai > 0. SP Injection sudah dipindahkan ke Penjualan ke Outlet (Sell-In) dan tidak ditampilkan di sini. Paket Data = sheet MTD_RECARGE (penjualan paket data Freedom Internet, Happy 3ID dan sejenisnya), bukan isi ulang pulsa. Run-rate = rata-rata harian × ' + mdays + ' hari. Hari kerja terakhir = hari terakhir di file selain Minggu (' + LD.W.label + '), dibandingkan dengan hari kerja sebelumnya (' + LD.W.prevLabel + ').</p>');
     var sd = poSupplyDaily(F, rows), dd = days.map(function () { return 0; });
     rows.forEach(function (o) { poDaily(o, 'all', n).forEach(function (v, i) { dd[i] += v; }); });
@@ -5293,7 +5381,7 @@
         totNum(TSup ? pjRp(TSup) : '·') + totNum(cat === 'SPI' ? '—' : poRatioCell(poRatio(TA.tot.v, TSup))) + '<td></td></tr>';
     }
     var head = th('#', 1) + th(poEntityHead(level)) + (showParent ? th(poParentHead(level)) : '') + (level === 'outlet' ? '' : th('Outlet PJP', 1) + th('UAR demand', 1)) + th(isQ ? 'SP Injection (pcs)' : 'Demand MTD', 1) + poLmHead() + th('Reload', 1) + th('Voucher Inj', 1) + th('CVM', 1) + th('Paket Data', 1) + th('SP Inj (pcs)', 1) + th('Saldo Sell-In', 1) + th('Demand ÷ Saldo', 1) + th('Detail');
-    return poLevelBar() + card('Performance demand ' + PO_LEVEL_LABEL[level] + ' · ' + PO_CAT_LABEL[cat], '<div class="map-toolbar" style="margin-bottom:8px;">' + poCatBar(true) + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    return poLevelBar() + card('Performance demand ' + PO_LEVEL_LABEL[level] + ' · ' + PO_CAT_LABEL[cat], '<div class="map-toolbar" style="margin-bottom:8px;">' + poCatBar(true) + '</div><div class="tbl-wrap"><table data-pg="po_ter" class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="note">UAR demand = outlet dengan Reload + Voucher + CVM + Paket Data > 0 MTD, terhadap outlet PJP di teritori. LMTD = September 1–' + F.metadata.cut_day + ', Last FM = September penuh (DAILY_DATA_MOBO bulan lalu); Gap vs FM = MTD − Last FM, Req RR / hari = kekurangan ÷ sisa hari. Saldo Sell-In = saldo Mobo yang masuk 1–' + F.metadata.cut_day + ' Okt (hari yang sama dengan demand). Demand ÷ Saldo > 1× = outlet menjual lebih banyak daripada saldo yang diisi. "Detail" turun ke level di bawahnya.</p>');
   }
 
@@ -5318,7 +5406,7 @@
     var TV = rows.reduce(function (a, p) { return a + (p.cat === 'SPI' ? 0 : p.mv); }, 0), TQ = rows.reduce(function (a, p) { return a + p.mq; }, 0);
     var bar = '<div class="map-toolbar-group"><span class="map-label">Komoditas:</span><button type="button" class="map-btn' + (cat === 'all' ? ' active' : '') + '" data-po-prodcat="all">Semua</button>' + PO_CATS.map(function (c) { return '<button type="button" class="map-btn' + (cat === c[0] ? ' active' : '') + '" data-po-prodcat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>';
     var body = rows.slice(0, 250).map(function (p, i) { return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(PO_CAT_LABEL[p.cat].replace(' (pcs)', '')) + '</td><td class="cur"><b>' + esc(p.n) + '</b></td><td class="num">' + (p.price != null ? pjRp(p.price) : '—') + '</td><td class="num">' + fmtCount(p.mq) + '</td><td class="num cur"><b>' + (p.cat === 'SPI' && !p.mv ? '—' : pjRp(p.mv)) + '</b></td><td class="num">' + (p.lv ? pjRp(p.lv) : '·') + '</td><td class="num">' + (p.lv ? pjGrowth(p.mv, p.lv) : '·') + '</td><td class="num">' + (p.fv ? pjRp(p.fv) : '·') + '</td><td class="num">' + (p.cat === 'SPI' ? '·' : pctOf(p.mv, TV) + '%') + '</td><td class="num">' + fmtCount(p.mo) + '</td></tr>'; }).join('');
-    return card('Mix produk demand · se-region · MTD (' + fmtCount(rows.length) + ' produk' + (rows.length > 250 ? ', 250 teratas' : '') + ')', '<div class="map-toolbar" style="margin-bottom:8px;">' + bar + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('#', 1) + th('Komoditas') + th('Produk / nominal') + th('Rp/hit', 1) + th('Hits', 1) + th('Nilai MTD', 1) + th('LMTD', 1) + th('Growth', 1) + th('Last FM', 1) + th('% nilai', 1) + th('Outlet', 1) + '</tr></thead><tbody>' + body + '</tbody></table></div><p class="note">LMTD = September 1–' + F.metadata.cut_day + ', Last FM = September penuh. Tabel produk se-region (tidak mengikuti filter teritori). Reload memakai nominal isi ulang sebagai nama produk. Kotak cari menyaring nama produk.</p>');
+    return card('Mix produk demand · se-region · MTD (' + fmtCount(rows.length) + ' produk' + (rows.length > 250 ? ', 250 teratas' : '') + ')', '<div class="map-toolbar" style="margin-bottom:8px;">' + bar + '</div><div class="tbl-wrap"><table data-pg="po_prod" class="tbl"><thead><tr>' + th('#', 1) + th('Komoditas') + th('Produk / nominal') + th('Rp/hit', 1) + th('Hits', 1) + th('Nilai MTD', 1) + th('LMTD', 1) + th('Growth', 1) + th('Last FM', 1) + th('% nilai', 1) + th('Outlet', 1) + '</tr></thead><tbody>' + body + '</tbody></table></div><p class="note">LMTD = September 1–' + F.metadata.cut_day + ', Last FM = September penuh. Tabel produk se-region (tidak mengikuti filter teritori). Reload memakai nominal isi ulang sebagai nama produk. Kotak cari menyaring nama produk.</p>');
   }
 
   function poProduk(F) {
@@ -5376,7 +5464,7 @@
     }
     var body = grpBody('po', { items: rows, area: function (o) { return poDim(o, F).br; }, mc: function (o) { return o.mc; }, dso: function (m) { return (mi[m] || {}).dso || '—'; }, hoa: function (a) { for (var k in mi) if (mi[k].br === a) return mi[k].hoa || '—'; return '—'; },
       val: function (o) { return poVal(o, cat); }, span: span, cols: span + 1 + 5 + PO_CATS.length + 4, sub: poSub, row: poRow, search: !!(q || state.poDse) });
-    return poLevelBar() + card('Outlet · demand per outlet · ' + PO_CAT_LABEL[cat] + ' (' + fmtCount(rows.length) + ' outlet)', '<div class="map-toolbar" style="margin-bottom:8px;">' + poCatBar(true) + grpBar('po') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area › MC › Outlet') + (showParent ? th('MC · DSE') : '') + th('Kecamatan · Site') + th(isQ ? 'SP Inj (pcs)' : 'Demand MTD', 1) + poLmHead() + PO_CATS.map(function (c) { return th(c[1], 1); }).join('') + th('Saldo Sell-In', 1) + th('SP Sell-In (pcs)', 1) + th('Demand terakhir') + th('Status supply') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    return poLevelBar() + card('Outlet · demand per outlet · ' + PO_CAT_LABEL[cat] + ' (' + fmtCount(rows.length) + ' outlet)', '<div class="map-toolbar" style="margin-bottom:8px;">' + poCatBar(true) + grpBar('po') + '</div><div class="tbl-wrap"><table data-pg="po_out" class="tbl"><thead><tr>' + th('Area › MC › Outlet') + (showParent ? th('MC · DSE') : '') + th('Kecamatan · Site') + th(isQ ? 'SP Inj (pcs)' : 'Demand MTD', 1) + poLmHead() + PO_CATS.map(function (c) { return th(c[1], 1); }).join('') + th('Saldo Sell-In', 1) + th('SP Sell-In (pcs)', 1) + th('Demand terakhir') + th('Status supply') + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); klik panah untuk membuka. Baris grup menjumlahkan outlet di dalamnya. Urut demand MTD. "Jual ≫ isi saldo" = demand (Reload + Voucher + CVM + Paket Data) lebih dari 1,5× saldo Mobo yang masuk 1–' + n + ' Okt; "tanpa supply MTD" = ada demand tetapi tidak ada Sell-In sama sekali. Kotak cari menyaring nama, id, MC, DSE, kecamatan atau site.</p>');
   }
 
@@ -9902,6 +9990,8 @@
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
   var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+
+  Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
   /* ---------- shell: filters, header, events ---------- */
   function $(s) { return typeof document !== 'undefined' && document.querySelector ? document.querySelector(s) : null; }

@@ -74,4 +74,22 @@ Semua angka tetap bisa diklik (popup FM, LMTD, MTD dalam Rp dan qty, gap, growth
 
 Tidak diubah: tabel harian Penjualan (hari × kategori; hanya satu deret harian dengan pembanding LMTD sama hari), matriks slab (`sl|`, sudah per periode di popup), matriks produk (`vm|`).
 
-**Belum (batch berikut, menunggu review tampilan):** Demand Customer (poRingkasan, poTeritori, poOutletTab, poProdukList), Gross Add dan Daily GA Trend, Overall Performance, DSE Productivity, PJP visit, End Balance, Target Setting. Tabel yang tidak punya periode kedua (mis. daftar visit harian, master teritori) dibiarkan; tidak ada baseline yang dibuat-buat.
+**Pengelompokan otomatis (`pgPost`)**: untuk tabel selain Penjualan dan KRO, pengelompokan dilakukan setelah view dibangun: tabel dikenali dari label header (`pgSpec(tid, groups, need)`), kolom pindah ke grup periodenya, sel tidak diubah (atribut `data-ov`, `data-*`, DSE coverage tetap), baris yang melebar (colspan) di area grup dibiarkan. `render_check.js` memeriksa lebar setiap baris biasa sama dengan header dua baris.
+
+**Status akhir per tabel**
+
+| Keluarga | Tabel | Status |
+|---|---|---|
+| KRO | slab, perpindahan, ringkasan, katalog, tracking | dikelompokkan (`kroHead2`) |
+| Penjualan | per kategori, teritori, heatmap, outlet, produk | dikelompokkan (`pgHead`) |
+| Demand Customer | komoditas (`po_kom`), teritori (`po_ter`), produk (`po_prod`), outlet (`po_out`) | dikelompokkan (`pgPost`) |
+| Demand Customer | heatmap harian, konsentrasi, SvD | tidak ada periode kedua; dibiarkan |
+| Gross Add / Daily GA Trend | ringkasan per teritori, per DSE, sumber outlet (`ga_ter`, `ga_src`), outlet (`ga_out`), harian (`ga_day`), target (`ga_tgt`), Daily GA Trend dan tabel MC (`ga_trend`, `ga_trterr`) | dikelompokkan |
+| UAR | pertumbuhan UAR (sumber, teritori), daftar aktif (`uar_src`, `uar_ter`, `uar_act`) | dikelompokkan |
+| Partner | territory, alokasi, node (`pt_ter`, `pt_alo`, `pt_node`) | dikelompokkan |
+| End Balance | zero stock (`eb_zero`), ringkasan (`eb_rk`) | dikelompokkan; popup `eb|` dan sel hitungan · % tidak diubah |
+| End Balance | pita saldo, slab inventory days, site, detail | tidak ada periode kedua (satu snapshot); dibiarkan |
+| Overall Performance | kartu dan tabel skor | sudah per ukuran dengan MTD / LMTD / Growth di dalam setiap ukuran; dibiarkan |
+| DSE Productivity | skor KPI (Amount, Target, Ach., Insentif) | target vs aktual, bukan periode; dibiarkan |
+| PJP / visit | rencana vs realisasi per hari, inaktivitas | tidak ada kolom periode kedua; dibiarkan |
+| Target Setting | target IM3 / 3ID / IOH vs aktual MTD | tidak ada periode kedua; dibiarkan |

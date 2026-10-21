@@ -25,7 +25,10 @@ function cards(html) {
 }
 function table(html, firstHead) {
   const t = html.split('<table').slice(1).find(x => strip((x.match(/<th[^>]*>(.*?)<\/th>/) || [, ''])[1]).toUpperCase().startsWith(firstHead)); if (!t) return null;
-  const head = [...t.split('</thead>')[0].matchAll(/<th[^>]*>(.*?)<\/th>/g)].map(m => strip(m[1]).replace(/[▲▼]/g, '').trim().toUpperCase());
+  const hx = t.split('</thead>')[0], hrs = hx.match(/<tr[\s\S]*?<\/tr>/g) || [], ths = r => [...r.matchAll(/<th([^>]*)>(.*?)<\/th>/g)].map(m => ({ a: m[1], t: strip(m[2]).replace(/[▲▼]/g, '').trim().toUpperCase() }));
+  let head;   // positional leaf header; a two-row (period-grouped) header takes its group columns from row 2
+  if (hrs.length === 2) { const r1 = ths(hrs[0]), r2 = ths(hrs[1]); let k = 0; head = []; r1.forEach(c => { const sp = /colspan="(\d+)"/.exec(c.a); if (sp) { for (let i = 0; i < +sp[1]; i++) head.push(r2[k++].t); } else head.push(c.t); }); }
+  else head = ths(hx).map(c => c.t);
   const rows = (t.split('<tbody>')[1] || '').split('</tbody>')[0].split(/<tr[ >]/).slice(1).map(r => [...r.matchAll(/<td[^>]*>(.*?)<\/td>/g)].map(m => strip(m[1])));
   return { head, rows };
 }

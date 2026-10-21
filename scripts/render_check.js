@@ -58,6 +58,15 @@ function check(label, fn) {
   try {
     const html = fn();
     if (AUDIT) audit(label, html);
+    // period-grouped tables: every plain body row must be as wide as the two-row header (cells moved by pgPost must not be lost or duplicated)
+    for (const tm of html.matchAll(/<table[^>]*>([\s\S]*?)<\/table>/g)) {
+      const th = /<thead>([\s\S]*?)<\/thead>/.exec(tm[1]), tb = /<tbody>([\s\S]*?)<\/tbody>/.exec(tm[1]); if (!th || !tb || !/border-left:2px solid var\(--ij-ink\)/.test(th[1])) continue;
+      const hr = th[1].match(/<tr[\s\S]*?<\/tr>/g) || []; if (hr.length !== 2) continue;
+      const width = [...hr[0].matchAll(/<th([^>]*)>/g)].reduce((n, x) => n + (/colspan="(\d+)"/.exec(x[1]) ? +/colspan="(\d+)"/.exec(x[1])[1] : 1), 0);
+      let badRows = 0, plain = 0;
+      for (const r of tb[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) { const cells = [...r[1].matchAll(/<t[dh]([^>]*)>/g)]; if (cells.some(c => /colspan/.test(c[1]))) continue; plain++; if (cells.length !== width) badRows++; }
+      if (plain && badRows) { failures++; console.log('✗ period-group width mismatch in ' + label + ': ' + badRows + ' of ' + plain + ' rows differ from header width ' + width); }
+    }
     const bad = /\bundefined\b|\bNaN\b/.test(html);
     console.log((bad ? '⚠ ' : '✓ ') + label.padEnd(32) + String(html.length).padStart(9) + ' chars' + (bad ? '  (contains undefined/NaN)' : ''));
   } catch (e) {
