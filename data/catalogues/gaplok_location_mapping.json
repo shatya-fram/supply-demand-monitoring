@@ -8,7 +8,7 @@
   "cse": "MUHAMMAD GUFRON",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 425
+  "master_outlets": 426
  },
  {
   "micro_cluster": "MC-BATUJAYA",
@@ -41,7 +41,7 @@
   "cse": "ADITYA HASANUDDIN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 466
+  "master_outlets": 468
  },
  {
   "micro_cluster": "MC-BEKASI UTARA",
@@ -50,9 +50,9 @@
   "master_branch": "BEKASI",
   "hoa_leader": "Ali Sabana",
   "cse": "RAHAYU UTAMININGSIH",
-  "cse_gaplok_sep": "RAHAYU UTAMININGSIH",
-  "sales_area_gaplok_sep": "BEKASI",
-  "master_outlets": 276
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 277
  },
  {
   "micro_cluster": "MC-CAKUNG",
@@ -61,9 +61,9 @@
   "master_branch": "EAST JAKARTA",
   "hoa_leader": "Muchlis",
   "cse": "FAHMI KURNIANTO",
-  "cse_gaplok_sep": "FAHMI KURNIANTO",
-  "sales_area_gaplok_sep": "EAST JAKARTA",
-  "master_outlets": 617
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 619
  },
  {
   "micro_cluster": "MC-CEMPAKA PUTIH",
@@ -74,7 +74,7 @@
   "cse": "SUHENDRA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 484
+  "master_outlets": 488
  },
  {
   "micro_cluster": "MC-CENGKARENG",
@@ -83,9 +83,9 @@
   "master_branch": "WEST JAKARTA",
   "hoa_leader": "Antony Hermanto",
   "cse": "AHYADI",
-  "cse_gaplok_sep": "ALDIKA FAYZAL RAHADITYA",
-  "sales_area_gaplok_sep": "WEST JAKARTA",
-  "master_outlets": 628
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 634
  },
  {
   "micro_cluster": "MC-CIBARUSAH",
@@ -105,9 +105,9 @@
   "master_branch": "KAB BEKASI",
   "hoa_leader": "Budi Priyambodo",
   "cse": "RIAN SANJAYA SURNA",
-  "cse_gaplok_sep": "AGAM EKANANDA GUMELAR",
-  "sales_area_gaplok_sep": "KAB BEKASI",
-  "master_outlets": 481
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 482
  },
  {
   "micro_cluster": "MC-CIKARANG BARAT",
@@ -129,7 +129,7 @@
   "cse": "THEOVILLUS MARTHIN YOHANES",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 394
+  "master_outlets": 395
  },
  {
   "micro_cluster": "MC-CIMANGGIS",
@@ -140,7 +140,7 @@
   "cse": "ARIBOWO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 289
+  "master_outlets": 290
  },
  {
   "micro_cluster": "MC-CIPAYUNG",
@@ -151,7 +151,7 @@
   "cse": "FRILA HANDRIANI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 355
+  "master_outlets": 357
  },
  {
   "micro_cluster": "MC-CIRACAS",
@@ -160,8 +160,8 @@
   "master_branch": "EAST JAKARTA",
   "hoa_leader": "Muchlis",
   "cse": "ABDUL AZIZ KAMIL RAFIKOLAN",
-  "cse_gaplok_sep": "ABDUL AZIZ KAMIL RAFIKOLAN",
-  "sales_area_gaplok_sep": "EAST JAKARTA",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 527
  },
  {
@@ -171,9 +171,9 @@
   "master_branch": "KARAWANG",
   "hoa_leader": "Apri Sugiyanto",
   "cse": "WIWIT PRASETYO",
-  "cse_gaplok_sep": "RIAN SANJAYA SURNA",
-  "sales_area_gaplok_sep": "NORTH KARAWANG",
-  "master_outlets": 305
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 307
  },
  {
   "micro_cluster": "MC-GROGOL",
@@ -182,8 +182,8 @@
   "master_branch": "WEST JAKARTA",
   "hoa_leader": "Antony Hermanto",
   "cse": "LESTARI A. R.",
-  "cse_gaplok_sep": "LESTARI A. R.",
-  "sales_area_gaplok_sep": "WEST JAKARTA",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 535
  },
  {
@@ -193,9 +193,9 @@
   "master_branch": "KARAWANG",
   "hoa_leader": "Apri Sugiyanto",
   "cse": "AGAM EKANANDA GUMELAR",
-  "cse_gaplok_sep": "MUHAMAD RIFALDI",
-  "sales_area_gaplok_sep": "SOUTH KARAWANG",
-  "master_outlets": 445
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 448
  },
  {
   "micro_cluster": "MC-KEBAYORAN",
@@ -204,9 +204,9 @@
   "master_branch": "SOUTH JAKARTA DEPOK",
   "hoa_leader": "Roswida Sidauruk",
   "cse": "YUALITA PRASIDA RAMADHANI",
-  "cse_gaplok_sep": "YUALITA PRASIDA RAMADHANI",
-  "sales_area_gaplok_sep": "SOUTH JAKARTA",
-  "master_outlets": 423
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 428
  },
  {
   "micro_cluster": "MC-KELAPA GADING",
@@ -215,9 +215,9 @@
   "master_branch": "CENTRAL NORTH JAKARTA",
   "hoa_leader": "Ragus Sularto",
   "cse": "MUHAMAD YUNUS HIDAYAT",
-  "cse_gaplok_sep": "MUHAMAD YUNUS HIDAYAT",
-  "sales_area_gaplok_sep": "CENTRAL NORTH JAKARTA",
-  "master_outlets": 278
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 282
  },
  {
   "micro_cluster": "MC-KEMBANGAN",
@@ -228,7 +228,7 @@
   "cse": "ALDIKA FAYZAL RAHADITYA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 394
+  "master_outlets": 396
  },
  {
   "micro_cluster": "MC-KRAMATJATI",
@@ -248,8 +248,8 @@
   "master_branch": "EAST JAKARTA",
   "hoa_leader": "Muchlis",
   "cse": "RICHARD YADI SIDAURUK",
-  "cse_gaplok_sep": "RICHARD YADI SIDAURUK",
-  "sales_area_gaplok_sep": "EAST JAKARTA",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 381
  },
  {
@@ -261,7 +261,7 @@
   "cse": "MUHAMAD RIFALDI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 432
+  "master_outlets": 436
  },
  {
   "micro_cluster": "MC-PADEMANGAN",
@@ -281,9 +281,9 @@
   "master_branch": "SOUTH JAKARTA DEPOK",
   "hoa_leader": "Roswida Sidauruk",
   "cse": "RINALDO FERNANDES SIREGAR",
-  "cse_gaplok_sep": "RINALDO FERNANDES SIREGAR",
-  "sales_area_gaplok_sep": "SOUTH JAKARTA",
-  "master_outlets": 428
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 429
  },
  {
   "micro_cluster": "MC-PASAR MINGGU",
@@ -292,9 +292,9 @@
   "master_branch": "SOUTH JAKARTA DEPOK",
   "hoa_leader": "Roswida Sidauruk",
   "cse": "ARIE SETYO PRABOWO",
-  "cse_gaplok_sep": "ARIE SETYO PRABOWO",
-  "sales_area_gaplok_sep": "SOUTH JAKARTA",
-  "master_outlets": 521
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 524
  },
  {
   "micro_cluster": "MC-PEBAYURAN",
@@ -305,7 +305,7 @@
   "cse": "SANDY NOPRIANSYAH",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 455
+  "master_outlets": 456
  },
  {
   "micro_cluster": "MC-PONDOK GEDE",
@@ -314,9 +314,9 @@
   "master_branch": "BEKASI",
   "hoa_leader": "Ali Sabana",
   "cse": "RULLI PRATAMA",
-  "cse_gaplok_sep": "MUHAMMAD GUFRON",
-  "sales_area_gaplok_sep": "BEKASI",
-  "master_outlets": 517
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 520
  },
  {
   "micro_cluster": "MC-RENGASDENGKLOK",
@@ -325,9 +325,9 @@
   "master_branch": "KARAWANG",
   "hoa_leader": "Apri Sugiyanto",
   "cse": "MOCH ALI AS'AD",
-  "cse_gaplok_sep": "WIWIT PRASETYO",
-  "sales_area_gaplok_sep": "NORTH KARAWANG",
-  "master_outlets": 418
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 419
  },
  {
   "micro_cluster": "MC-SAWANGAN",
@@ -338,7 +338,7 @@
   "cse": "MUHAMMAD FAUZI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 281
+  "master_outlets": 282
  },
  {
   "micro_cluster": "MC-TAMBUN",
@@ -347,8 +347,8 @@
   "master_branch": "KAB BEKASI",
   "hoa_leader": "Budi Priyambodo",
   "cse": "RONA DWI KARYO",
-  "cse_gaplok_sep": "R. SYARIEF DURAHMAN",
-  "sales_area_gaplok_sep": "KAB BEKASI",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 511
  },
  {
@@ -360,7 +360,7 @@
   "cse": "NORMAN PARASIAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 285
+  "master_outlets": 288
  },
  {
   "micro_cluster": "MC-TANJUNG PRIOK",
@@ -369,9 +369,9 @@
   "master_branch": "CENTRAL NORTH JAKARTA",
   "hoa_leader": "Ragus Sularto",
   "cse": "RUDI HARDANA DARMAWAN",
-  "cse_gaplok_sep": "RUDI HARDANA DARMAWAN",
-  "sales_area_gaplok_sep": "CENTRAL NORTH JAKARTA",
-  "master_outlets": 331
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 333
  },
  {
   "micro_cluster": "MC-TEGALWARU",
@@ -380,8 +380,8 @@
   "master_branch": "KARAWANG",
   "hoa_leader": "Apri Sugiyanto",
   "cse": "RAIHAAN",
-  "cse_gaplok_sep": "RAIHAAN",
-  "sales_area_gaplok_sep": "SOUTH KARAWANG",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 375
  },
  {
@@ -391,8 +391,8 @@
   "master_branch": "KARAWANG",
   "hoa_leader": "Apri Sugiyanto",
   "cse": "SEPTIAN AJI PUTRA",
-  "cse_gaplok_sep": "AGUS TRI BAHONO",
-  "sales_area_gaplok_sep": "NORTH KARAWANG",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
   "master_outlets": 376
  }
 ]

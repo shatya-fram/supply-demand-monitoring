@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -290,6 +290,29 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   }
   state.kroOpenM = {};
   kroSet('sp', 'si', 'ringkasan'); state.gaBasis = 'outlet'; }
+// Program & Tipe Outlet: every product / measure, program toggles (union and intersection), filters; clickable counts must resolve and match their cells
+{ global.KRO_SLIM = global.KRO_SLIM || []; const KF = global.KRO_FEED, progs = Object.keys(KF.metadata.programs).filter(n => (KF.metadata.programs[n].keys || []).length);
+  const pset = (prod, meas, prg, mode) => { state.view = 'mb_program'; state.kroProd = prod; state.kroMeas = meas; state.prg = prg; state.prgMode = mode; state.kroSearch = ''; state.kroPage = 1; state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = ''; };
+  if (!progs.length) { failures++; console.log('✗ no program with members in the KRO feed'); }
+  const KCOMBOS = [['sp', 'si'], ['vc', 'si'], ['vc', 'so'], ['sl', 'si'], ['sl', 'so'], ['ga', 'si']];
+  for (const [pr, me] of KCOMBOS) for (const prg of ['', '-', progs[0] || '', progs.slice(0, 2).join('~')]) for (const mode of ['any', 'all']) { pset(pr, me, prg, mode); check('program/' + pr + '-' + me + '/' + (prg || 'all') + '/' + mode, VIEWS.mb_program); }
+  { const mc0 = Object.keys(KF.mc_sum)[0], br0 = KF.mc_sum[mc0].br; pset('sp', 'si', '', 'any'); state.branch = br0; check('program/branch', VIEWS.mb_program); state.kec = mc0; check('program/mc', VIEWS.mb_program); state.kroSearch = 'cell'; check('program/search', VIEWS.mb_program); }
+  for (const [pr, me] of KCOMBOS) {
+    pset(pr, me, '', 'any'); let html = ''; check('program/drill/' + pr + '-' + me, () => (html = VIEWS.mb_program()));
+    const keys = [...new Set([...html.matchAll(/data-ov="(kr\|[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))];
+    if (!keys.length) { failures++; console.log('✗ no program popup keys for ' + pr + '-' + me); continue; }
+    const pick = keys.filter((k, i) => /^kr\|pg\|T\|/.test(k) || i % Math.max(1, Math.floor(keys.length / 40)) === 0);
+    for (const k of pick) { const e = app.ovEntry(k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ program popup ' + k); continue; } if (/undefined|NaN/.test(app.ovText(e))) { failures++; console.log('✗ program popup undefined/NaN ' + k); } }
+    let ctr = 0; for (const m of html.matchAll(/data-ov="(kr\|pg\|[^"]+\|ALL)"[^>]*>\s*(?:<b[^>]*>)?([\d.,]+)(?:<\/b>)?<\/td>/g)) { const k = m[1].replace(/&amp;/g, '&'), e = app.ovEntry(k), shown = parseInt(m[2].replace(/[.,]/g, ''), 10); if (!e) { failures++; console.log('✗ no popup ' + k); continue; } ctr++; if (e.rows.length !== shown) { failures++; console.log('✗ program popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k); } }
+    if (!ctr) { failures++; console.log('✗ no program ALL cells compared for ' + pr + '-' + me); }
+  }
+  state.prg = ''; state.prgMode = 'any'; state.kroProd = 'sp'; state.kroMeas = 'si'; }
+// KOTA BEKASI label: only the text of the branch changes; KAB BEKASI, MC-BEKASI TENGAH and kecamatan stay; attributes are untouched
+{ const R = app.brRelabelHtml, cases = [['<td>BEKASI</td>', '<td>KOTA BEKASI</td>'], ['<td>KAB BEKASI</td>', '<td>KAB BEKASI</td>'], ['<td>MC-BEKASI TENGAH</td>', '<td>MC-BEKASI TENGAH</td>'],
+    ['<td>BEKASI UTARA</td>', '<td>BEKASI UTARA</td>'], ['<option value="BEKASI">BEKASI</option>', '<option value="BEKASI">KOTA BEKASI</option>'], ['<td>Branch BEKASI (Ali Sabana)</td>', '<td>Branch KOTA BEKASI (Ali Sabana)</td>'],
+    ['<td>KOTA BEKASI</td>', '<td>KOTA BEKASI</td>'], ['<td title="BEKASI">x</td>', '<td title="BEKASI">x</td>']];
+  for (const [a, b] of cases) { if (R(a) !== b) { failures++; console.log('✗ relabel ' + a + ' -> ' + R(a) + ' (expected ' + b + ')'); } }
+  state.view = 'mb_overall'; state.branch = ''; state.kec = ''; state.hoa = ''; const h = R(VIEWS.mb_overall()); if (/>BEKASI</.test(h)) { failures++; console.log('✗ a branch BEKASI label is left on Overall Performance'); } }
 // GA target per kecamatan (M2S KECAMATAN), rolled up to MC and Area
 { const mc0 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br0 = global.GA_FEED.metadata.mc_info[mc0].br;
   for (const br of ['all', 'IM3', '3ID']) { state.view = 'mb_grossadd'; state.gaTab = 'target'; state.gaBrand = br; state.branch = ''; state.hoa = ''; state.kec = ''; check('grossadd/target/' + br, VIEWS.mb_grossadd);
@@ -349,6 +372,9 @@ state.ptTab = 'partner'; state.ptBrand = 'IM3';
 { const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br;
 for (const br of ['IM3', '3ID']) for (const sv of ['on', 'off']) { state.view = 'mb_partner_perf'; state.ppBrand = br; state.dkSpi = sv; state.branch = ''; state.kec = ''; check('partner-perf/' + br + '/spi=' + sv + '/all', VIEWS.mb_partner_perf); state.branch = br0; check('partner-perf/' + br + '/spi=' + sv + '/branch', VIEWS.mb_partner_perf); state.kec = mcp; check('partner-perf/' + br + '/spi=' + sv + '/mc', VIEWS.mb_partner_perf); state.branch = ''; state.kec = ''; } }
 state.ppBrand = 'IM3'; state.dkSpi = 'on';
+{ const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br; state.view = 'mb_overall'; state.branch = br0; state.kec = mcp; state.dse = '';
+  const h = VIEWS.mb_overall(); for (const k of ['h_zero', 'h_sal0', 'h_zall']) { const e = app.ovEntry(k); if (!e || !e.rows) { console.log('✗ overall popup ' + k + ' missing'); process.exitCode = 1; } else console.log('✓ overall popup ' + k + ' ' + e.rows.length + ' rows'); }
+  state.branch = ''; state.kec = ''; }
 for (const g of ['dist_mc', 'dist', 'area_mc', 'mc', 'none']) { state.view = 'mb_partner_perf'; state.ppGroup = g; check('partner-perf/group=' + g, VIEWS.mb_partner_perf); }
 state.ppGroup = 'dist_mc';
 for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) for (const bs of ['stock', 'all']) { state.view = 'mb_endbal'; state.ebTab = tb; state.ebBasis = bs; state.ebPage = 1; check('endbal/' + tb + '/' + bs, VIEWS.mb_endbal); }

@@ -71,6 +71,7 @@
       mb_grossadd: 'RGUGA GA cut ' + G + ' ' + Y,
       mb_gatrend: 'RGUGA GA cut ' + G + ' ' + Y,
       mb_kro: 'GA ' + G + ' · Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P,
+      mb_program: 'GA ' + G + ' · Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P,
       mb_uar: 'Sell-In cut ' + S + ' · GA (SSO) cut ' + G + ' ' + Y,
       mb_pjp: 'PJP cut ' + P,
       visits: 'PJP cut ' + P,
@@ -113,6 +114,7 @@
     mb_uar: ['Morning DSE Briefing · UAR', 'Unique Active Retailer per teritori: sell-in SP, voucher (zero dan value) dan saldo; plus SSO (SIM Selling Outlet) dari gross add RGUGA, dengan growth terhadap periode pembanding.'],
     mb_gatrend: ['Morning DSE Briefing · Daily GA Trend', 'GA harian D1–D31 dengan pilihan tanggal: Oktober MTD vs September LMTD (jumlah hari sama dan sejajar hari kerja), kumulatif, proyeksi akhir bulan, profil hari dan GA per hari per teritori; basis tagging outlet atau lokasi aktivasi.'],
     mb_kro: ['Morning DSE Briefing · Outlet & KRO Management', 'Katalog outlet Retail, KRO dan Wholesaler per produk (SP, Voucher, Saldo, GA), sell-in dan sell-out, dengan mode katalog slab bulan lalu, whitelist outlet dan program, serta tracking kunjungan PJP per outlet, DSO dan DSE.'],
+    mb_program: ['Morning DSE Briefing · Program & Tipe Outlet', 'Flag program per outlet (KRO, Wholesaler, Promotor, DTU, AVA dari katalog 202610, serta BOSS / Tebus Murah bila ada): pilih program dengan toggle, lalu lihat performa seperti Outlet & KRO Management (slab, UAR, growth, kunjungan PJP, daftar outlet) per Area, MC dan program.'],
     mb_grossadd: ['Morning DSE Briefing · Gross Add', 'Gross Add dan SSO (SIM Selling Outlet) dari RGUGA per outlet: Oktober vs September, per Area, MC, DSE dan outlet (basis tagging) atau per site / kecamatan (basis lokasi dari data RGUGA), harian, dan slab SSO.'],
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
     cfg_target: ['Konfigurasi · Target Setting', 'Target resmi per DSE untuk dua KPI, Sell-In SP dan OSA (IM3, 3ID, IOH), diagregasi ke MC, Area dan Region, dibandingkan dengan pencapaian MTD.'],
@@ -347,6 +349,8 @@
     kroWl: [],
     kroWlText: '',
     kroProgUp: {},
+    prg: '',                 // Program & Tipe Outlet: selected programs joined by ~ ('' = all programs, '-' = none)
+    prgMode: 'any',          // any = union of the selected programs | all = outlets in every selected program
     kroClass: 'all',
     kroPer: 'pr',            // class period in the catalogue: fm (September) | pr (October projection)
     kroFlag: 'all',
@@ -664,7 +668,7 @@
       return '<tr data-terr-outlet="' + esc(o.outlet_key) + '" class="' + (isSelected ? 'sel' : '') + '" style="cursor:pointer;" tabindex="0">' +
         '<td class="cur">' + esc(o.outlet_name) + '<br><small style="color:var(--ij-muted); font-size:14px;">IM3: ' + esc(o.outlet_id_im3) + ' | 3ID: ' + esc(o.outlet_id_3id) + (o.partner_name_im3 ? ' &middot; ' + esc(o.partner_name_im3) : '') + '</small></td>' +
         '<td><code>' + esc(siteLabel) + '</code>' + distLabel + '</td>' +
-        '<td><b>' + esc(o.dse_name || o.dse_code_im3 || '—') + '</b><br><small style="color:var(--ij-muted);">' + esc(o.dse_code_im3 || '') + '</small></td>' +
+        '<td><b>' + esc(o.dse_name || o.dse_code_im3 || '—') + '</b><br><small style="color:var(--ij-muted);">' + esc(o.dse_code_im3 || '') + '</small>' + (o.flags ? '<br>' + flagChips(o.flags) : '') + '</td>' +
         '<td>' + esc(o.micro_cluster || '—') + '<br><small style="color:var(--ij-muted);">' + esc(o.dso_leader || '') + '</small></td>' +
         '<td>' + esc(o.branch || '—') + '<br><small style="color:var(--ij-muted);">' + esc(o.hoa_leader || '') + '</small></td>' +
         '<td>' + esc(o.kecamatan || '—') + '<br><small style="color:var(--ij-muted);">&gt; ' + esc(o.desa || '—') + '</small></td>' +
@@ -6606,24 +6610,24 @@
   function kroGrowTag(c, l) { return uarGTag(l > 0 ? (c / l - 1) * 100 : (c > 0 ? null : 0)); }
   function kroTd(inner, st) { return '<td class="num" style="' + (st || '') + '">' + inner + '</td>'; }
   /* ---------- slab standar table ---------- */
-  function kroSlabTable(K, rows, key) {
+  function kroSlabTable(K, rows, key, opt) {
     var M = K.metadata, cuts = M.cuts, hasFm = kroHasFm(key), ord = kroOrder(key).filter(function (c) { return c !== 'N'; }), unit = kroUnit(key), bn = kroKeyName(key), slimOk = !!kroSlim();
-    var uni = kroUniv(K).filter(kroInScope), T = kroAggP(uni, key), S = hasFm ? 'fm' : 'pr', Sc = hasFm ? 'cf' : 'cp', vs = {};
+    var uni = opt ? opt.uni : kroUniv(K).filter(kroInScope), GP = opt ? opt.grp : 'T', GK = opt ? opt.gk : 'T', T = kroAggP(uni, key), S = hasFm ? 'fm' : 'pr', Sc = hasFm ? 'cf' : 'cp', vs = {};
     rows.forEach(function (r) { var c = hasFm ? kroV(r, key).cf : kroV(r, key).cp; (vs[c] = vs[c] || []).push(r); });
     var totVol = T.p[S].vol, tot = { fm: T.p.fm.act, mt: T.p.mt.act };
     var per = [['fm', 'cf'], ['lm', 'cl'], ['mt', 'cm'], ['pr', 'cp']];
     function cnt(p, c) { return T.p[p].cls[c] || 0; }
     function vol(p, c) { return T.p[p].clsv[c] || 0; }
-    function cellC(p, tk, c, inner) { return (cnt(p, c) && (slimOk || kroRk(c) >= KRO_RANK.K1)) ? kroOv('T', 'T', tk + '_' + c, inner) : kroTd(slimOk || kroRk(c) >= KRO_RANK.K1 ? inner : '…'); }
+    function cellC(p, tk, c, inner) { return (cnt(p, c) && (slimOk || kroRk(c) >= KRO_RANK.K1)) ? kroOv(GP, GK, tk + '_' + c, inner) : kroTd(slimOk || kroRk(c) >= KRO_RANK.K1 ? inner : '…'); }
     var body = ord.map(function (c) {
-      var isR = kroCat(c) === 'R', st = (vs[c] && KRO_RANK[c] >= KRO_RANK.K1) ? kroVisitStat(vs[c]) : null, wait = isR && !slimOk, pS = hasFm ? 'cf' : 'cp';
+      var isR = kroCat(c) === 'R', st = (vs[c] && (opt || KRO_RANK[c] >= KRO_RANK.K1)) ? kroVisitStat(vs[c]) : null, wait = isR && !slimOk, pS = hasFm ? 'cf' : 'cp';
       var g = {};
       per.forEach(function (pk) { var p = pk[0], na = !kroHasP(key, p); g[p] = na ? kroTd(KRO_NA) + kroTd(KRO_NA) : cellC(p, pk[1], c, '<b>' + fmtCount(cnt(p, c)) + '</b>') + (wait ? kroTd('…') : cellC(p, pk[1], c, kroFmt(key, vol(p, c)))); });
       g.fm = hasFm ? g.fm + kroTd(wait ? '…' : pctOf(vol('fm', c), totVol) + '%') : kroTd(KRO_NA) + kroTd(KRO_NA) + kroTd(KRO_NA);
       if (hasFm) { }
       var gg = hasFm && !wait ? kroTd(kroSignedCnt(cnt('mt', c) - cnt('fm', c))) + kroTd(kroGrowTag(cnt('mt', c), cnt('lm', c))) + kroTd(kroSignedFmt(key, vol('mt', c) - vol('fm', c))) + kroTd(kroGrowTag(vol('mt', c), vol('lm', c))) : (hasFm ? kroTd('…') + kroTd('…') + kroTd('…') + kroTd('…') : kroTd(KRO_NA) + kroTd(KRO_NA) + kroTd(KRO_NA) + kroTd(KRO_NA));
       var actFm = T.p.fm.act, actMt = T.p.mt.act, ua = hasFm ? kroTd(wait ? '…' : kroPctv(cnt('fm', c), actFm)) + kroTd(wait ? '…' : kroPctv(cnt('mt', c), actMt)) : kroTd(KRO_NA) + kroTd(kroPctv(cnt('mt', c), actMt));
-      var mkv = function (sub, inner) { return cnt(Sc === 'cf' ? 'fm' : 'pr', c) ? kroOv('T', 'T', pS + '_' + c + '_' + sub, inner) : kroTd(inner); };
+      var mkv = function (sub, inner) { return cnt(Sc === 'cf' ? 'fm' : 'pr', c) ? kroOv(GP, GK, pS + '_' + c + '_' + sub, inner) : kroTd(inner); };
       var vsx = st ? mkv('v', st.vis) + mkv('nv', st.zero ? '<b style="color:#991b1b;">' + st.zero + '</b>' : '0') + mkv('v', kroPctv(st.vis, st.n)) + mkv('v', st.n ? (st.x / st.n).toFixed(1) : '·') + mkv('nd', st.nodse) : '<td colspan="5" class="note">Retail: kunjungan mengikuti PJP biasa</td>';
       return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;">' + kroTag(c, key) + '</td>' + (kroCgOn('fm') ? g.fm : '') + (kroCgOn('lm') ? g.lm : '') + (kroCgOn('mt') ? g.mt : '') + (kroCgOn('pr') ? g.pr : '') + (kroCgOn('gg') ? gg : '') + (kroCgOn('ua') ? ua : '') + (kroCgOn('vs') ? vsx : '') + '</tr>';
     }).join('');
@@ -6634,7 +6638,7 @@
     var head = kroHead2([kroTh2('Slab per bulan', true)], [
       { id: 'fm', cols: ['Outlet', unit, '% volume'] }, { id: 'lm', cols: ['Outlet', unit] }, { id: 'mt', cols: ['Outlet', unit] }, { id: 'pr', cols: ['Outlet', unit] },
       { id: 'gg', cols: ['Gap outlet', 'Growth outlet', 'Gap ' + unit, 'Growth ' + unit] }, { id: 'ua', cols: ['% aktif FM', '% aktif MTD'] }, { id: 'vs', cols: ['Success visit', 'Belum', '% dikunjungi', 'Check-in / outlet', 'Tanpa DSE'] }]);
-    return card('Slab standar · outlet dan volume per periode · ' + bn + ' · ' + esc(scopeText()), '<div class="map-toolbar" style="margin-bottom:8px;">' + kroCgBar(['fm', 'lm', 'mt', 'pr', 'gg', 'ua', 'vs']) + '</div>' +
+    return card(opt && opt.title ? opt.title : 'Slab standar · outlet dan volume per periode · ' + bn + ' · ' + esc(scopeText()), '<div class="map-toolbar" style="margin-bottom:8px;">' + kroCgBar(['fm', 'lm', 'mt', 'pr', 'gg', 'ua', 'vs']) + '</div>' +
       '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + body + totRow + '</tbody></table></div>' +
       '<p class="note">FM = September penuh · LMTD = 1–' + cuts.supply + ' September · MTD = 1–' + kroCut(key) + ' Oktober · Proyeksi = ' + (key === 'ga' ? 'MTD ÷ cut × 31' : 'run-rate 7 hari terakhir × 31') + '. Setiap periode memakai slab bulanan yang sama pada volume periode itu (LMTD dan MTD volume parsial, tanggal sama). Gap = MTD − FM (negatif = kurang dari September penuh); Growth = MTD ÷ LMTD − 1. UAR = outlet dengan volume > 0; % aktif = porsi outlet aktif di slab itu. Visit dihitung per slab ' + (hasFm ? 'September' : 'proyeksi') + ' dari check-in PJP selesai 1–' + cuts.visits + ' Okt. ' + (hasFm ? '' : '<b>n/a</b>: ' + esc(bn) + ' tidak punya September, jadi FM, LMTD, Gap dan Growth tidak ada. ') + (slimOk ? '' : 'Hitungan Retail menunggu kro_slim.js. ') + 'Klik angka untuk daftar outlet.</p>');
   }
@@ -6700,6 +6704,11 @@
   }
   function kroGMatch(r, grp, gk, key) {
     if (grp === 'T') return true;
+    if (grp === 'pg') {   // Program & Tipe Outlet: gk T = selected cohort, P:<program> = members of one program, A:<area> / M:<mc> inside the cohort
+      if (gk.indexOf('P:') === 0) return !!(_prgBy[gk.slice(2)] || {})[r.k];
+      if (!_prgSet[r.k]) return false; if (gk === 'T') return true;
+      if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); return false;
+    }
     if (grp === 'am') { if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); var m = /^MT:(.*):([WK])$/.exec(gk); return !!m && r.mc === m[1] && kroCat(kroTop(r, key)) === m[2]; }
     return kroGKey(r, grp, key) === gk;
   }
@@ -6716,8 +6725,15 @@
     var slabM = /^(cf|cl|cm|cp)_([A-Z]\d|N)(?:_(v|nv|nd))?$/.exec(met), mvM = /^(mv|ml)_(\w+?)_(\w+)$/.exec(met), perM = /^p(fm|lm|mt|pr)_([WKAU])$/.exec(met);
     var mapc = function (c) { return kroCat(c) === 'W' ? 'W' : (c || 'N'); };
     var inG = function (r) { return kroGMatch(r, grp, gk, key); };
+    if (grp === 'pg' && /^ALL(v|nv|nd)?$/.test(met)) {   // every outlet of the program cohort (or of one program / area / MC inside it)
+      if (!kroSlim()) lines.push('Daftar outlet Retail masih dimuat (kro_slim.js): tutup dan klik lagi dalam beberapa detik.');
+      L = kroUniv(K).filter(kroInScope).filter(inG);
+      if (met === 'ALLv') L = L.filter(function (r) { return r.v.x > 0; }); else if (met === 'ALLnv') L = L.filter(function (r) { return r.v.x === 0; }); else if (met === 'ALLnd') L = L.filter(function (r) { return kroFl(r, key).indexOf('NO_DSE') >= 0 || dseIsNone(r.dse); });
+      L.sort(function (a, b) { return (kroV(b, key).vm - kroV(a, key).vm) || (kroV(b, key).vp - kroV(a, key).vp); });
+      return kroMeasEntry({ ALL: 'Outlet pada program', ALLv: 'Outlet program yang sudah dikunjungi', ALLnv: 'Outlet program yang belum dikunjungi', ALLnd: 'Outlet program tanpa DSE' }[met] + ' · ' + kroKeyName(key) + (gk === 'T' ? '' : ' · ' + gk.replace(/^(A|M|P):/, '')), L, key, lines);
+    }
     if (slabM || mvM || perM) {
-      var needSlim = (slabM && kroCat(slabM[2]) === 'R') || (perM && perM[2] === 'U') || false, uni = needSlim ? kroUniv(K) : K.rows;
+      var needSlim = (slabM && kroCat(slabM[2]) === 'R') || (perM && perM[2] === 'U') || grp === 'pg', uni = needSlim ? kroUniv(K) : K.rows;
       if (needSlim && !kroSlim()) lines.push('Daftar outlet Retail / UAR masih dimuat (kro_slim.js): tutup dan klik lagi dalam beberapa detik.');
       L = uni.filter(kroInScope).filter(inG).filter(function (r) {
         if (slabM) { var p = KRO_PER_OF[slabM[1]], c = kroClsP(r, key, p), sub = slabM[3]; if (c !== slabM[2]) return false; if (sub === 'v') return r.v.x > 0; if (sub === 'nv') return r.v.x === 0; if (sub === 'nd') return kroFl(r, key).indexOf('NO_DSE') >= 0 || dseIsNone(r.dse); return true; }
@@ -7010,6 +7026,7 @@
       '<p class="note">Wholesaler = slab tertinggi (September atau proyeksi Oktober) kelas Wholesaler pada ' + esc(kroKeyName(key)) + '; KRO = kelas KRO. Volume per periode = ' + esc(unit) + ' kohort ini (FM September penuh, LMTD 1–' + M.cuts.supply + ' September, MTD 1–' + cut + ' Oktober, proyeksi). Gap = MTD − FM; Growth = MTD ÷ LMTD − 1' + (hasFm ? '' : ' (<b>n/a</b>: tidak ada September)') + '. Success visit = ≥ 1 check-in PJP selesai; belum = tidak ada check-in sampai ' + M.cuts.visits + ' Okt. <b>Kunjungan oleh DSO secara pribadi tidak ada</b> di ekspor MOBI journey plan (tanpa login DSO); tabel ini menghitung kunjungan semua DSE di MC milik DSO.</p>');
   }
   function kroCurrentList(K, rows, key) {
+    if (state.view === 'mb_program') return (_prgList || []).slice().sort(function (a, c) { return (c.q[key][3] || 0) - (a.q[key][3] || 0); });
     if (state.kroTab === 'aksi') return kroFilterRows(K, rows, key, true);
     var mode = state.kroTab === 'katalog' ? state.kroMode : 'slab';
     if (mode === 'wl' || mode === 'prog') {
@@ -7025,7 +7042,7 @@
     var hasFm = kroHasFm(key), lines = [['Area', 'MC', 'DSO', 'DSE', 'Sumber', 'Outlet', 'ID IM3', 'ID 3ID', 'Master', 'Kecamatan', 'Site', 'Produk', 'Slab Sep', 'Slab Okt (proyeksi)', 'Volume Sep', 'Volume MTD', 'Volume proyeksi', 'Kunjungan selesai', 'Kunjungan rencana', 'Flag'].map(q).join(',')];
     L.forEach(function (r) { var v = kroV(r, key); lines.push([r.br, r.mc, r.dso, r.dse, r.sg, r.n, r.id.IM3 || '', r.id['3ID'] || '', r.t === 'M' ? 'ya' : 'tidak', r.kec, r.site, kroKeyName(key), hasFm ? kroLabel(v.cf, key) : '', kroLabel(v.cp, key), hasFm ? v.vf : '', v.vm, v.vp, r.v.x, r.v.p, kroFl(r, key).map(function (f) { return (KRO_FLAGS[f] || [f])[0]; }).join('|')].map(q).join(',')); });
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'kro_' + key + '_' + (state.kroTab === 'katalog' ? (state.kroMode || 'slab') : state.kroTab) + '.csv'; a.click();
+    a.href = URL.createObjectURL(blob); a.download = state.view === 'mb_program' ? 'program_' + key + '.csv' : 'kro_' + key + '_' + (state.kroTab === 'katalog' ? (state.kroMode || 'slab') : state.kroTab) + '.csv'; a.click();
   }
   function viewKro() {
     var K = kroFeed(); if (!K) return card('Outlet & KRO Management', '<p class="note">Feed KRO belum dibangun. Jalankan <code>python3 scripts/build_kro_feed.py</code> setelah feed GA, penjualan, demand dan kunjungan tersedia.</p>');
@@ -7038,6 +7055,94 @@
     return kroRingkasan(K, rows, key);
   }
   var _kroLazy = null;   // resolver for the clickable counts (popup keys 'kr|...')
+
+  /* ================= PROGRAM & TIPE OUTLET · program flags (toggle) with the same analysis as Outlet & KRO Management =================
+     Programs come from data/catalogues/kro_program_outlets.csv (outlet types of catalogue 202610 plus BOSS / Tebus Murah when listed) and from uploaded CSV files.
+     Cohort = union (any) or intersection (all) of the selected programs; popup keys  kr|pg|<T | P:program | A:area | M:mc>|<ALL | ALLv | ALLnv | ALLnd | p<per>_U | cf_/cl_/cm_/cp_<slab>[_v|_nv|_nd]> */
+  var _prgSet = {}, _prgBy = {}, _prgList = [];
+  function prgNames(K) { return kroProgNames(K).filter(function (n) { return kroProgMembers(K, n).length; }); }
+  function prgSelected(K) {
+    var names = prgNames(K), raw = state.prg || '';
+    if (raw === '-') return [];
+    var s = raw.split('~').filter(function (x) { return x && names.indexOf(x) >= 0; });
+    return s.length ? s : names;
+  }
+  function prgCohort(K, sel, mode) {
+    var by = {}, rowOf = {}, keys = null;
+    prgNames(K).forEach(function (n) { var set = {}; kroResolve(K, kroProgMembers(K, n)).found.forEach(function (r) { set[r.k] = r; }); by[n] = set; });
+    sel.forEach(function (n) {
+      var set = by[n]; Object.keys(set).forEach(function (k) { rowOf[k] = set[k]; });
+      if (mode === 'all') keys = keys === null ? Object.keys(set) : keys.filter(function (k) { return set[k]; });
+    });
+    if (mode !== 'all') keys = Object.keys(rowOf);
+    keys = keys || [];
+    var set = {}; keys.forEach(function (k) { set[k] = 1; });
+    return { rows: keys.map(function (k) { return rowOf[k]; }), set: set, by: by };
+  }
+  function prgLine(label, ket, gk, sub, key, style, indent) {
+    var ag = kroAggP(sub, key), vs = kroVisitStat(sub), hasFm = kroHasFm(key), ink = /ink/.test(style || ''), ov = function (met, inner) { return kroOv('pg', gk, met, inner); };
+    var cs = ' style="' + DK_STICKY + (ink ? ' background:var(--ink); color:#fff;' : ' background:#fff;') + (indent ? ' padding-left:' + indent + 'px;' : '') + '"';
+    var vol = function (p) { return kroHasP(key, p) ? kroTd(kroFmt(key, ag.p[p].vol)) : kroTd(KRO_NA); };
+    var gap = hasFm ? kroTd(kroSignedFmt(key, ag.p.mt.vol - ag.p.fm.vol)) + kroTd(kroGrowTag(ag.p.mt.vol, ag.p.lm.vol)) : kroTd(KRO_NA) + kroTd(KRO_NA);
+    var red = function (n) { return n ? '<b style="color:' + (ink ? '#fff' : '#991b1b') + ';">' + fmtCount(n) + '</b>' : '0'; };
+    var pb = hasFm ? 'fm' : 'pr', kw = ag.p[pb].w + ag.p[pb].k;
+    return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur"' + cs + '>' + label + '</td><td>' + ket + '</td>' +
+      ov('ALL', fmtCount(sub.length)) + ov('ALLv', fmtCount(vs.vis)) + ov('ALLnv', red(vs.zero)) + kroTd(sub.length ? pctOf(vs.vis, sub.length) + '%' : '·') + ov('ALLnd', fmtCount(vs.nodse)) +
+      vol('fm') + vol('lm') + vol('mt') + vol('pr') + gap + (hasFm ? ov('pfm_U', kroPctv(ag.p.fm.act, ag.n)) : kroTd(KRO_NA)) + ov('pmt_U', kroPctv(ag.p.mt.act, ag.n)) + kroTd(fmtCount(kw)) + '</tr>';
+  }
+  function prgHead(first, key) {
+    var u = kroUnit(key);
+    return '<tr>' + dkStickyTh(first, 1) + th('Ket.') + th('Outlet', 1) + th('Dikunjungi ≥ 1×', 1) + th('Belum dikunjungi', 1) + th('% dikunjungi', 1) + th('Tanpa DSE', 1) + th('FM Sep · ' + u, 1) + th('LMTD Sep', 1) + th('MTD Okt', 1) + th('Proyeksi Okt', 1) +
+      th('Gap MTD−FM', 1) + th('Growth vs LMTD', 1) + th('UAR FM', 1) + th('UAR MTD', 1) + th('KRO + Wholesaler', 1) + '</tr>';
+  }
+  function viewProgram() {
+    var K = kroFeed(); if (!K) return card('Program & Tipe Outlet', '<p class="note">Feed KRO belum dibangun. Jalankan <code>python3 scripts/build_kro_feed.py</code> setelah feed GA, penjualan, demand dan kunjungan tersedia.</p>');
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
+    _kroLazy = kroLazy; ovLazy('kr', kroLazy); var slim = kroSlim();
+    var key = kroKey(), prod = kroProd(), meas = kroMeas(), names = prgNames(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
+    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by;
+    var L = C.rows.filter(kroInScope); _prgList = L;
+    _ovScope = scopeText() + ' · Program ' + (sel.join(mode === 'all' ? ' ∩ ' : ' + ') || '—') + ' · ' + kroKeyName(key) + ' · FM = September penuh · LMTD = 1–cut September · MTD = Oktober';
+    var bar = sellinBtnGroup('Produk', 'kro-prod', KRO_PRODS, prod) + ((prod === 'vc' || prod === 'sl') ? sellinBtnGroup('Ukuran', 'kro-meas', [['si', '⬇️ SELL IN · MOBII'], ['so', prod === 'vc' ? '⬆️ SELL OUT · Voucher Injection (MOBO)' : '⬆️ SELL OUT · Saldo Mobo SALMO (MOBO)']], meas) : '');
+    var head = '<div class="map-toolbar" style="margin-top:8px;">' + bar + '</div><p class="note" style="margin:6px 0 0;">Slab standar · ' + esc(kroKeyName(key)) + ': ' + kroLadderNote(key) + '</p><p class="note" style="margin:4px 0 0;">' + kroProductNote(key) + '</p>';
+    if (!names.length) return card('Program & Tipe Outlet', head + '<p class="note"><b>Belum ada daftar anggota program.</b> Isi <code>data/catalogues/kro_program_outlets.csv</code> (kolom <code>program,outlet_id</code>) atau jalankan <code>python3 scripts/build_catalogue_overlay_inputs.py</code>, lalu <code>python3 scripts/build_kro_feed.py</code>.</p>');
+    var tg = names.map(function (n) { var on = sel.indexOf(n) >= 0; return '<button type="button" class="map-btn' + (on ? ' active' : '') + '" role="switch" aria-checked="' + on + '" data-prg-toggle="' + esc(n) + '" title="Klik untuk menyalakan atau mematikan program ini">' + (on ? '☑ ' : '☐ ') + esc(n) + ' (' + fmtCount(Object.keys(C.by[n]).length) + ')</button>'; }).join('');
+    var form = card('Program flags · nyalakan satu atau beberapa program', '<div class="map-toolbar"><div class="map-toolbar-group"><span class="map-label">Program:</span>' + tg + '</div></div>' +
+      '<div class="map-toolbar" style="margin-top:6px;">' + sellinBtnGroup('Gabungkan', 'prg-mode', [['any', 'Salah satu program (gabungan)'], ['all', 'Ada di semua program terpilih (irisan)']], mode) +
+      '<div class="map-toolbar-group"><button type="button" class="btn" data-act="prg-all">Semua</button><button type="button" class="btn" data-act="prg-none">Kosongkan</button><button type="button" class="btn" data-act="kro-export">📥 Unduh daftar (CSV)</button></div></div>' +
+      '<p class="note">Satu outlet dihitung sekali walau ada di beberapa program. Angka dalam kurung = outlet yang ditemukan di feed (sebelum filter wilayah). Flag tipe outlet berasal dari <code>CATALAGUE_INNER_JAKARTA_202610.xlsb</code> (OUTLET IOH 2 Okt untuk KRO / WS, IOH_Outlet 19 Okt untuk DTU / AVA / Wholesaler / Promotor); BOSS dan Tebus Murah belum punya daftar anggota.</p>' +
+      (!slim && !state._kroSlimError ? '<p class="note">Memuat daftar outlet Retail (kro_slim.js)… angka akan bertambah setelah selesai.</p>' : (state._kroSlimError ? '<p class="note" style="color:#991b1b;">kro_slim.js tidak bisa dimuat: hanya outlet berslab KRO ke atas yang tampil.</p>' : '')));
+    if (!L.length) return card('Program & Tipe Outlet', head) + form + '<p class="note" style="margin-top:8px;">Tidak ada outlet pada program dan filter terpilih.</p>';
+    var M = K.metadata, cuts = M.cuts, hasFm = kroHasFm(key), ag = kroAggP(L, key), vs = kroVisitStat(L), n = L.length, cut = kroCut(key), unit = kroUnit(key);
+    var fl = {}; L.forEach(function (r) { kroFl(r, key).forEach(function (f) { fl[f] = (fl[f] || 0) + 1; }); });
+    var flLine = Object.keys(KRO_FLAGS).filter(function (f) { return fl[f]; }).map(function (f) { return KRO_FLAGS[f][0] + ' ' + fmtCount(fl[f]); }).join(' · ') || 'tidak ada flag aksi';
+    var vf = ag.p.fm.vol, vl = ag.p.lm.vol, vm = ag.p.mt.vol, vp = ag.p.pr.vol, pro = vf * cut / 30;
+    var cards = '<div class="kpis" style="margin-top:10px;">' +
+      ovK('kr|pg|T|ALL', 'Outlet pada program terpilih', fmtCount(n), esc(sel.join(mode === 'all' ? ' ∩ ' : ' + ')), 'flat', 'W ' + fmtCount(ag.p.pr.w) + ' · K ' + fmtCount(ag.p.pr.k) + ' · Retail ' + fmtCount(ag.p.pr.r) + ' pada slab proyeksi Okt · ' + esc(scopeText())) +
+      ovK('kr|pg|T|ALLv', 'Success visit', fmtCount(vs.vis) + ' / ' + fmtCount(n), kroPctv(vs.vis, n) + ' dikunjungi minimal 1× (check-in PJP selesai) · ' + fmtCount(vs.x) + ' check-in selesai', n && vs.vis / n >= 0.9 ? 'up' : 'down', 'sampai ' + cuts.visits + ' Okt') +
+      ovK('kr|pg|T|ALLnv', 'BELUM dikunjungi', fmtCount(vs.zero), kroPctv(vs.zero, n) + ' dari ' + fmtCount(n) + ' outlet · ' + fmtCount(vs.nodse) + ' tanpa DSE', vs.zero ? 'down' : 'up', fmtCount(vs.low) + ' kunjungan kurang (sebagian besar KRO / Wholesaler)') +
+      (hasFm ? kpi(kroKeyName(key) + ' · MTD vs laju September', kroFmt(key, vm), (pro ? gtPctTxt((vm / pro - 1) * 100) : '—') + ' vs laju September (' + kroFmt(key, pro) + ') · growth vs LMTD ' + (vl ? gtPctTxt((vm / vl - 1) * 100) : '—'), pro && vm >= pro ? 'up' : 'down', 'FM ' + kroFmt(key, vf) + ' · LMTD ' + kroFmt(key, vl) + ' · proyeksi Okt ' + kroFmt(key, vp))
+        : kpi(kroKeyName(key) + ' · MTD dan proyeksi', kroFmt(key, vm), 'proyeksi bulan penuh ' + kroFmt(key, vp), 'flat', 'tanpa September, jadi tanpa perbandingan')) +
+      ovK('kr|pg|T|pmt_U', 'Outlet aktif (UAR) MTD', fmtCount(ag.p.mt.act) + ' / ' + fmtCount(n), kroPctv(ag.p.mt.act, n) + (hasFm ? ' · September ' + kroPctv(ag.p.fm.act, n) : ''), hasFm && ag.p.fm.act && ag.p.mt.act / n >= ag.p.fm.act / n ? 'up' : 'down', 'volume > 0 pada ' + esc(kroKeyName(key))) + '</div>' +
+      '<p class="note">Flag aksi pada outlet program: ' + esc(flLine) + '.</p>';
+    var slab = kroSlabTable(K, L, key, { uni: L, grp: 'pg', gk: 'T', visitAll: true, title: 'Slab standar · outlet dan volume per periode · ' + kroKeyName(key) + ' · program ' + esc(sel.join(mode === 'all' ? ' ∩ ' : ' + ')) });
+    var progRows = names.map(function (nm) { var sub = Object.keys(C.by[nm]).map(function (k) { return C.by[nm][k]; }).filter(kroInScope); return prgLine('<b>' + esc(nm) + '</b>' + (sel.indexOf(nm) >= 0 ? '' : ' <span class="note">(mati)</span>'), 'program', 'P:' + nm, sub, key); }).join('');
+    var progTbl = card('Perbandingan antar program · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + prgHead('Program', key) + '</thead><tbody>' + progRows + prgLine('<b>TOTAL terpilih</b>', mode === 'all' ? 'irisan' : 'gabungan', 'T', L, key, 'background:var(--ink); color:#fff; font-weight:800;') + '</tbody></table></div>' +
+      '<p class="note">Setiap baris program dihitung dari seluruh anggotanya (di lingkup filter) walau programnya sedang mati; baris TOTAL hanya program yang menyala. Klik angka untuk daftar outlet, FM / LMTD / MTD, gap dan growth.</p>');
+    var byA = {}, ord = [];
+    L.forEach(function (r) { if (!byA[r.br]) { byA[r.br] = {}; ord.push(r.br); } (byA[r.br][r.mc] = byA[r.br][r.mc] || []).push(r); });
+    ord.sort(function (a, b) { var s = function (x) { return Object.keys(byA[x]).reduce(function (t, m) { return t + byA[x][m].length; }, 0); }; return s(b) - s(a); });
+    var rowsAM = ord.map(function (a) {
+      var all = []; Object.keys(byA[a]).forEach(function (m) { all = all.concat(byA[a][m]); });
+      return prgLine('<b>' + esc(a) + '</b>', 'Area', 'A:' + a, all, key, 'background:var(--ij-wash, #f6f4f1);') +
+        Object.keys(byA[a]).sort(function (x, y) { return byA[a][y].length - byA[a][x].length; }).map(function (m) { var mi = (M.mc_info || {})[m] || {}; return prgLine(esc(m), 'DSO ' + esc(mi.dso || '—'), 'M:' + m, byA[a][m], key, '', 16); }).join('');
+    }).join('');
+    var amTbl = card('Per Area › MC · program terpilih · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + prgHead('Area › MC', key) + '</thead><tbody>' + rowsAM + '</tbody></table></div>' +
+      '<p class="note">FM = September penuh · LMTD = 1–' + cuts.supply + ' September · MTD = 1–' + cut + ' Oktober · Proyeksi = ' + (key === 'ga' ? 'MTD ÷ cut × 31' : 'run-rate 7 hari terakhir × 31') + '. UAR = outlet dengan volume &gt; 0 pada periode itu. KRO + Wholesaler = outlet berslab KRO ke atas ' + (hasFm ? 'pada September' : 'pada proyeksi Oktober') + '.</p>');
+    var q = (state.kroSearch || '').toLowerCase(), Ls = L.filter(function (r) { return kroMatchSearch(r, q); }).sort(function (a, c) { return (c.q[key][3] || 0) - (a.q[key][3] || 0); });
+    var list = kroTable(Ls, key, false, 'Daftar outlet program · ' + kroKeyName(key), kroSearchBar(), 'Diurutkan menurut volume proyeksi Oktober.');
+    return card('Program & Tipe Outlet', head) + form + cards + slab + progTbl + amTbl + list;
+  }
 
   /* ================= SLAB SELL-IN / GA SP / SALDO · bulan lalu (FM dan LMTD) vs bulan ini (MTD), flag gap ================= */
   var SG_PCS = [[101, Infinity, '> 100'], [61, 100, '60–100'], [31, 60, '30–60'], [11, 30, '10–30'], [1, 10, '1–10']];   // [from, to, label]; the upper bound belongs to the lower slab
@@ -8978,7 +9083,7 @@
     var mcs = KEC.filter(function (r) { return !state.branch || r.branch === state.branch; }).map(function (r) { return r.kec; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
     function sel(f, label, vals, cur, allLbl) {
       return '<label class="field" style="min-width:300px;">' + label + '<select data-f="' + f + '" style="font-size:16px; padding:9px 12px;"><option value="">' + allLbl + '</option>' +
-        vals.map(function (v) { return '<option' + (cur === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') + '</select></label>';
+        vals.map(function (v) { return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(f === 'branch' ? brLabel(v) : v) + '</option>'; }).join('') + '</select></label>';
     }
     var dseList = dseDir().filter(dseInHeaderScope);
     var dseSel = '<label class="field" style="min-width:300px;">DSE · nama / kode<select data-dse-sel="1" style="font-size:16px; padding:9px 12px;" aria-label="Pilih DSE di dalam teritori terpilih"><option value="">— Semua DSE (' + fmtCount(dseList.length) + ') —</option>' +
@@ -9192,7 +9297,13 @@
       var br_ = B.rows.filter(opdIn), nN = br_.length, brD = br_.filter(function (r) { return !dseIsNone(r.dse); }), nD2 = brD.length, nvL = brD.filter(function (r) { return B.nv[r.k]; }),   // PJP coverage is measured on outlets that have a DSE; outlets without a DSE have no PJP (their ad-hoc visits are excluded)
          z0L = br_.filter(function (r) { return r.mtdSP <= 0; }), zgL = B.hasGa ? br_.filter(function (r) { return r.ga <= 0; }) : [];
       var zbL = B.hasEb ? br_.filter(function (r) { return r.hasEb && opdBal(r) <= 0; }) : [], noAcc = B.hasEb ? br_.filter(function (r) { return !r.hasEb; }).length : 0;
+      var zsL = br_.filter(function (r) { return r.mtdSAL <= 0; }), zAll = B.hasGa ? br_.filter(function (r) { return r.ga <= 0 && r.mtdSP <= 0 && r.mtdSAL <= 0; }) : [];
+      var zFlags = function (r) { var f = []; if (B.hasGa && r.ga <= 0) f.push('GA'); if (r.mtdSP <= 0) f.push('SP'); if (r.mtdSAL <= 0) f.push('SALMO'); return f; };
+      var zAny = br_.filter(function (r) { return zFlags(r).length > 0; });   // scorecard: outlets with at least one zero among GA, SP sell-in and SALMO this month (MTD)
       var oc = ['Outlet', 'ID', 'MC', 'DSE'], of = function (r) { return [r.n, r.id, r.mc, r.dse]; };
+      ovAdd('h_zero', 'Scorecard outlet nol MTD (GA · Sell-In SP · SALMO) · nol terbanyak dulu, lalu order September terbesar', oc.concat(['GA MTD', 'SP MTD (pcs)', 'SALMO MTD', 'Nol di', 'Order Sep']), ovRows(zAny.slice().sort(function (a, b) { return zFlags(b).length - zFlags(a).length || b.sepT - a.sepT; }), function (r) { var f = zFlags(r); return of(r).concat([B.hasGa ? ovN(r.ga) : '—', ovN(r.mtdSP), pjRp(r.mtdSAL), f.join(' + '), pjRp(r.sepT)]); }, 1500), [ovN(zAny.length) + ' outlet PJP dengan minimal satu nol bulan ini (' + ovP(ovPct(zAny.length, nN)) + ' dari ' + ovN(nN) + '): GA ' + (B.hasGa ? ovN(zgL.length) : '—') + ' · Sell-In SP ' + ovN(z0L.length) + ' · SALMO ' + ovN(zsL.length) + ' · ketiganya nol ' + (B.hasGa ? ovN(zAll.length) : '—'), 'Nol = tidak ada transaksi 1–' + (B.cutDay || '') + ' Okt: GA (raw/GA), Sell-In SP (MOBII, semua SP termasuk SP0) dan Saldo Mobo SALMO sell-in (MOBII)']);
+      ovAdd('h_sal0', 'Outlet tanpa SALMO sell-in MTD · saldo September terbesar dulu', oc.concat(['SALMO Sep', 'SP MTD (pcs)']), ovRows(zsL.slice().sort(function (a, b) { return b.sepSAL - a.sepSAL || b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepSAL), ovN(r.mtdSP)]); }, 1500), [ovN(zsL.length) + ' outlet PJP dengan SALMO sell-in MTD = 0 (' + ovP(ovPct(zsL.length, nN)) + ')']);
+      ovAdd('h_zall', 'Outlet nol di GA, Sell-In SP dan SALMO sekaligus · order September terbesar dulu', oc.concat(['Order Sep', 'Demand MTD']), ovRows(zAll.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepT), pjRp(r.dem)]); }, 1500), [ovN(zAll.length) + ' outlet PJP tanpa GA, tanpa Sell-In SP dan tanpa SALMO sell-in MTD (outlet tidur)']);
       ovAdd('h_vis', 'Outlet divisit vs total · cakupan per MC (terendah dulu)', ['MC', 'Outlet PJP', 'Divisit', 'Belum', '%'], (function () { var g = {}; brD.forEach(function (r) { var x = g[r.mc] || (g[r.mc] = { n: 0, nv: 0 }); x.n++; if (B.nv[r.k]) x.nv++; }); return Object.keys(g).sort(function (a, b) { return (1 - g[a].nv / g[a].n) - (1 - g[b].nv / g[b].n); }).map(function (k) { var x = g[k]; return [k, ovN(x.n), ovN(x.n - x.nv), ovN(x.nv), ovP((x.n - x.nv) / x.n * 100)]; }); })(), ['Divisit ' + ovN(nN - nvL.length) + ' dari ' + ovN(nN) + ' outlet PJP (' + ovP(ovPct(nN - nvL.length, nN)) + ')']);
       ovAdd('h_nv', 'Outlet belum divisit MTD · order September terbesar dulu', oc.concat(['Order Sep', 'Demand MTD']), ovRows(nvL.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat([pjRp(r.sepT), pjRp(r.dem)]); }, 300), [ovN(nvL.length) + ' outlet ber-DSE tanpa check-in sejak 1 Okt (' + ovP(ovPct(nvL.length, nD2)) + ' dari ' + ovN(nD2) + ' outlet ber-DSE; ' + ovN(nN - nD2) + ' outlet PJP tanpa DSE tidak punya PJP dan tidak dihitung)']);
       ovAdd('h_sp0', 'Outlet tanpa Sell-In SP MTD · SP September terbesar dulu', oc.concat(['SP Sep (pcs)', 'Order Sep']), ovRows(z0L.slice().sort(function (a, b) { return b.sepSPq - a.sepSPq || b.sepT - a.sepT; }), function (r) { return of(r).concat([ovN(r.sepSPq), pjRp(r.sepT)]); }, 300), [ovN(z0L.length) + ' outlet PJP dengan SP Sell-In MTD = 0 (' + ovP(ovPct(z0L.length, nN)) + ')']);
@@ -9203,6 +9314,9 @@
         ovK('h_nv', 'Outlet belum divisit MTD', ovN(nvL.length), ovP(ovPct(nvL.length, nD2)) + ' dari ' + ovN(nD2) + ' outlet ber-DSE', nvL.length ? 'down' : 'up', 'Tanpa check-in sejak 1 Okt (PJP)'),
         ovK('h_sp0', 'Outlet tanpa Sell-In SP MTD', ovN(z0L.length), ovP(ovPct(z0L.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP', z0L.length ? 'down' : 'up', 'SP Sell-In MTD = 0 pcs'),
         ovK('h_ga0', 'Outlet tanpa GA MTD', B.hasGa ? ovN(zgL.length) : '—', B.hasGa ? ovP(ovPct(zgL.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP' : 'feed GA belum dimuat', zgL.length ? 'down' : 'up', 'GA MTD = 0 (raw/GA)'),
+        ovK('h_zero', 'Scorecard outlet nol MTD', ovN(zAny.length), ovP(ovPct(zAny.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP · minimal 1 nol', zAny.length ? 'down' : 'up', 'GA ' + (B.hasGa ? ovN(zgL.length) : '—') + ' · SP ' + ovN(z0L.length) + ' · SALMO ' + ovN(zsL.length) + ' · ketiganya ' + (B.hasGa ? ovN(zAll.length) : '—')),
+        ovK('h_sal0', 'Outlet tanpa SALMO sell-in MTD', ovN(zsL.length), ovP(ovPct(zsL.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP', zsL.length ? 'down' : 'up', 'SALMO sell-in MTD = Rp 0'),
+        ovK('h_zall', 'Outlet nol di GA + SP + SALMO', B.hasGa ? ovN(zAll.length) : '—', B.hasGa ? ovP(ovPct(zAll.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP (outlet tidur)' : 'feed GA belum dimuat', zAll.length ? 'down' : 'up', 'Ketiganya = 0 pada MTD'),
         ovK('h_bal0', 'Outlet saldo nol (ENDBAL)', B.hasEb ? ovN(zbL.length) : '—', B.hasEb ? ovP(ovPct(zbL.length, nN)) + ' dari ' + ovN(nN) + ' · ' + ovN(noAcc) + ' tanpa rekening' : 'feed ENDBAL belum dimuat', zbL.length ? 'down' : 'up', 'Snapshot ' + (B.E && B.E.metadata ? B.E.metadata.snapshot : '—'))]);
     }
     if (healthHtml) out.splice(afterPjp, 0, healthHtml);   // Kesehatan outlet right after PJP and Effective Call
@@ -9234,6 +9348,7 @@
       (e.lines.length ? '<ul class="ov-lines">' + e.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       '<div class="ov-body"><table class="tbl" data-nosort="1"><thead><tr><th class="num">#</th>' + e.cols.map(function (c, i) { return '<th data-col="' + i + '" style="cursor:pointer; white-space:nowrap;"' + (i >= numFrom ? ' class="num"' : '') + '>' + esc(c) + (st.col === i ? (st.dir > 0 ? ' ▲' : ' ▼') : ' <span style="opacity:.3;">⇅</span>') + '</th>'; }).join('') + '</tr></thead><tbody>' +
       (shown.map(function (r, i) { return '<tr><td class="num">' + (i + 1) + '</td>' + r.map(function (c, j) { return '<td' + (j >= numFrom ? ' class="num"' : '') + '>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="' + (e.cols.length + 1) + '" class="note">Tidak ada data pada teritori ini.</td></tr>') + '</tbody></table>' + (rows.length > shown.length ? '<p class="note">Menampilkan ' + shown.length + ' dari ' + fmtCount(rows.length) + ' baris; tombol Salin membawa semua baris dengan urutan yang sedang tampil.</p>' : '') + '</div></div>';
+    el.innerHTML = brRelabelHtml(el.innerHTML); dseFlagEnhance(el);
   }
   function ovOpen(key) {
     var e = ovEntry(key); if (!e || typeof document === 'undefined') return;
@@ -9581,7 +9696,7 @@
         return '<tr><td class="cur"><code>' + esc(r[0]) + '</code></td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>';
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
-  var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   /* ---------- shell: filters, header, events ---------- */
   function $(s) { return typeof document !== 'undefined' && document.querySelector ? document.querySelector(s) : null; }
@@ -9669,7 +9784,7 @@
       var pool = KEC.filter(function (r) { return up.every(function (u) { return !state[u[0]] || r[u[0]] === state[u[0]]; }); });
       var vals = pool.map(function (r) { return r[f[0]]; }).filter(function (v, j, a) { return a.indexOf(v) === j; });
       return '<label class="field">' + f[1] + '<select data-f="' + f[0] + '"><option value="">All</option>' + vals.map(function (v) {
-        return '<option' + (state[f[0]] === v ? ' selected' : '') + '>' + esc(v) + '</option>';
+        return '<option value="' + esc(v) + '"' + (state[f[0]] === v ? ' selected' : '') + '>' + esc(f[0] === 'branch' ? brLabel(v) : v) + '</option>';
       }).join('') + '</select></label>';
     }).join('');
     html += dseHeaderHtml();
@@ -9879,6 +9994,55 @@
     if (cur && cur.col === col && cur.dir === dir) { delete TSORT[info.key]; tsApply(info, col, null); }   // pressing the active arrow again restores the original order
     else { TSORT[info.key] = { col: col, dir: dir }; tsApply(info, col, dir); }
   }
+  /* ================= FLAGS (catalogue 202610) and the KOTA BEKASI label ================= */
+  var FLAG_INFO = {
+    TIDAK_ADA_DI_FINAL_20OKT: ['Tidak di FINAL 20 Okt', 'warn', 'Outlet tidak ada di FINAL_20261020: disimpan sebagai histori tanpa DSE (non-PJP).'],
+    DSE_TUKAR_PERLU_CEK: ['DSE tukar · cek', 'warn', 'Outlet bertukar DSE dengan DSE lain pada FINAL_20261020. FINAL dipakai; perlu verifikasi dengan DSO.'],
+    ID_PERLU_VERIFIKASI: ['ID perlu verifikasi', 'warn', 'Login DSE berubah di katalog 202610, atau satu id 3ID dipakai lebih dari satu IM3: id perlu diverifikasi.'],
+    LOGIN_SEMENTARA: ['Login sementara', 'alert', 'Login sementara yang belum digabung ke DSE (data/catalogues/dse_login_sementara.csv).'],
+    DSE_IM3_3ID_BEDA: ['DSE IM3 ≠ 3ID', '', 'DSE untuk id IM3 dan id 3ID outlet ini berbeda di FINAL; DSE id IM3 dipakai.'],
+    PAIR_DIUBAH_CATALOGUE: ['Pairing baru (katalog)', '', 'Pasangan IM3-3ID baru dari katalog 202610 yang didukung FINAL (DSE sama).'],
+    PAIR_DIPISAH: ['Pairing dipisah', '', 'Id dilepas dari pasangan lama karena pasangan baru atau aturan 3ID ganda.'],
+    PAIR_3ID_GANDA: ['3ID dipakai >1 IM3', 'warn', 'Satu id 3ID dipakai lebih dari satu IM3; satu IM3 menjadi pasangan primer.']
+  };
+  function flagChip(f, note) { var x = FLAG_INFO[f] || [f, '', '']; return '<span class="flag-chip' + (x[1] ? ' ' + x[1] : '') + '" title="' + esc((note ? note + ' · ' : '') + x[2]) + '">' + esc(x[0]) + '</span>'; }
+  function flagChips(s) { return String(s || '').split('|').filter(Boolean).map(function (f) { return flagChip(f); }).join(''); }
+  /* DSE and login flags (website/data/dse_flags.js, keys = upper-case DSE name or login): small chips under a DSE name in any table */
+  function dseFlagEnhance(root) {
+    var F = (typeof window !== 'undefined' && window.DSE_FLAGS) ? window.DSE_FLAGS : null;
+    if (!F || !root || !root.querySelectorAll) return;
+    var up = function (s) { return String(s || '').replace(/\.0$/, '').trim().toUpperCase(); };
+    [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      var seen = {};
+      [].forEach.call(tb.querySelectorAll('td'), function (td) {
+        if (td.querySelector('.dse-flag') || td.colSpan > 2) return;
+        var cands = [], b = td.querySelector('b');
+        if (b) cands.push(up(b.textContent));
+        [].forEach.call(td.querySelectorAll('span.note, small'), function (s) { cands.push(up(s.textContent)); });
+        if (!td.children.length) cands.push(up(td.textContent));
+        var m = up(td.textContent).match(/^([A-Z0-9][A-Z0-9 .'\-]*?)(?:\s*[·(]|\s+RURAL\b|$)/); if (m) cands.push(m[1].trim());
+        var n = cands.filter(function (c) { return c && F[c]; })[0], hit = n ? F[n] : null; if (!hit) return;
+        var tip = hit.map(function (x) { return x.n + (x.o ? ' · dugaan pemilik: ' + x.o : ''); }).join(' | ');
+        if (seen[n]) { td.title = (td.title ? td.title + ' | ' : '') + tip; return; }
+        seen[n] = 1;
+        var d = document.createElement('div'); d.className = 'dse-flag';
+        d.innerHTML = hit.map(function (x) { return flagChip(x.f, (x.n || '') + (x.o ? ' · dugaan pemilik: ' + x.o : '')); }).join('');
+        td.appendChild(d);
+      });
+    });
+  }
+  /* Branch BEKASI (Kota Bekasi) is shown as KOTA BEKASI (owner, 21 Oct 2026). Only the label changes: feeds, filter values and shared links keep BEKASI,
+     so links made before still open. Applied to the text of the rendered HTML (never to attributes); KAB BEKASI, MC-BEKASI … and kecamatan such as BEKASI UTARA stay. */
+  function brLabel(v) { return v === 'BEKASI' ? 'KOTA BEKASI' : v; }
+  function brRelabelText(tx) {
+    if (tx.indexOf('BEKASI') < 0 || tx.indexOf('&gt;') >= 0) return tx;
+    return tx.replace(/BEKASI/g, function (w, off, s) {
+      var pre = off > 0 ? s.charAt(off - 1) : '', nxt = s.charAt(off + 6), before = s.slice(Math.max(0, off - 5), off), after = s.slice(off + 6, off + 14);
+      if (/[A-Za-z0-9\-]/.test(pre) || /[A-Za-z0-9\-]/.test(nxt) || /KAB $|KOTA $/.test(before) || /^ (UTARA|SELATAN|TIMUR|BARAT|TENGAH)/.test(after)) return w;
+      return 'KOTA BEKASI';
+    });
+  }
+  function brRelabelHtml(html) { return String(html).replace(/>([^<>]+)</g, function (m, tx) { return '>' + brRelabelText(tx) + '<'; }); }
   function render() {
     cleanupStaleMaps();
     dseSync();
@@ -9887,8 +10051,8 @@
     if (t) t.textContent = META[state.view][0];
     if (p) p.textContent = META[state.view][1];
     if (c) { c.setAttribute('role', 'button'); c.setAttribute('tabindex', '0'); c.style.cursor = 'pointer'; c.textContent = cutLabel() + ' · Governed Local Feed ▾'; c.title = 'Klik untuk checklist kelengkapan data. PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
-    if (s) s.textContent = scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : '');
-    if (v) { v.innerHTML = VIEWS[state.view](); tsEnhance(v); dseCoverEnhance(v); }
+    if (s) s.textContent = brRelabelText(scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : ''));
+    if (v) { v.innerHTML = brRelabelHtml(VIEWS[state.view]()); tsEnhance(v); dseCoverEnhance(v); dseFlagEnhance(v); }
     rtSync();
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
     if (typeof document !== 'undefined' && document.querySelectorAll) {
@@ -10056,6 +10220,10 @@
     else if (t.hasAttribute('data-kro-mode')) { state.kroMode = t.getAttribute('data-kro-mode'); state.kroPage = 1; state.kroSearch = ''; }
     else if (t.hasAttribute('data-kro-prog')) { state.kroProg = t.getAttribute('data-kro-prog'); state.kroPage = 1; }
     else if (t.hasAttribute('data-kro-cg')) { var kc = kroCg(), kid = t.getAttribute('data-kro-cg'); kc[kid] = kc[kid] ? 0 : 1; try { localStorage.setItem('kroCols', JSON.stringify(kc)); } catch (e) { /* private window */ } }
+    else if (t.hasAttribute('data-prg-toggle')) { var pK = kroFeed(), pn = t.getAttribute('data-prg-toggle'), pc = prgSelected(pK), pi = pc.indexOf(pn); if (pi >= 0) pc.splice(pi, 1); else pc.push(pn); state.prg = pc.length === prgNames(pK).length ? '' : (pc.length ? pc.join('~') : '-'); state.kroPage = 1; }
+    else if (t.hasAttribute('data-prg-mode')) { state.prgMode = t.getAttribute('data-prg-mode') === 'all' ? 'all' : 'any'; state.kroPage = 1; }
+    else if (t.getAttribute('data-act') === 'prg-all') { state.prg = ''; state.kroPage = 1; }
+    else if (t.getAttribute('data-act') === 'prg-none') { state.prg = '-'; state.kroPage = 1; }
     else if (t.hasAttribute('data-kro-mvper')) { state.kroMvPer = t.getAttribute('data-kro-mvper'); }
     else if (t.hasAttribute('data-kro-tog')) { var kt = t.getAttribute('data-kro-tog').split('|'); if (kt[0] === 'A') { state.kroOpenA = state.kroOpenA || {}; state.kroOpenA[kt[1]] = state.kroOpenA[kt[1]] === false; } else { state.kroOpenM = state.kroOpenM || {}; state.kroOpenM[kt[1]] = !state.kroOpenM[kt[1]]; } }
     else if (t.hasAttribute('data-kro-group')) { state.kroGroup = t.getAttribute('data-kro-group'); }
@@ -10643,7 +10811,7 @@
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
     mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
-    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
+    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
@@ -10697,6 +10865,7 @@
   if (typeof module !== 'undefined') {
     module.exports = {
       cutByView: cutByView, defaultPjpDate: defaultPjpDate, ovEntry: function (k) { return ovEntry(k); }, ovText: function (e) { return ovText(e); },
+      brRelabelText: function (s) { return brRelabelText(s); }, brRelabelHtml: function (s) { return brRelabelHtml(s); }, flagChips: function (s) { return flagChips(s); },
       kroParseIds: function (t) { return kroParseIds(t); }, kroClsOf: function (v, k) { return kroCls(v, k); }, kroParseProgram: function (t) { return kroParseProgram(t); },
       state: state,
       VIEWS: VIEWS,
