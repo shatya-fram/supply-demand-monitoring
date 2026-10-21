@@ -316,9 +316,29 @@ Keputusan owner di bagian 5 sudah diterapkan (HoA KAB BEKASI tetap Budi Priyambo
 | Pemeriksaan | `render_check.js` (termasuk program, popup dan relabel), `audit_scorecard.js` 140, `audit_ga.js` 4.648, `audit_kro.js` | semua lulus |
 
 Catatan dan hal yang masih terbuka:
-- **Outlet yang hanya di FINAL kini ditambahkan ke master** (update 21 Okt sore): 1.462 outlet fisik (41 pasangan IM3-3ID, sisanya single), lokasi dan nama dari IOH_Outlet dan OUTLET IOH, site NBS `PENDING-NBS` sampai dipetakan, flag `BARU_DARI_FINAL`; 1.373 juga berflag `IOH_NON_BERTENTANGAN` karena IOH_Outlet menyebutnya NON-PJP. Master jadi 16.212 outlet. Saklar `ADD_FINAL_ONLY` di `apply_final_dse_mapping.py`.
+- **Outlet yang hanya di FINAL kini ditambahkan ke master** (update 21 Okt sore, dihitung ulang setelah baris tanpa kunci di sheet OUTLET IOH ikut terbaca): 1.373 outlet fisik (63 pasangan IM3-3ID, sisanya single), lokasi dan nama dari IOH_Outlet dan OUTLET IOH, flag `BARU_DARI_FINAL`; 1.286 juga berflag `IOH_NON_BERTENTANGAN`. Site NBS tetap `PENDING-NBS`: kolom `site_nm` IOH_Outlet **bukan** id site NBS (0 dari 11.545 outlet master cocok), jadi tidak dipakai. Master jadi 16.130 outlet. Saklar `ADD_FINAL_ONLY`.
 - **Panel status flag** di Territory Management (jumlah per flag, filter tabel outlet, daftar DSE dan login berflag, kolom Flags di unduhan CSV).
 - **File target (sheet Pairing Outlet-DSE) tidak sejalan dengan FINAL**: dari 13.035 outlet yang ada di keduanya, DSE sama hanya 90,1% (sebelumnya 99,6% terhadap master lama), 1.290 outlet berbeda. Basis outlet per DSE untuk OSA dan UAR kini mengikuti FINAL, sedangkan target dihitung pada pasangan lama; perlu dikonfirmasi ke pembuat target. Lihat `data_mapping_audit.md` (dibangun ulang).
 - 292 pasangan ditahan dan 30 id 3ID ganda terbuka menunggu pemilik data; 24 pasang DSE tukar menunggu konfirmasi DSO.
 - Mengganti label KOTA BEKASI hanya di layar; feed, nilai filter dan tautan lama tetap `BEKASI`.
 - `Kotkab` tidak dijadikan program.
+
+## 9. Katalog Outlet IOH mengikuti sheet OUTLET IOH (21 Okt 2026)
+
+Permintaan owner: katalog outlet dengan kolom Outlet ID IOH, Outlet ID IM3, Nama Outlet IM3, Tipe Outlet IM3, Outlet ID 3ID, Nama Outlet 3ID, Tipe Outlet 3ID, Status Pairing, Long, Lat.
+
+- Sumber: sheet `OUTLET IOH` baris demi baris = **16.614 baris** (13.801 dengan Outlet ID IOH, di antaranya 515 bertanda `Manual`, ditambah **2.813 baris tanpa kunci** di bagian bawah sheet; baris ini sebelumnya terlewat karena pembacaan mensyaratkan kunci).
+- Id, nama dan tipe dari blok kanan sheet (kolom `IM3 Outlet IDs` atau `_v2` bila yang pertama 0; idem 3ID), karena hanya blok itu yang memuat tipe. Status Pairing = kolom `Pairing Status` (baris tanpa kunci: kolom `FLAG`). Long / Lat dari IOH_Outlet 19 Okt (id IM3 dulu, lalu 3ID): 16.577 dari 16.614 baris terisi.
+- Keluaran: `data/catalogues/outlet_catalogue_ioh.csv` dan `website/data/outlet_catalogue_feed.js`; tab **Katalog Outlet IOH** di Territory Management (filter status pairing, ada / belum di master, pencarian, halaman, unduh CSV dengan kolom tambahan: flag pairing analisis baru, cek DSE, catatan, DSE, MC, kecamatan). Master outlet memperoleh field `outlet_id_ioh`, `outlet_type_im3`, `outlet_type_3id`, `pairing_status` (15.465 dari 16.130 outlet punya baris di katalog) dan unduhan master memuat kolom itu.
+- Dampak pada pairing: baris tanpa kunci dan kolom `_v2` menambah pasangan IM3-3ID blok kanan dari 6.862 menjadi 7.229. Pasangan baru yang didukung FINAL yang diterapkan naik dari 203 menjadi 275; ditahan 421.
+
+Temuan kualitas data pada sheet (belum diperbaiki, hanya dilaporkan):
+- Status Pairing (kolom B) bertentangan dengan jumlah id pada 1.159 baris: 907 berstatus DUAL BRAND tetapi hanya satu id di blok kanan, 252 berstatus SINGLE BRAND tetapi dua id.
+- 326 id 3ID muncul di lebih dari satu baris dan 1 id IM3 muncul dua kali.
+- 515 baris berkunci `Manual` (bukan id IOH).
+- 4 koordinat di IOH_Outlet berada di luar wilayah (Jawa Tengah / Jawa Timur, mis. outlet IM3 523922) dan 37 baris tanpa koordinat.
+
+## 10. Keputusan 21 Okt sore
+- Status Pairing = kolom B `Pairing Status` (baris tanpa kunci: `FLAG`); kolom analisis baru tetap di unduhan CSV.
+- **Flag `DSE_TUKAR_PERLU_CEK` diturunkan** (`FLAG_SWAPS = False`): 24 pasang DSE saling tukar (306 outlet) diterima sesuai FINAL. Catatan risiko tetap berlaku: check-in Oktober masih mendukung DSE lama pada 414 dari 424 id outlet, jadi bila ternyata salah kode di FINAL, kembalikan dengan `FLAG_SWAPS = True` dan baca laporan `apply_report.json`.
+- Commit dulu, rilis publik menyusul.

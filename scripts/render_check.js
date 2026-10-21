@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -296,6 +296,15 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = '';
   for (const f of fl) for (const sub of ['chain', 'dse']) { state.view = 'territory'; state.terrSubView = sub; state.terrFlag = f; check('territory/flag/' + f + '/' + sub, VIEWS.territory); }
   state.terrSubView = 'auto'; state.terrFlag = ''; state.view = 'territory'; { const h = VIEWS.territory(); if (!/Status data katalog 202610/.test(h)) { failures++; console.log('✗ flag status panel missing'); } } }
+// Katalog Outlet IOH (sheet OUTLET IOH): statuses, master filter, search, pages, territory filters; the table must list every sheet row
+{ const F = global.OUTLET_CATALOGUE, T = global.TERRITORY_FEED; if (!F || !F.rows.length) { failures++; console.log('✗ no outlet catalogue feed'); }
+  state.view = 'territory'; state.terrSubView = 'ioh'; state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = ''; state.terrFlag = ''; state.terrSearch = ''; state.iohStatus = ''; state.iohMaster = ''; state.iohPage = 1;
+  { const h = VIEWS.territory(); const m = /Halaman 1 \/ (\d+) · ([\d,]+) baris/.exec(h); if (!m || parseInt(m[2].replace(/,/g, ''), 10) !== F.rows.length) { failures++; console.log('✗ catalogue row count ' + (m && m[2]) + ' != ' + F.rows.length); } }
+  for (const st of ['', 'DUAL BRAND', 'SINGLE BRAND']) for (const ms of ['', 'in', 'out']) { state.iohStatus = st; state.iohMaster = ms; state.iohPage = 1; check('ioh/' + (st || 'all') + '/' + (ms || 'all'), VIEWS.territory); }
+  state.iohStatus = ''; state.iohMaster = ''; state.iohPage = 3; check('ioh/page3', VIEWS.territory); state.iohPage = 99999; check('ioh/page-last', VIEWS.territory);
+  state.iohPage = 1; state.terrSearch = 'cell'; check('ioh/search', VIEWS.territory); state.terrSearch = '';
+  const mc0 = T.outlets[0].micro_cluster; state.kec = mc0; check('ioh/mc', VIEWS.territory); state.kec = ''; state.branch = T.outlets[0].branch; check('ioh/branch', VIEWS.territory);
+  state.branch = ''; state.terrSubView = 'auto'; state.iohPage = 1; }
 // Program & Tipe Outlet: every product / measure, program toggles (union and intersection), filters; clickable counts must resolve and match their cells
 { global.KRO_SLIM = global.KRO_SLIM || []; const KF = global.KRO_FEED, progs = Object.keys(KF.metadata.programs).filter(n => (KF.metadata.programs[n].keys || []).length);
   const pset = (prod, meas, prg, mode) => { state.view = 'mb_program'; state.kroProd = prod; state.kroMeas = meas; state.prg = prg; state.prgMode = mode; state.kroSearch = ''; state.kroPage = 1; state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = ''; };

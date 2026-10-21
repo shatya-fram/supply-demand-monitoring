@@ -11,6 +11,7 @@ Output  data/catalogues/catalogue_<YYYYMM>/
                             HoA / DSO / branch / MC stay those of docs/MASTER DSE Hirarki.xlsx)
     pairing_catalogue.csv   id_im3, id_3id, dse_code_im3, dse_code_3id, outlet_type_im3, outlet_type_3id, status, note   (OUTLET IOH right block, DUAL BRAND rows with both ids)
     outlet_types.csv        brand, outlet_id, type, source      (KRO / Wholesaler / Promotor / DTU / AVA)
+    ../outlet_catalogue_ioh.csv + website/data/outlet_catalogue_feed.js   one row per row of sheet OUTLET IOH: Outlet ID IOH, IM3 id / name / type, 3ID id / name / type, status pairing, long, lat
     outlet_locations.csv    brand, outlet_id, name, site_nm, lat, long, kecamatan, kabkot, ioh_status, ioh_dse_code   (outlets of FINAL: location from IOH_Outlet 19 Okt,
                             name from OUTLET IOH, else from the previous feeds; used to add the FINAL-only outlets to the master)
         data/catalogues/kro_program_outlets.csv   program, outlet_id, note   (read by build_kro_feed.py, mode Program)
@@ -108,26 +109,28 @@ def main():
     # ---- OUTLET IOH (pairing: right-hand blocks, newer analysis) and outlet types
     orows = sheets['OUTLET IOH']
     hi = next(i for i, r in enumerate(orows) if cell(r.get(0)) == 'Master Outlet Key')
+    def rim(r):          # IM3 id: column 'IM3 Outlet IDs', else the _v2 column (filled when the first one is 0)
+        return r.get(24) if ok(r.get(24)) else r.get(25)
+    def r3(r):
+        return r.get(35) if ok(r.get(35)) else r.get(36)
     pairs, types = {}, {}
-    for r in orows[hi + 1:]:
-        if not cell(r.get(0)):
-            continue
-        a, b = r.get(24), r.get(35)
+    for r in orows[hi + 1:]:             # rows without a Master Outlet Key (appended in the newer file) carry the right-hand blocks only: they count too
+        a, b = rim(r), r3(r)
         if ok(a) and ok(b) and cell(r.get(45)) == 'DUAL BRAND':
             pairs[(nid(a), nid(b))] = [nid(a), nid(b), ncode(r.get(27)), ncode(r.get(38)), cell(r.get(32)), cell(r.get(43)), cell(r.get(46)), cell(r.get(50))]
-        for idc, tc in ((24, 32), (35, 43)):
-            if ok(r.get(idc)):
+        for br_, idv, tc in (('IM3', a, 32), ('3ID', b, 43)):
+            if ok(idv):
                 for t in TOKENS.findall(cell(r.get(tc))):
-                    types.setdefault(('IM3' if idc == 24 else '3ID', nid(r.get(idc)), t.upper()), 'OUTLET IOH 2 Okt')
+                    types.setdefault((br_, nid(idv), t.upper()), 'OUTLET IOH 2 Okt')
     write(os.path.join(out_dir, 'pairing_catalogue.csv'), ['id_im3', 'id_3id', 'dse_code_im3', 'dse_code_3id', 'outlet_type_im3', 'outlet_type_3id', 'status', 'note'], sorted(pairs.values()))
     print(f'  OUTLET IOH right block: {len(pairs):,} IM3-3ID pairs')
 
     # ---- names (OUTLET IOH, then the previous GA / penjualan feeds) and IOH_Outlet flags + location
     names = {}
     for r in orows[hi + 1:]:
-        for idc, nc_, b_ in ((24, 26, 'IM3'), (35, 37, '3ID')):
-            if ok(r.get(idc)) and cell(r.get(nc_)) not in ('', '0'):
-                names.setdefault((b_, nid(r.get(idc))), cell(r.get(nc_)))
+        for idv, nc_, b_ in ((rim(r), 26, 'IM3'), (r3(r), 37, '3ID')):
+            if ok(idv) and cell(r.get(nc_)) not in ('', '0'):
+                names.setdefault((b_, nid(idv)), cell(r.get(nc_)))
     for fn, bk, ik in (('ga_feed.json', 'b', 'i'), ('penjualan_feed.json', 'b', 'id')):
         pth = os.path.join(ROOT, 'data', 'processed', fn)
         if os.path.exists(pth):
@@ -138,12 +141,14 @@ def main():
             except ValueError:
                 pass
     fin_ids = {(r[0], r[1]) for r in fin}
-    loc = {}
+    loc, ioh_all = {}, {}
     irows = sheets['IOH_Outlet']
     for r in irows[1:]:
         if not r.get(1):
             continue
         brand, oid = cell(r.get(16)), nid(r.get(1))
+        if cell(r.get(5)) and cell(r.get(4)):
+            ioh_all[(brand, oid)] = (cell(r.get(5)), cell(r.get(4)))        # (lat, long)
         if (brand, oid) in fin_ids:
             loc[(brand, oid)] = [brand, oid, names.get((brand, oid), ''), cell(r.get(2)), cell(r.get(5)), cell(r.get(4)), cell(r.get(7)), cell(r.get(8)), cell(r.get(17)), cell(r.get(15))]
         for col, tag in ((19, 'DTU'), (20, 'AVA'), (22, 'WHOLESALER'), (23, 'PROMOTOR')):
@@ -152,6 +157,32 @@ def main():
                 types[(brand, oid, tag)] = 'IOH_Outlet 19 Okt' + ('; OUTLET IOH 2 Okt' if src else '')
     write(os.path.join(out_dir, 'outlet_locations.csv'), ['brand', 'outlet_id', 'name', 'site_nm', 'lat', 'long', 'kecamatan', 'kabkot', 'ioh_status', 'ioh_dse_code'],
           [loc.get(k) or [k[0], k[1], names.get(k, ''), '', '', '', '', '', '', ''] for k in sorted(fin_ids)])
+    # ---- outlet catalogue following the sheet OUTLET IOH row by row (owner, 21 Oct 2026): Outlet ID IOH, IM3 id / name / type, 3ID id / name / type, status pairing, long / lat
+    def tp(v):
+        v = cell(v)
+        return '' if v in ('', '0') else v
+    cat_rows, feed_rows = [], []
+    for r in orows[hi + 1:]:
+        a, b = nid(rim(r)) if ok(rim(r)) else '', nid(r3(r)) if ok(r3(r)) else ''
+        if not (a or b):
+            continue
+        key = cell(r.get(0))
+        la = ioh_all.get(('IM3', a)) if a else None
+        lb = ioh_all.get(('3ID', b)) if b else None
+        ll, src = (la, 'IM3') if la else ((lb, '3ID') if lb else (('', ''), ''))
+        status = cell(r.get(1)) if key else cell(r.get(45))
+        row = [key, a, tp(r.get(26)), tp(r.get(32)), b, tp(r.get(37)), tp(r.get(43)), status, ll[1], ll[0], src,
+               cell(r.get(45)), cell(r.get(46)), cell(r.get(50)) if cell(r.get(50)) != '0' else '', tp(r.get(27)), tp(r.get(38)),
+               tp(r.get(30)) or tp(r.get(41)), tp(r.get(28)) or tp(r.get(39)), tp(r.get(29)) or tp(r.get(40))]
+        cat_rows.append(row)
+    cat_hdr = ['outlet_id_ioh', 'outlet_id_im3', 'outlet_name_im3', 'outlet_type_im3', 'outlet_id_3id', 'outlet_name_3id', 'outlet_type_3id', 'status_pairing', 'long', 'lat', 'lokasi_dari',
+               'flag_pairing_baru', 'cek_dse', 'catatan', 'dse_code_im3', 'dse_code_3id', 'micro_cluster', 'kecamatan', 'pt']
+    write(os.path.join(CAT, 'outlet_catalogue_ioh.csv'), cat_hdr, cat_rows)
+    with open(os.path.join(ROOT, 'website', 'data', 'outlet_catalogue_feed.js'), 'w', encoding='utf-8') as f:
+        f.write('/* Outlet catalogue following the sheet OUTLET IOH of %s (scripts/build_catalogue_overlay_inputs.py) */\nwindow.OUTLET_CATALOGUE = ' % os.path.basename(path))
+        json.dump({'source': os.path.basename(path), 'sheet': 'OUTLET IOH', 'columns': cat_hdr, 'rows': cat_rows}, f, ensure_ascii=False, separators=(',', ':'))
+        f.write(';\n')
+    print(f'  outlet catalogue: {len(cat_rows):,} rows ({sum(1 for x in cat_rows if x[0])} with Outlet ID IOH), {sum(1 for x in cat_rows if x[8])} with long / lat')
     trows = sorted((b, i, t, s) for (b, i, t), s in types.items())
     write(os.path.join(out_dir, 'outlet_types.csv'), ['brand', 'outlet_id', 'type', 'source'], trows)
 

@@ -243,6 +243,7 @@
     sel: null,
     terrSubView: 'auto',
     terrSearch: '',
+    iohStatus: '', iohMaster: '', iohPage: 1,   // Katalog Outlet IOH (sheet OUTLET IOH): filters and page
     terrFlag: '',            // Territory Management: show only outlets with this catalogue flag ('' = all)
     terrStatus: 'all',
     terrPage: 1,
@@ -627,7 +628,7 @@
 
   function exportTerritoryCsv(filtered) {
     if (typeof window === 'undefined') return;
-    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long', 'Flags'];
+    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long', 'Flags', 'Outlet ID IOH', 'Tipe Outlet IM3', 'Tipe Outlet 3ID', 'Status Pairing'];
     var lines = [headers.join(',')];
     filtered.forEach(function (o) {
       var row = [
@@ -649,7 +650,11 @@
         '"' + String(o.desa || '').replace(/"/g, '""') + '"',
         o.lat || '',
         o.long || '',
-        '"' + String(o.flags || '').replace(/"/g, '""') + '"'
+        '"' + String(o.flags || '').replace(/"/g, '""') + '"',
+        '"' + (o.outlet_id_ioh || '') + '"',
+        '"' + (o.outlet_type_im3 || '') + '"',
+        '"' + (o.outlet_type_3id || '') + '"',
+        '"' + (o.pairing_status || '') + '"'
       ];
       lines.push(row.join(','));
     });
@@ -1153,6 +1158,69 @@
   }
   /* Status of the governed catalogue (flags per outlet and per DSE / login); a button filters the outlet table below by that flag */
   var TERR_FLAG_ORDER = ['TIDAK_ADA_DI_FINAL_20OKT', 'DSE_TUKAR_PERLU_CEK', 'ID_PERLU_VERIFIKASI', 'BARU_DARI_FINAL', 'IOH_NON_BERTENTANGAN', 'DSE_IM3_3ID_BEDA', 'PAIR_3ID_GANDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH'];
+  /* ---------- Outlet catalogue following the sheet OUTLET IOH (catalogue 202610): Outlet ID IOH, IM3 id / name / type, 3ID id / name / type, status pairing, long / lat ---------- */
+  var IOH_COLS = [['outlet_id_ioh', 'Outlet ID IOH'], ['outlet_id_im3', 'Outlet ID IM3'], ['outlet_name_im3', 'Nama Outlet IM3'], ['outlet_type_im3', 'Tipe Outlet IM3'], ['outlet_id_3id', 'Outlet ID 3ID'], ['outlet_name_3id', 'Nama Outlet 3ID'], ['outlet_type_3id', 'Tipe Outlet 3ID'], ['status_pairing', 'Status Pairing'], ['long', 'Long'], ['lat', 'Lat']];
+  var IOH_EXTRA = [['lokasi_dari', 'Lokasi dari'], ['flag_pairing_baru', 'Flag pairing (analisis baru)'], ['cek_dse', 'Cek DSE IM3 vs 3ID'], ['catatan', 'Catatan'], ['micro_cluster', 'Micro Cluster'], ['kecamatan', 'Kecamatan']];
+  function iohFeed() {
+    var F = (typeof window !== 'undefined' && window.OUTLET_CATALOGUE) ? window.OUTLET_CATALOGUE : null;
+    if (!F) return null;
+    if (!F._rows) {
+      var ix = {}; F.columns.forEach(function (c, i) { ix[c] = i; });
+      F._ix = ix; F._rows = F.rows.map(function (r) { var o = {}; F.columns.forEach(function (c, i) { o[c] = r[i]; }); return o; });
+    }
+    return F;
+  }
+  function iohMasterIds() {   // IM3 / 3ID ids of the master outlets, to say which catalogue rows are in the master; and MC -> branch / HoA for the territory filters
+    var T = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null; if (!T || !T.outlets) return { im: {}, t3: {}, mc: {} };
+    if (T._ioh) return T._ioh;
+    var im = {}, t3 = {}, mc = {}; T.outlets.forEach(function (o) { if (o.outlet_id_im3) im[o.outlet_id_im3] = 1; if (o.outlet_id_3id) t3[String(o.outlet_id_3id).replace(/^0+(?=\d)/, '')] = 1; if (o.micro_cluster && !mc[o.micro_cluster]) mc[o.micro_cluster] = { br: o.branch, hoa: o.hoa_leader }; });
+    return (T._ioh = { im: im, t3: t3, mc: mc });
+  }
+  function iohRows() {
+    var F = iohFeed(); if (!F) return null;
+    var M = iohMasterIds(), q = String(state.terrSearch || '').toLowerCase().trim();
+    return F._rows.filter(function (r) {
+      var mc = M.mc[r.micro_cluster] || {};
+      if (state.kec && r.micro_cluster !== state.kec) return false;
+      if (state.branch && mc.br !== state.branch) return false;
+      if (state.hoa && mc.hoa !== state.hoa) return false;
+      var inM = (r.outlet_id_im3 && M.im[r.outlet_id_im3]) || (r.outlet_id_3id && M.t3[r.outlet_id_3id]) ? 1 : 0;
+      if (state.iohMaster === 'in' && !inM) return false; if (state.iohMaster === 'out' && inM) return false;
+      if (state.iohStatus && r.status_pairing !== state.iohStatus) return false;
+      if (q && (r.outlet_id_ioh + ' ' + r.outlet_id_im3 + ' ' + r.outlet_name_im3 + ' ' + r.outlet_id_3id + ' ' + r.outlet_name_3id + ' ' + r.micro_cluster + ' ' + r.kecamatan).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+  function exportIohCsv(rows) {
+    if (typeof window === 'undefined' || !rows) return;
+    var cols = IOH_COLS.concat(IOH_EXTRA), q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var lines = [cols.map(function (c) { return q(c[1]); }).join(',')];
+    rows.forEach(function (r) { lines.push(cols.map(function (c) { return q(r[c[0]]); }).join(',')); });
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'katalog_outlet_ioh.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function renderSubIoh() {
+    var F = iohFeed();
+    if (!F) return card('Katalog Outlet IOH', '<p class="note">Feed katalog belum dibangun. Jalankan <code>python3 scripts/build_catalogue_overlay_inputs.py</code>.</p>');
+    var all = F._rows, rows = iohRows(), M = iohMasterIds();
+    var isIn = function (r) { return (r.outlet_id_im3 && M.im[r.outlet_id_im3]) || (r.outlet_id_3id && M.t3[r.outlet_id_3id]); };
+    var statuses = {}; all.forEach(function (r) { statuses[r.status_pairing] = (statuses[r.status_pairing] || 0) + 1; });
+    var nKey = all.filter(function (r) { return r.outlet_id_ioh; }).length, nLoc = all.filter(function (r) { return r.lat; }).length, nIn = all.filter(isIn).length;
+    var per = 50, pages = Math.max(1, Math.ceil(rows.length / per)), pg = Math.min(Math.max(1, state.iohPage || 1), pages); state.iohPage = pg;
+    var btn = function (attr, v, label, cur) { return '<button type="button" class="map-btn' + (cur === v ? ' active' : '') + '" data-' + attr + '="' + esc(v) + '">' + label + '</button>'; };
+    var bar = '<div class="map-toolbar"><div class="map-toolbar-group"><span class="map-label">Status pairing:</span>' + btn('ioh-status', '', 'Semua (' + fmtCount(all.length) + ')', state.iohStatus || '') + Object.keys(statuses).map(function (s) { return btn('ioh-status', s, esc(s) + ' (' + fmtCount(statuses[s]) + ')', state.iohStatus || ''); }).join('') + '</div>' +
+      '<div class="map-toolbar-group"><span class="map-label">Master aplikasi:</span>' + btn('ioh-master', '', 'Semua', state.iohMaster || '') + btn('ioh-master', 'in', 'Ada di master (' + fmtCount(nIn) + ')', state.iohMaster || '') + btn('ioh-master', 'out', 'Belum di master (' + fmtCount(all.length - nIn) + ')', state.iohMaster || '') + '</div></div>' +
+      '<div class="map-toolbar" style="margin-top:6px;"><div class="map-toolbar-group"><input type="text" id="terrSearchInput" aria-label="Cari outlet" class="search-input" placeholder="🔍 Cari Outlet ID IOH, id IM3 / 3ID, nama, MC, kecamatan..." value="' + esc(state.terrSearch) + '" style="min-width:320px;"></div>' +
+      '<div class="map-toolbar-group"><button type="button" class="btn" data-act="export-ioh-csv">📥 Unduh katalog (' + fmtCount(rows.length) + ' baris, CSV)</button></div></div>';
+    var head = '<tr>' + IOH_COLS.map(function (c) { return th(c[1], c[0] === 'long' || c[0] === 'lat' ? 1 : 0); }).join('') + th('Di master') + '</tr>';
+    var body = rows.slice((pg - 1) * per, pg * per).map(function (r) {
+      return '<tr>' + IOH_COLS.map(function (c) { var v = r[c[0]]; return c[0] === 'long' || c[0] === 'lat' ? '<td class="num">' + (v ? esc(String(Number(v).toFixed(6))) : '·') + '</td>' : '<td' + (c[0] === 'outlet_id_ioh' ? ' class="cur"' : '') + '>' + (v ? esc(v) : '<span class="note">·</span>') + '</td>'; }).join('') +
+        '<td>' + (isIn(r) ? 'ya' : '<span class="note">belum</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="' + (IOH_COLS.length + 1) + '" class="note" style="text-align:center; padding:20px;">Tidak ada baris pada filter ini.</td></tr>';
+    var pager = '<div class="map-toolbar" style="margin-top:8px;"><div class="map-toolbar-group"><button type="button" class="btn" data-ioh-page="prev"' + (pg <= 1 ? ' disabled' : '') + '>‹ Sebelumnya</button><span class="note" style="margin:0 10px;">Halaman ' + pg + ' / ' + pages + ' · ' + fmtCount(rows.length) + ' baris</span><button type="button" class="btn" data-ioh-page="next"' + (pg >= pages ? ' disabled' : '') + '>Berikutnya ›</button></div></div>';
+    return card('Katalog Outlet IOH · mengikuti sheet ' + esc(F.sheet) + ' (' + esc(F.source) + ')', '<p class="note" style="margin:0 0 6px;">' + fmtCount(all.length) + ' baris: ' + fmtCount(nKey) + ' dengan Outlet ID IOH, ' + fmtCount(all.length - nKey) + ' baris tambahan tanpa Outlet ID IOH; ' + fmtCount(nLoc) + ' punya Long / Lat. Id, nama dan tipe dari blok IM3 dan 3ID sheet; Status Pairing = kolom Pairing Status (baris tanpa kunci: FLAG); Long / Lat dari IOH_Outlet (19 Okt), id IM3 lebih dulu. Kolom lain (flag analisis baru, cek DSE, catatan, MC, kecamatan) ada di unduhan CSV.</p>' +
+      bar + '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + pager);
+  }
   function terrFlagPanel(allOutlets) {
     var any = false, i; for (i = 0; i < allOutlets.length && !any; i++) if (allOutlets[i].flags) any = true;
     if (!any) return '';
@@ -1223,7 +1291,8 @@
       ['dse', '👤 Per DSE (Field Sales)'],
       ['kecamatan', '📍 Per Kecamatan'],
       ['site', '📡 Per Sites (Cellular NBS)'],
-      ['chain', '🗺️ Flat Master Chain Table']
+      ['chain', '🗺️ Flat Master Chain Table'],
+      ['ioh', '📋 Katalog Outlet IOH (pairing IM3 · 3ID)']
     ];
     var subNavHtml = '<div class="toolbar" style="margin-top:10px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">' +
       '<div class="sub-nav">' + subNavButtons.map(function (b) {
@@ -1282,11 +1351,13 @@
       subContent = renderSubSite(filtered);
     } else if (effSub === 'chain') {
       subContent = renderSubChain(filtered);
+    } else if (effSub === 'ioh') {
+      subContent = renderSubIoh();
     } else {
       subContent = renderSubHoa(filtered);
     }
 
-    return chainRibbon + subNavHtml + terrFlagPanel(allOutlets) + kpis + drawerHtml + subContent;
+    return chainRibbon + subNavHtml + (effSub === 'ioh' ? '' : terrFlagPanel(allOutlets) + kpis) + drawerHtml + subContent;
   }
 
   /* ==========================================================================
@@ -10248,6 +10319,10 @@
     else if (t.hasAttribute('data-kro-mode')) { state.kroMode = t.getAttribute('data-kro-mode'); state.kroPage = 1; state.kroSearch = ''; }
     else if (t.hasAttribute('data-kro-prog')) { state.kroProg = t.getAttribute('data-kro-prog'); state.kroPage = 1; }
     else if (t.hasAttribute('data-kro-cg')) { var kc = kroCg(), kid = t.getAttribute('data-kro-cg'); kc[kid] = kc[kid] ? 0 : 1; try { localStorage.setItem('kroCols', JSON.stringify(kc)); } catch (e) { /* private window */ } }
+    else if (t.hasAttribute('data-ioh-status')) { state.iohStatus = t.getAttribute('data-ioh-status'); state.iohPage = 1; }
+    else if (t.hasAttribute('data-ioh-master')) { state.iohMaster = t.getAttribute('data-ioh-master'); state.iohPage = 1; }
+    else if (t.hasAttribute('data-ioh-page')) { var ip = t.getAttribute('data-ioh-page'); if (ip === 'prev' && state.iohPage > 1) state.iohPage--; else if (ip === 'next') state.iohPage++; }
+    else if (t.getAttribute('data-act') === 'export-ioh-csv') { exportIohCsv(iohRows()); return; }
     else if (t.hasAttribute('data-terr-flag')) { state.terrFlag = t.getAttribute('data-terr-flag'); state.terrPage = 1; }
     else if (t.hasAttribute('data-prg-toggle')) { var pK = kroFeed(), pn = t.getAttribute('data-prg-toggle'), pc = prgSelected(pK), pi = pc.indexOf(pn); if (pi >= 0) pc.splice(pi, 1); else pc.push(pn); state.prg = pc.length === prgNames(pK).length ? '' : (pc.length ? pc.join('~') : '-'); state.kroPage = 1; }
     else if (t.hasAttribute('data-prg-mode')) { state.prgMode = t.getAttribute('data-prg-mode') === 'all' ? 'all' : 'any'; state.kroPage = 1; }
@@ -10672,6 +10747,7 @@
     }
     if (e.target && e.target.id === 'terrSearchInput') {
       state.terrSearch = e.target.value;
+      state.iohPage = 1;
       state.terrPage = 1;
       state.terrGroupPage = 1;
       render();
@@ -10839,7 +10915,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrFlag'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
+    territory: ['terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };

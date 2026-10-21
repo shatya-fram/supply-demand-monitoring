@@ -19,7 +19,7 @@
   "cse": "ADHITYA PRATAMA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 540
+  "master_outlets": 534
  },
  {
   "micro_cluster": "MC-BEJI",
@@ -30,7 +30,7 @@
   "cse": "INVENT RADIANTI PRATIWI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 401
+  "master_outlets": 397
  },
  {
   "micro_cluster": "MC-BEKASI TENGAH",
@@ -41,7 +41,7 @@
   "cse": "ADITYA HASANUDDIN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 489
+  "master_outlets": 488
  },
  {
   "micro_cluster": "MC-BEKASI UTARA",
@@ -52,7 +52,7 @@
   "cse": "RAHAYU UTAMININGSIH",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 303
+  "master_outlets": 302
  },
  {
   "micro_cluster": "MC-CAKUNG",
@@ -63,7 +63,7 @@
   "cse": "FAHMI KURNIANTO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 658
+  "master_outlets": 653
  },
  {
   "micro_cluster": "MC-CEMPAKA PUTIH",
@@ -85,7 +85,7 @@
   "cse": "AHYADI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 656
+  "master_outlets": 642
  },
  {
   "micro_cluster": "MC-CIBARUSAH",
@@ -107,7 +107,7 @@
   "cse": "RIAN SANJAYA SURNA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 511
+  "master_outlets": 510
  },
  {
   "micro_cluster": "MC-CIKARANG BARAT",
@@ -118,7 +118,7 @@
   "cse": "MUHAMAD SHANDI MAULIDRIZKI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 353
+  "master_outlets": 351
  },
  {
   "micro_cluster": "MC-CIKARANG TIMUR",
@@ -140,7 +140,7 @@
   "cse": "ARIBOWO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 355
+  "master_outlets": 350
  },
  {
   "micro_cluster": "MC-CIPAYUNG",
@@ -151,7 +151,7 @@
   "cse": "FRILA HANDRIANI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 493
+  "master_outlets": 488
  },
  {
   "micro_cluster": "MC-CIRACAS",
@@ -162,7 +162,7 @@
   "cse": "ABDUL AZIZ KAMIL RAFIKOLAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 582
+  "master_outlets": 580
  },
  {
   "micro_cluster": "MC-EAST CIKAMPEK",
@@ -173,7 +173,7 @@
   "cse": "WIWIT PRASETYO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 395
+  "master_outlets": 391
  },
  {
   "micro_cluster": "MC-GROGOL",
@@ -184,7 +184,7 @@
   "cse": "LESTARI A. R.",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 539
+  "master_outlets": 537
  },
  {
   "micro_cluster": "MC-KARAWANG",
@@ -217,7 +217,7 @@
   "cse": "MUHAMAD YUNUS HIDAYAT",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 335
+  "master_outlets": 333
  },
  {
   "micro_cluster": "MC-KEMBANGAN",
@@ -228,7 +228,7 @@
   "cse": "ALDIKA FAYZAL RAHADITYA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 402
+  "master_outlets": 401
  },
  {
   "micro_cluster": "MC-KRAMATJATI",
@@ -239,7 +239,7 @@
   "cse": "RIZKY KURNIAWAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 326
+  "master_outlets": 322
  },
  {
   "micro_cluster": "MC-MATRAMAN",
@@ -294,7 +294,7 @@
   "cse": "ARIE SETYO PRABOWO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 550
+  "master_outlets": 548
  },
  {
   "micro_cluster": "MC-PEBAYURAN",
@@ -327,7 +327,7 @@
   "cse": "MOCH ALI AS'AD",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 449
+  "master_outlets": 446
  },
  {
   "micro_cluster": "MC-SAWANGAN",
@@ -338,7 +338,7 @@
   "cse": "MUHAMMAD FAUZI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 309
+  "master_outlets": 307
  },
  {
   "micro_cluster": "MC-TAMBUN",
@@ -382,7 +382,7 @@
   "cse": "RAIHAAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 417
+  "master_outlets": 403
  },
  {
   "micro_cluster": "MC-WEST CIKAMPEK",
@@ -393,6 +393,6 @@
   "cse": "SEPTIAN AJI PUTRA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 417
+  "master_outlets": 415
  }
 ]

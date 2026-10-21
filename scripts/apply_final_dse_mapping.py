@@ -5,7 +5,7 @@ Apply the governed catalogue (raw/Catalogue ... FINAL_<date>) to the territory m
 Owner decisions of 21 Oct 2026 (docs/assessments/catalogue_202610_detail.md):
   * DSE per outlet comes from sheet FINAL_<date> (DSE mapping in MOB).  HoA, DSO, MC and branch stay those of the master.
   * An outlet none of whose ids is in FINAL is kept as history, without DSE (non-PJP), flag TIDAK_ADA_DI_FINAL_20OKT.
-  * DSE pairs whose outlets swapped between the two people: FINAL is applied, flag DSE_TUKAR_PERLU_CEK (to be verified with the DSO).
+  * DSE pairs whose outlets swapped between the two people: FINAL is applied; the flag DSE_TUKAR_PERLU_CEK was dropped on 21 Oct 2026 at the owner's request (FLAG_SWAPS).
   * A DSE whose login changed in the catalogue: flag ID_PERLU_VERIFIKASI.  Temporary logins (data/catalogues/dse_login_sementara.csv)
     stay separate login ids, flag LOGIN_SEMENTARA (handled in generate_dse_visits_feed.py and shown through website/data/dse_flags.js).
   * Pairing: the system pairing is kept; only the new IM3-3ID pairs of the catalogue that FINAL supports (both ids at the same DSE)
@@ -38,6 +38,7 @@ CAT = os.path.join(ROOT, 'data', 'catalogues')
 WEB = os.path.join(ROOT, 'website', 'data')
 BASE = os.path.join(CAT, 'territory_management_master_base.json.gz')
 
+FLAG_SWAPS = False                    # owner, 21 Oct 2026: the 24 swapped DSE pairs of FINAL are accepted, no DSE_TUKAR_PERLU_CEK flag (the swap is still counted in the report)
 ADD_FINAL_ONLY = True                 # add the outlets that are only in FINAL to the master (owner: 21 Oct 2026, "jalankan")
 F_NOT_IN_FINAL = 'TIDAK_ADA_DI_FINAL_20OKT'
 F_SWAP = 'DSE_TUKAR_PERLU_CEK'
@@ -207,7 +208,7 @@ def apply(base_outlets, cat_dir=None):
             rep['3id_multi_open'] += 1
 
     # ---- 2b. outlets that are only in FINAL: added to the master (DSE from FINAL, location from IOH_Outlet 19 Okt), flag BARU_DARI_FINAL
-    #      (+ IOH_NON_BERTENTANGAN when IOH_Outlet calls the outlet NON-PJP while FINAL maps it to a DSE). Set ADD_FINAL_ONLY = False to keep them out.
+    #      (+ IOH_NON_BERTENTANGAN when IOH_Outlet calls the outlet NON-PJP while FINAL maps it to a DSE); site NBS stays PENDING-NBS until the outlet is mapped to a site. Set ADD_FINAL_ONLY = False to keep them out.
     if ADD_FINAL_ONLY and os.path.exists(os.path.join(cat_dir, 'outlet_locations.csv')):
         loc = {(r['brand'], nid(r['outlet_id'])): r for r in read_csv(os.path.join(cat_dir, 'outlet_locations.csv'))}
         i3, t3 = index()
@@ -242,7 +243,7 @@ def apply(base_outlets, cat_dir=None):
             r = dict(tpl)
             mc = fr['mc']
             set_ids(r, a, b)
-            r.update({'outlet_name': next((x['name'] for x in L if x.get('name')), '') or 'Unnamed Outlet', 'site_nbs': next((x['site_nm'] for x in L if x.get('site_nm')), '') or 'PENDING-NBS',
+            r.update({'outlet_name': next((x['name'] for x in L if x.get('name')), '') or 'Unnamed Outlet', 'site_nbs': 'PENDING-NBS',   # IOH_Outlet site_nm is not an NBS site id (it matches none of the master site ids), so it is not used
                       'dist_km': None, 'branch': top(mc, 'branch'), 'micro_cluster': mc, 'dso_leader': top(mc, 'dso_leader'), 'hoa_leader': top(mc, 'hoa_leader'),
                       'kabupaten': (L0.get('kabkot') or '').upper(), 'kecamatan': (L0.get('kecamatan') or '').upper(), 'desa': '', 'dse_name_base': '', 'dse_code_im3_base': '', 'dse_code_3id_base': '',
                       'dse_name': '', 'flags': 'BARU_DARI_FINAL', 'has_supply_tx': False})
@@ -257,6 +258,24 @@ def apply(base_outlets, cat_dir=None):
         outlets.extend(new_rows)
         rep['final_only_added'] = len(new_rows)
         rep['final_only_paired_added'] = sum(1 for r in new_rows if r['outlet_id_im3'] and r['outlet_id_3id'])
+
+    # ---- 2c. Outlet ID IOH, outlet types and pairing status of the sheet OUTLET IOH (data/catalogues/outlet_catalogue_ioh.csv), looked up by IM3 id, then 3ID id
+    ioh_path = os.path.join(CAT, 'outlet_catalogue_ioh.csv')
+    byi, by3 = {}, {}
+    if os.path.exists(ioh_path):
+        for r in read_csv(ioh_path):
+            if r['outlet_id_im3']:
+                byi.setdefault(nid(r['outlet_id_im3']), r)
+            if r['outlet_id_3id']:
+                by3.setdefault(nid(r['outlet_id_3id']), r)
+    for o in outlets:
+        r = byi.get(o['outlet_id_im3']) or by3.get(o['outlet_id_3id']) or {}
+        o['outlet_id_ioh'] = r.get('outlet_id_ioh', '')
+        o['pairing_status'] = r.get('status_pairing', '')
+        o['outlet_type_im3'] = (byi.get(o['outlet_id_im3']) or {}).get('outlet_type_im3', '')
+        o['outlet_type_3id'] = (by3.get(o['outlet_id_3id']) or {}).get('outlet_type_3id', '')
+        if r:
+            rep['outlets_with_ioh_row'] += 1
 
     # ---- 3. DSE per outlet from FINAL
     flows = Counter()
@@ -289,8 +308,9 @@ def apply(base_outlets, cat_dir=None):
     swap_names = Counter()
     for o in outlets:
         if any(k in swaps for k in o.pop('_moves', ())):
-            add_flag(o, F_SWAP)
-            rep['outlets_swap_flagged'] += 1
+            rep['outlets_swap_flagged' if FLAG_SWAPS else 'outlets_swapped_accepted'] += 1
+            if FLAG_SWAPS:
+                add_flag(o, F_SWAP)
         # login renamed for the same person
         for brand, ck in (('im3', 'dse_code_im3'), ('3id', 'dse_code_3id')):
             nb, nw = ncode(o.get('%s_base' % ck)), ncode(o.get(ck))
@@ -306,7 +326,7 @@ def apply(base_outlets, cat_dir=None):
 
     # ---- 4. DSE-level flags
     flag_rows = []
-    for nm, n in sorted(swap_names.items()):
+    for nm, n in sorted(swap_names.items()) if FLAG_SWAPS else []:
         partners = sorted({(b_ if a_ == nm else a_) for (a_, b_) in swaps if nm in (a_, b_)})
         flag_rows.append((nm.upper(), 'name', F_SWAP, '%d outlet bertukar dengan %s' % (n, ', '.join(partners)), ''))
     hier_by_name = defaultdict(list)

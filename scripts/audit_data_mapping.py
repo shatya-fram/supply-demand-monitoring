@@ -55,10 +55,27 @@ gps = sum(1 for o in terr if o.get('lat') not in (None, '', 0, '0'))
 table(['Ukuran', 'Jumlah', '%'], [['Outlet master', n0(n), '100%'], ['Dengan DSE', n0(n - un), pc(n - un, n)], ['Tanpa DSE (UNASSIGNED)', n0(un), pc(un, n)],
        ['Tanpa Micro Cluster', n0(nomc), pc(nomc, n)], ['Tanpa Branch', n0(nobr), pc(nobr, n)], ['Dengan GPS', n0(gps), pc(gps, n)]])
 p('Perbaikan 15 Okt: kode DSE `0` / `0.0` di file mapping berarti "tidak ada DSE", bukan DSE bernama 0. Sebelumnya 859 outlet di 17 MC terbaca sebagai satu DSE "0" dengan target proxy Rp 1,42 M; kini berlabel `UNASSIGNED` dan tidak masuk roster DSE.')
+import csv, glob
+_par = {}
+def _find(x):
+    _par.setdefault(x, x)
+    while _par[x] != x:
+        _par[x] = _par[_par[x]]; x = _par[x]
+    return x
+CODE_NAME = {}                                      # login code -> DSE name (hierarchy, then the governed catalogue sheet DSE)
+for _f, _a, _b, _n in [('data/catalogues/dse_master_hierarchy.csv', 'dse_id_im3', 'dse_id_3id', 'nama_dse')] + [(x, 'login_im3', 'login_3id', 'dse_name') for x in sorted(glob.glob('data/catalogues/catalogue_[0-9]*/dse_logins.csv'))[-1:]]:
+    if os.path.exists(_f):
+        for _r in csv.DictReader(open(_f, encoding='utf-8-sig')):
+            _x, _y = norm(_r[_a]), norm(_r[_b])
+            if _x and _y: _par[_find(_x)] = _find(_y)
+            for _c in (_x, _y):
+                if _c: CODE_NAME.setdefault(_c, norm(_r[_n]))
 names = collections.defaultdict(set)
 for o in terr:
     nm = norm(o['dse_name'])
-    if nm and not nm.startswith('UNASSIGNED'): names[nm].add((o['dse_code_im3'] or o['dse_code_3id'], o['micro_cluster']))
+    if nm and not nm.startswith('UNASSIGNED'):
+        for c in (o['dse_code_im3'], o['dse_code_3id']):
+            if c and CODE_NAME.get(norm(c), nm) == nm: names[nm].add((_find(norm(c)), o['micro_cluster']))   # an outlet can carry the other brand's login of another DSE
 dups = {k: v for k, v in names.items() if len({c for c, _ in v}) > 1}
 p('DSE berbeda dengan nama sama: ' + (', '.join(f'**{k}** ({", ".join(sorted(f"{c} · {m}" for c, m in v))})' for k, v in dups.items()) or 'tidak ada') + '. Di KPI feed keduanya kini punya kunci sendiri (nama + kode) sehingga target dan sell-in tidak tercampur.')
 
@@ -69,7 +86,7 @@ by_o = {}
 for o in terr:
     for c in (o['outlet_id_im3'], o['outlet_id_3id']):
         if c: by_o.setdefault(norm(c), o)
-tot = fnd = same = diff = 0; ex = []
+tot = fnd = same = diff = 0; ex = []; diff_by = collections.Counter()
 for nrow, r in pair:
     if nrow < 2 or not (r.get(2) or r.get(3)): continue
     tot += 1
@@ -81,9 +98,15 @@ for nrow, r in pair:
     if codes & pc_: same += 1
     else:
         diff += 1
+        mn = norm(o['dse_name']); fl = set(str(o.get('flags') or '').split('|'))
+        snames = {CODE_NAME.get(c, c) for c in pc_}
+        kk = ('Orang sama, login berganti' if mn in snames else 'Master tanpa DSE: outlet tidak ada di FINAL 20 Okt' if mn.startswith('UNASSIGNED') else
+              'Outlet baru dari FINAL (belum ada di master saat target dibuat)' if 'BARU_DARI_FINAL' in fl else 'DSE ikut pasangan yang saling tukar (cek DSO)' if 'DSE_TUKAR_PERLU_CEK' in fl else 'DSE lain menurut FINAL')
+        diff_by[kk] += 1
         if len(ex) < 5: ex.append((r.get(2) or r.get(3), sorted(pc_)[:1], sorted(codes)[:1] or ['UNASSIGNED']))
 h('2. Penugasan outlet ke DSE: master vs sheet "Pairing Outlet-DSE" di file target')
 table(['Ukuran', 'Jumlah', '%'], [['Pasangan outlet-DSE di file target', n0(tot), '100%'], ['Outlet ditemukan di master', n0(fnd), pc(fnd, tot)], ['DSE sama dengan master', n0(same), pc(same, fnd)], ['DSE berbeda dari master', n0(diff), pc(diff, fnd)]])
+if diff_by: table(['Penyebab selisih DSE (outlet ada di master)', 'Outlet', '% selisih'], [[k, n0(v), pc(v, diff)] for k, v in diff_by.most_common()])
 if ex: p('Contoh beda: ' + '; '.join(f'outlet {a} → file {b[0] if b else "-"} vs master {c[0]}' for a, b, c in ex) + '.')
 p('Selisih ini menentukan basis outlet yang dihitung untuk OSA dan UAR per DSE. Master outlet (file mapping outlet) tetap sumber resmi aplikasi; sheet pairing hanya dipakai sebagai pembanding.')
 

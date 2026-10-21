@@ -61,7 +61,7 @@ System baseline compared: `dse_master_hierarchy.csv` (272), `dso_territory_mappi
 - PJP flag vs system PJP schedule ids: common 21,548, new-only 110, system-only 1,023.
 - **Disagrees with FINAL**: of 20,730 outlets in both, 1,600 (7.7%) have a different `dse_code`; 928 PJP-flagged outlets are not in FINAL; 1,651 FINAL outlets are flagged NON here. `dse_code` also holds 575 distinct codes, some in name form (for example "Dedy Junaedi").
 - Coordinates differ (> 50 m) for 1,125 outlets, kecamatan for 2,309, MC for 147 against the system master.
-- `site_nm` (NBS site) is filled for the IM3 rows (17,512 of 17,513) and blank for all 18,442 3ID rows (flag `OUTLET-NBS`), so the 3ID site link still depends on the NBS site files (`raw/Outlet & Mapping/NBS Site to Outlet`, dated 202608).
+- `site_nm` is filled for the IM3 rows (17,512 of 17,513) and blank for all 18,442 3ID rows (flag `OUTLET-NBS`). **It is not an NBS site id**: it matches none of the master site ids (0 of 11,545 IM3 outlets compared), so it is not used as site (corrected 21 Oct); the site link still depends on the NBS site files (`raw/Outlet & Mapping/NBS Site to Outlet`, dated 202608).
 
 ### 2.6 Sheet PT
 Branch summary of pairing counts (dual brand, single brand, different kecamatan, create ONO IM3, re-open). Reference only; the numbers belong to the 2 Oct pairing snapshot.
