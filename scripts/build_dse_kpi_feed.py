@@ -157,7 +157,7 @@ def main():
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
     # ---- sell-in per master outlet, rolled up to its DSE
-    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0,
+    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0, 'spi_lpcs': 0, 'spi_sep': 0,
                                 'osa_amt': 0, 'osa_all': 0, 'sep_all': 0, 'osa_out': 0, 'sep_saldo': 0, 'sep_osa_amt': 0, 'sep_osa_out': 0, 'sp_sep_pcs': 0, 'outlets_seen': 0})
     qmin = POLICY['osa']['qualify_min_rp']
     unmatched = 0
@@ -199,6 +199,7 @@ def main():
             a['sp3_out'] += 1
         spi_q = g('SPI', 0)                           # SP Injection (digital, MOBO), MTD pcs; part of Sell-In SP achievement (owner, 19 Oct 2026)
         a['spi_pcs'] += spi_q; a['spi_amt'] += g('SPI', 1)
+        a['spi_lpcs'] += g('SPI', 2); a['spi_sep'] += g('SPI', 4)       # September baseline of SP Injection (LMTD 1..cut, full month), same basis as the October actual
         umin = POLICY['compliance']['uar']['min_pcs']      # UAR >= 5 pcs counts SP 3GB + SP Injection, SP0 / Zero excluded (owner, 20 Oct 2026)
         if s3[0] + spi_q >= umin:
             a['sp_uar5'] += 1
@@ -304,7 +305,7 @@ def main():
             'osa_tgt': round(osa_tgt), 'osa_tgt_all': round(a['sep_all']), 'osa_tgt_src': tgt_src,
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
-            'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'],
+            'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'], 'spi_lpcs': round(a['spi_lpcs']), 'spi_sep': round(a['spi_sep']),
             'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))
@@ -322,7 +323,7 @@ def main():
                 'osa_amount': 'value (Rp) of SP + voucher (isi and blank) + saldo Mobo sell-in to DSE-mapped outlets whose combined value reaches Rp 300K in the period (GAPLOK OSA productivity rule); toggle: all outlets',
                 'osa_target': 'official individual OSA target (IOH = IM3 + 3ID, rebalanced) from the target workbook; proxy = September full month only where a DSE has no official target',
                 'sp_target': 'official Sell-In SP target in pcs per DSE (rebalanced), prorated MTD in the app',
-                'sp3_pcs': 'SP 3GB pcs sold in to DSE-mapped outlets = the SP KPI (SP Data Sell-In) together with spi_pcs; SP Zero / 3ID KPK and empty-card bundles / FWA are in sp0_pcs and are not counted, other SP in spx_pcs', 'sp_pcs': 'SP pcs sold in (all brands, all SP products, memo) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
+                'sp3_pcs': 'SP 3GB pcs sold in to DSE-mapped outlets = the SP KPI (SP Data Sell-In) together with spi_pcs (September baseline on the same basis: sp3_lpcs + spi_lpcs for LMTD, sp3_sep + spi_sep for the full month); SP Zero / 3ID KPK and empty-card bundles / FWA are in sp0_pcs and are not counted, other SP in spx_pcs', 'sp_pcs': 'SP pcs sold in (all brands, all SP products, memo) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
                 'uar': 'DSE-mapped outlets with >= 5 SP pcs in the period',
                 'effective_call': 'productive visits (executed visit with SP/VC qty > 0 or saldo > Rp 50K) / planned visits (fix PJP); toggle: executed visits',
                 'class': 'urban/rural by branch rule (KARAWANG, KAB BEKASI = rural) unless the targets file gives U|R',

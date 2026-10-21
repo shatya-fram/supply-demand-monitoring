@@ -343,6 +343,7 @@ lm_prod = defaultdict(lambda: {"lq": 0.0, "lv": 0.0, "fq": 0.0, "fv": 0.0, "lo":
 lm_daily = {c: [0.0] * 32 for c in CATS}                                                              # region total per day, Rp (SPI: also pcs in lm_dailyq)
 lm_dailyq = {c: [0.0] * 32 for c in CATS}
 lm_unknown = defaultdict(float)
+spi_lm_mc = defaultdict(lambda: [[0.0, 0.0] for _ in range(32)])        # SP Injection September per (MC | brand) per day: [pcs, Rp] (baseline for the SP Sell-In KPI)
 lm_meta = {"source": None, "month": f"{_PY}-{_PM:02d}", "cut_day": CUT_DAY, "days": 0, "unknown": {"ids": 0, "value": 0}, "totals": {}}
 if LM_SRC and os.path.exists(LM_SRC):
     print("   Bulan lalu (Last FM / LMTD):", LM_SRC)
@@ -390,6 +391,13 @@ if LM_SRC and os.path.exists(LM_SRC):
                 outlets[key] = master[key]
             outlet_brand.setdefault(key, brand)
             e = lm[key][code]; e[0] += lq; e[1] += lv; e[2] += fq; e[3] += fv
+            if code == "SPI":
+                _mc = (outlets.get(key) or master.get(key) or {}).get("mc") or "OUTSIDE MASTER TERRITORY"
+                for d in range(1, 32):
+                    qq = float(r.get(hits[d]) or 0) if d in hits else 0.0
+                    vv = float(r.get(amts[d]) or 0) if d in amts else 0.0
+                    if qq or vv:
+                        _c = spi_lm_mc[(_mc, brand)][d]; _c[0] += qq; _c[1] += vv
             P = lm_prod[(code, pname)]; P["lq"] += lq; P["lv"] += lv; P["fq"] += fq; P["fv"] += fv
             if lv or lq: P["lo"].add(key)
             P["fo"].add(key)
@@ -444,7 +452,7 @@ feed = {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
         "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
-        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in CATS}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
+        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in CATS}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],
         "lm_columns": "outlets[].l[cat] = [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp] (September, LMTD = days 1..cut_day); products[] carry lq, lv, fq, fv, lo, fo",

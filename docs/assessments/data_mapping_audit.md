@@ -1,6 +1,6 @@
 # Audit pemetaan data ke teritori
 
-**Dibuat**: 21 Oct 2026 14:41 oleh `scripts/audit_data_mapping.py`. Menjawab: apakah data MOBII, MOBO, PJP, ENDBAL dan target sudah masuk ke outlet, DSE, MC dan Area yang tepat, dan berapa yang belum.
+**Dibuat**: 21 Oct 2026 19:59 oleh `scripts/audit_data_mapping.py`. Menjawab: apakah data MOBII, MOBO, PJP, ENDBAL dan target sudah masuk ke outlet, DSE, MC dan Area yang tepat, dan berapa yang belum.
 
 ## 1. Master outlet dan penugasan DSE
 
@@ -48,8 +48,8 @@ Selisih ini menentukan basis outlet yang dihitung untuk OSA dan UAR per DSE. Mas
 | Node lain (stockist FWA dll) | Rp 53.0 jt | 0.3% | 12 | 9 |
 
 Sell-In yang sampai ke **outlet** (master + adhoc): Rp 11.56 M = 63.8% dari seluruh file; sisanya adalah stok ke node distribusi yang memang bukan outlet. Id tidak dikenal: 0.6% nilai.
-Outlet di feed: 17,613 (master 15,565, adhoc 2,048); outlet adhoc tanpa MC: 0. Outlet master tersebar di 36 MC.
-Outlet master tanpa DSE di feed Sell-In: 1,040 (nilai MTD tetap dihitung di Area dan MC, tetapi tidak ke DSE mana pun).
+Outlet di feed: 17,692 (master 15,586, adhoc 2,106); outlet adhoc tanpa MC: 0. Outlet master tersebar di 36 MC.
+Outlet master tanpa DSE di feed Sell-In: 1,054 (nilai MTD tetap dihitung di Area dan MC, tetapi tidak ke DSE mana pun).
 
 ## 4. MOBO · Demand (DAILY_DATA_MOBO)
 
@@ -81,11 +81,11 @@ Operator belum cocok (rencana terbesar): DSEIN107 (MC-CIPAYUNG, 313), CSO-UTARA-
 | Klasifikasi organisasi | Jumlah |
 |---|---:|
 | master | 23,830 |
-| tidak terpetakan | 14,681 |
-| adhoc | 2,038 |
+| tidak terpetakan | 14,623 |
+| adhoc | 2,096 |
 | bukan outlet | 342 |
 
-Outlet di feed: 18,063 (master 16,025, adhoc 2,038). Organisasi bertipe outlet yang tidak terpetakan ke master maupun adhoc: 14,681, dengan stok Rp 2.39 M yang tidak masuk ke MC mana pun (teratas: MC-KARAWANG 1,139, MC-CIKARANG 866, MC-DEPOK BARAT 857, MC-RENGASDENGKLOK 856).
+Outlet di feed: 18,121 (master 16,025, adhoc 2,096). Organisasi bertipe outlet yang tidak terpetakan ke master maupun adhoc: 14,623, dengan stok Rp 2.30 M yang tidak masuk ke MC mana pun (teratas: MC-KARAWANG 1,139, MC-CIKARANG 860, MC-RENGASDENGKLOK 853, MC-DEPOK BARAT 852).
 
 ## 7. Target Setting per DSE vs file target
 

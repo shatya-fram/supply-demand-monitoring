@@ -57,3 +57,21 @@ Header dua baris, grup kolom per periode, dengan chip untuk menampilkan / menyem
 **Katalog dan tracking:** kolom per grup FM / LMTD / MTD / Proyeksi (nilai utama dengan pendamping Rp atau qty di bawahnya), Gap & Growth, Visit, Konteks (demand, sell-in), Flag.
 
 Semua angka tetap bisa diklik (popup FM, LMTD, MTD dalam Rp dan qty, gap, growth; salin teks / gambar / PNG).
+
+## 6. Semua tabel: pembantu bersama dan inventaris (21 Okt 2026)
+
+**Pembantu bersama** (di sebelah `th()` di `website/app.js`): `pgBar(tid, groups)` (chip tampil / sembunyikan grup, status per id tabel di `state.pgCols[tid]` dan localStorage `pgCols:<tid>`), `pgHead(tid, lead, groups, tail)` (header dua baris; `th()` di `lead` / `tail` otomatis rowspan 2), `pgOn(tid, id)` (dipakai pembangun baris). Grup standar: FM Sep, LMTD Sep, MTD Okt, Proyeksi Okt, Gap & Growth, UAR, Konteks, Visit PJP, Lainnya. Hanya tata letak dan pengelompokan; angka tidak diubah. Tabel KRO memakai pembantu sendiri (`kroHead2`, `kroCg`) dengan perilaku sama; dipertahankan karena sudah dipakai popup `kr|`.
+
+**Batch 1 · Penjualan ke Outlet (selesai):**
+
+| Tabel (id) | Kolom sekarang → grup |
+|---|---|
+| MTD vs LMTD per kategori (`pj_kat`) | Sep penuh → FM · Unit / Nilai / Outlet beli LMTD → LMTD · Unit / Nilai / Outlet beli MTD → MTD · Run-rate akhir bulan → Proyeksi · Growth nilai → Gap & Growth · Rp/unit → Lainnya |
+| Per teritori (`pj_ter`) | blok performa: Sep penuh → FM · LMTD → LMTD · MTD → MTD · Growth + Gap ke Sep penuh → Gap & Growth; kolom Outlet PJP, UAR, kategori tetap di luar grup |
+| Heatmap (`pj_heat`) | blok performa yang sama; kolom hari tetap |
+| Outlet (`pj_out`) | blok performa yang sama; kolom kategori, beli terakhir, visit tetap |
+| Mix produk (`pj_prod`) | Unit / Nilai / % nilai / Outlet MTD → MTD · Unit / Nilai / Outlet LMTD → LMTD · Growth → Gap & Growth |
+
+Tidak diubah: tabel harian Penjualan (hari × kategori; hanya satu deret harian dengan pembanding LMTD sama hari), matriks slab (`sl|`, sudah per periode di popup), matriks produk (`vm|`).
+
+**Belum (batch berikut, menunggu review tampilan):** Demand Customer (poRingkasan, poTeritori, poOutletTab, poProdukList), Gross Add dan Daily GA Trend, Overall Performance, DSE Productivity, PJP visit, End Balance, Target Setting. Tabel yang tidak punya periode kedua (mis. daftar visit harian, master teritori) dibiarkan; tidak ada baseline yang dibuat-buat.

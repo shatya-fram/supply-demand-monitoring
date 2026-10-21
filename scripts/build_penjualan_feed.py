@@ -357,22 +357,25 @@ for key, cats in outlet_facts.items():
 # Sumber: data/processed/demand_feed.json (build_demand_feed.py, jalankan sebelum skrip ini). MTD saja: LMTD dan bulan penuh
 # belum tersedia (lq/lv/fq/fv = 0, metadata.spi.has_baseline = false). Dipotong sampai CUT_DAY agar sejajar dengan MOBII.
 SPI_MTD_DAYS = {}                  # (mc, brand) -> [[qty, value]] per hari, untuk mc_daily
-spi_meta = {"has_baseline": False, "source": None, "outlets": 0, "pcs": 0, "value": 0, "note": "SP Injection (MOBO) hanya MTD; LMTD dan bulan penuh akan disiapkan."}
+SPI_LMTD_DAYS = {}                 # (mc, brand) -> [[qty, value]] per hari September (1..CUT_DAY), baseline LMTD
+spi_meta = {"has_baseline": False, "source": None, "outlets": 0, "pcs": 0, "value": 0, "lm_source": None, "lm_pcs": 0, "lm_value": 0, "fm_pcs": 0, "fm_value": 0,
+            "note": "SP Injection (MOBO) hanya MTD; LMTD dan bulan penuh akan disiapkan."}
 DEMAND_JSON = "data/processed/demand_feed.json"
 if os.path.exists(DEMAND_JSON):
     with open(DEMAND_JSON, encoding="utf-8") as fh:
         _dem = json.load(fh)
     by_k = {r["k"]: r for r in outlet_rows}
     spi_meta["source"] = _dem.get("metadata", {}).get("source")
+    _lm = _dem.get("metadata", {}).get("lm") or {}
+    has_lm = bool(_lm.get("source")) and "SPI" in (_lm.get("totals") or {})
     for o in _dem.get("outlets", []):
         sp = (o.get("c") or {}).get("SPI")
-        if not sp:
-            continue
-        md = [e for e in sp[4] if e[0] <= CUT_DAY]          # demand md = [hari, nilai, qty]
-        if not md:
+        lmv = ((o.get("l") or {}).get("SPI") if has_lm else None) or [0, 0, 0, 0]     # [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp] (September)
+        md = [e for e in sp[4] if e[0] <= CUT_DAY] if sp else []                      # demand md = [hari, nilai, qty]
+        if not md and not (lmv[0] or lmv[1] or lmv[2] or lmv[3]):
             continue
         mv_ = sum(e[1] for e in md); mq_ = sum(e[2] for e in md)
-        packed = [mq_, mv_, 0, 0, 0, 0, max(e[0] for e in md), None, len(md), 0, [[e[0], e[1], e[2]] for e in md]]
+        packed = [mq_, mv_, lmv[0], lmv[1], lmv[2], lmv[3], max(e[0] for e in md) if md else None, None, len(md), 0, [[e[0], e[1], e[2]] for e in md]]
         row = by_k.get(o["k"])
         if row is None:
             row = {k: o[k] for k in ("k", "n", "tier", "mc", "kec", "site", "dse")}
@@ -381,10 +384,20 @@ if os.path.exists(DEMAND_JSON):
                 row["br"] = o["br"]
             outlet_rows.append(row); by_k[o["k"]] = row
         row["c"]["SPI"] = packed
-        spi_meta["outlets"] += 1; spi_meta["pcs"] += mq_; spi_meta["value"] += mv_
+        if md:
+            spi_meta["outlets"] += 1
+        spi_meta["pcs"] += mq_; spi_meta["value"] += mv_
+        spi_meta["lm_pcs"] += lmv[0]; spi_meta["lm_value"] += lmv[1]; spi_meta["fm_pcs"] += lmv[2]; spi_meta["fm_value"] += lmv[3]
         s_ = SPI_MTD_DAYS.setdefault((o["mc"] or OUTSIDE, row["b"]), [[0, 0] for _ in range(CUT_DAY)])
         for e in md:
             s_[e[0] - 1][0] += e[2]; s_[e[0] - 1][1] += e[1]
+    if has_lm:
+        spi_meta["has_baseline"] = True
+        spi_meta["lm_source"] = _lm.get("source")
+        spi_meta["note"] = "SP Injection (MOBO): MTD Oktober, LMTD (1..cut September) dan September penuh dari DAILY_DATA_MOBO bulan lalu; ikut Sell-In dengan baseline yang sama."
+        for k_, days_ in (_lm.get("spi_mc_daily") or {}).items():
+            mc_, b_ = k_.rsplit("|", 1)
+            SPI_LMTD_DAYS[(mc_, b_)] = [[int(days_[d][0]), int(days_[d][1])] if d < len(days_) else [0, 0] for d in range(CUT_DAY)]
 else:
     print("   PERINGATAN: demand_feed.json belum ada; SP Injection tidak dimuat (jalankan build_demand_feed.py dulu).")
 
@@ -419,7 +432,7 @@ for key, cats in outlet_facts.items():
         for d, c in f["md"].items(): s["m"][d - 1][0] += int(c[0]); s["m"][d - 1][1] += int(c[1])
         for d, c in f["ld"].items(): s["l"][d - 1][0] += int(c[0]); s["l"][d - 1][1] += int(c[1])
 mc_daily_rows = [{"mc": k[0], "b": k[1], "cat": k[2], "m": v["m"], "l": v["l"]} for k, v in mc_daily.items()]
-mc_daily_rows += [{"mc": k[0], "b": k[1], "cat": "SPI", "m": v, "l": [[0, 0] for _ in range(CUT_DAY)]} for k, v in SPI_MTD_DAYS.items()]
+mc_daily_rows += [{"mc": k[0], "b": k[1], "cat": "SPI", "m": SPI_MTD_DAYS.get(k) or [[0, 0] for _ in range(CUT_DAY)], "l": SPI_LMTD_DAYS.get(k) or [[0, 0] for _ in range(CUT_DAY)]} for k in sorted(set(SPI_MTD_DAYS) | set(SPI_LMTD_DAYS))]
 
 tiers_out = [{"period": k[0], "b": k[1], "cat": k[2], "tier": k[3], "q": int(v[0]), "v": int(v[1]), "rows": v[2], "ids": v[3]} for k, v in sorted(tier_tot.items())]
 
@@ -437,7 +450,7 @@ feed = {
         "rules": ["Sell-In outlet = baris yang id_outlet-nya outlet master atau outlet adhoc; nilai alokasi (DSE/MPC/MP3/SDP) dipisah di 'allocation'.",
                   "VC blank = nama produk mengandung BLANK atau diawali 'V0 '; nilai = unit x harga blank per brand.",
                   "MTD = 1..cut Okt 2026; LMTD = tanggal yang sama di Sep 2026; fq/fv = September penuh.",
-                  "SPI (SP Injection, MOBO) ikut Sell-In: mq = pcs, mv = Rupiah, MTD saja (lq/lv/fq/fv = 0 sampai LMTD dan bulan penuh disiapkan); ada toggle di aplikasi."],
+                  "SPI (SP Injection, MOBO) ikut Sell-In: mq = pcs, mv = Rupiah; lq/lv = LMTD September dan fq/fv = September penuh dari DAILY_DATA_MOBO bulan lalu (metadata.spi.has_baseline); ada toggle di aplikasi."],
         "master_counts": {"br": {k[1]: v for k, v in master_count.items() if k[0] == "br"}, "mc": {k[1]: v for k, v in master_count.items() if k[0] == "mc"},
                           "dse": {k[1]: v for k, v in master_count.items() if k[0] == "dse"}},
         "mc_info": mc_info,
