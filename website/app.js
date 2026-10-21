@@ -127,7 +127,7 @@
     sellin: ['Inner Jakarta · Sell-In Monitoring (MOBI)', 'Physical starter packs and vouchers, and electronic saldo, sold in to outlets by DSEs and distributors. Region → Area → MC → Kecamatan → Site → DSE → Outlet, with daily performance.'],
     visits: ['Inner Jakarta · DSE Visits & Beat Plans Tracking', 'Field route execution, daily target hits, visit durations, GPS compliance, unvisited outlets and inactive site tracking across Inner Jakarta.'],
     territory: ['Catalogue · Territory Management (Static Master)', 'Static Catalogue Master: Outlet ➔ Cellular NBS Site ➔ Field DSE Canvasser ➔ DSO Leader ➔ HoA Area Leader.'],
-    map:       ['Catalogue · Jakarta Inner Map (Spatial Intelligence)', 'Static Spatial Catalogue: 4,249 DSO-mapped NBS site instances (3,992 physical sites), 14,694 Outlets (lat/long), 185 Kecamatans, 36 MCs, and 7 Area Borders.'],
+    map:       ['Catalogue · Jakarta Inner Map (Spatial Intelligence)', 'Static Spatial Catalogue: 4,249 DSO-mapped NBS site instances (3,992 physical sites), master Outlets (lat/long), 185 Kecamatans, 36 MCs, and 7 Area Borders.'],
     data:      ['Catalogue · Master Data & Mappings', 'Static catalogue master files and territory reference datasets.']
   };
 
@@ -243,6 +243,7 @@
     sel: null,
     terrSubView: 'auto',
     terrSearch: '',
+    terrFlag: '',            // Territory Management: show only outlets with this catalogue flag ('' = all)
     terrStatus: 'all',
     terrPage: 1,
     terrPageSize: 50,
@@ -601,6 +602,7 @@
       if (state.hoa && o.hoa_leader !== state.hoa) return false;
       if (state.site && (o.site_nbs !== state.site && o.site_name !== state.site)) return false;
       if (state.dse && (o.dse_code_im3 !== state.dse && o.dse_name !== state.dse)) return false;
+      if (state.terrFlag && ('|' + (o.flags || '') + '|').indexOf('|' + state.terrFlag + '|') < 0) return false;
       if (q) {
         var match = String(o.outlet_name || '').toLowerCase().indexOf(q) !== -1 ||
                     String(o.outlet_id_im3 || '').toLowerCase().indexOf(q) !== -1 ||
@@ -625,7 +627,7 @@
 
   function exportTerritoryCsv(filtered) {
     if (typeof window === 'undefined') return;
-    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long'];
+    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long', 'Flags'];
     var lines = [headers.join(',')];
     filtered.forEach(function (o) {
       var row = [
@@ -646,7 +648,8 @@
         '"' + String(o.kecamatan || '').replace(/"/g, '""') + '"',
         '"' + String(o.desa || '').replace(/"/g, '""') + '"',
         o.lat || '',
-        o.long || ''
+        o.long || '',
+        '"' + String(o.flags || '').replace(/"/g, '""') + '"'
       ];
       lines.push(row.join(','));
     });
@@ -1148,6 +1151,29 @@
     return { outlets: list.length, sites: Object.keys(sites).length, physical: Object.keys(physical).length,
       dses: Object.keys(dses).length, mcs: Object.keys(mcs).length, branches: Object.keys(brs).length };
   }
+  /* Status of the governed catalogue (flags per outlet and per DSE / login); a button filters the outlet table below by that flag */
+  var TERR_FLAG_ORDER = ['TIDAK_ADA_DI_FINAL_20OKT', 'DSE_TUKAR_PERLU_CEK', 'ID_PERLU_VERIFIKASI', 'BARU_DARI_FINAL', 'IOH_NON_BERTENTANGAN', 'DSE_IM3_3ID_BEDA', 'PAIR_3ID_GANDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH'];
+  function terrFlagPanel(allOutlets) {
+    var any = false, i; for (i = 0; i < allOutlets.length && !any; i++) if (allOutlets[i].flags) any = true;
+    if (!any) return '';
+    var keep = state.terrFlag; state.terrFlag = ''; var base = filterTerritoryOutlets(allOutlets); state.terrFlag = keep;
+    var cnt = {}; base.forEach(function (o) { String(o.flags || '').split('|').forEach(function (f) { if (f) cnt[f] = (cnt[f] || 0) + 1; }); });
+    var flagged = base.filter(function (o) { return o.flags; }).length;
+    var btn = function (f, label, n, tip) { return '<button type="button" class="map-btn' + ((state.terrFlag || '') === f ? ' active' : '') + '" data-terr-flag="' + esc(f) + '" title="' + esc(tip) + '">' + label + ' (' + fmtCount(n) + ')</button>'; };
+    var bar = btn('', 'Semua outlet', base.length, 'Tanpa filter flag') + TERR_FLAG_ORDER.filter(function (f) { return cnt[f]; }).map(function (f) { var x = FLAG_INFO[f] || [f, '', '']; return btn(f, esc(x[0]), cnt[f], x[2]); }).join('');
+    var F = (typeof window !== 'undefined' && window.DSE_FLAGS) ? window.DSE_FLAGS : {}, rows = [];
+    Object.keys(F).forEach(function (k) { F[k].forEach(function (x) { rows.push([k, x]); }); });
+    var rank = { LOGIN_SEMENTARA: 0, DSE_TUKAR_PERLU_CEK: 1, ID_PERLU_VERIFIKASI: 2 };
+    rows.sort(function (a, b) { return (rank[a[1].f] - rank[b[1].f]) || (a[0] < b[0] ? -1 : 1); });
+    var dcnt = {}; rows.forEach(function (r) { dcnt[r[1].f] = (dcnt[r[1].f] || 0) + 1; });
+    var dtbl = rows.length ? '<details style="margin-top:8px;"><summary class="note" style="cursor:pointer;"><b>DSE dan login berflag</b> · ' + Object.keys(dcnt).map(function (f) { return esc((FLAG_INFO[f] || [f])[0]) + ' ' + fmtCount(dcnt[f]); }).join(' · ') + ' (klik untuk daftar)</summary>' +
+      '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('DSE / login') + th('Flag') + th('Keterangan') + th('Dugaan pemilik') + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td class="cur"><b>' + esc(r[0]) + '</b></td><td>' + flagChip(r[1].f) + '</td><td>' + esc(r[1].n || '') + '</td><td>' + esc(r[1].o || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></details>' : '';
+    return card('Status data katalog 202610 · flag outlet dan DSE', '<p class="note" style="margin:0 0 6px;">' + fmtCount(flagged) + ' dari ' + fmtCount(base.length) + ' outlet di lingkup ini berflag. Klik flag untuk menyaring tabel outlet di bawah; tombol unduh CSV memuat kolom Flags.</p>' +
+      '<div class="map-toolbar"><div class="map-toolbar-group">' + bar + '</div></div>' + dtbl +
+      '<p class="note">Aturan dan keputusan: <code>docs/assessments/catalogue_202610_detail.md</code>. Flag outlet ada di <code>territory_feed</code> (field <code>flags</code>), flag DSE dan login di <code>dse_flags.js</code>.</p>');
+  }
+  function terrMasterN() { var T = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null; return T && T.outlets ? T.outlets.length : 0; }
   function viewTerritory() {
     var terr = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : (typeof TERRITORY_FEED !== 'undefined' ? TERRITORY_FEED : null);
     if (!terr) {
@@ -1209,7 +1235,7 @@
     // 3. Static Master Catalogue KPIs
     var scopedNote = (state.branch || state.hoa || state.kec) ? 'Scoped: ' + esc(scopeText()) : 'All Inner Jakarta · ' + fmtCount(m.total_outlets || allOutlets.length) + ' master stores';
     var kpis = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Master Retail Outlets', fmtCount(tc.outlets), '100% Lat/Long Verified', 'up', scopedNote) +
+      kpi('Master Retail Outlets', fmtCount(tc.outlets), pctOf(filtered.filter(function (o) { return o.lat && o.long; }).length, filtered.length) + '% with Lat/Long', 'up', scopedNote) +
       kpi('Cellular NBS Sites', fmtCount(tc.sites), 'DSO-mapped site instances', 'up', fmtCount(tc.physical) + ' physical NBS sites') +
       kpi('Field DSE Canvassers', fmtCount(tc.dses), 'Active Sales Force', 'up', fmtCount(tc.mcs) + ' micro cluster(s) in scope') +
       kpi('Micro Clusters (MCs)', fmtCount(tc.mcs), 'DSO Supervisors', 'up', fmtCount(tc.branches) + ' branch area(s) in scope') +
@@ -1260,7 +1286,7 @@
       subContent = renderSubHoa(filtered);
     }
 
-    return chainRibbon + subNavHtml + kpis + drawerHtml + subContent;
+    return chainRibbon + subNavHtml + terrFlagPanel(allOutlets) + kpis + drawerHtml + subContent;
   }
 
   /* ==========================================================================
@@ -1284,7 +1310,7 @@
       kpi('👔 Micro Cluster Borders', fmtCount(mcs.length), '36 DSO Supervisors', 'up', 'Boundary Polygons') +
       kpi('📍 Kecamatan Districts', fmtCount(met.total_kecamatans || 185), 'District Polygons', 'up', 'Administrative Boundaries') +
       kpi('📡 Cellular NBS Sites', fmtCount(sites.length), 'DSO Teams Mapped', 'up', 'BTS Across 36 DSO Grids') +
-      kpi('🏪 Retail Outlets (GPS)', fmtCount(outlets.length), '100% Verified', 'up', '14,694 Total Stores') +
+      kpi('🏪 Retail Outlets (GPS)', fmtCount(outlets.length), pctOf(outlets.filter(function (o) { return o.lat && o.long; }).length, outlets.length) + '% with GPS', 'up', fmtCount(terrMasterN()) + ' Total Stores') +
     '</div>';
 
     // Top Controls Toolbar with zero-API-key basemaps
@@ -7660,7 +7686,7 @@
     var tbl = card('Summary per ' + (mode === 'area' ? 'Region · Area · MC (DSO)' : (mode === 'mc' ? 'MC (DSO)' : 'DSE')) + ' · ' + scope,
       tools + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th((mode === 'dse' ? 'DSE' : 'Region / Area / MC')) + th('DSO / ket.') + th('Outlet', 1) + th('Zero stock', 1) + th('&lt; 50K', 1) + th('50–100K', 1) + th('100–300K', 1) + th('≥ 300K', 1) + th('Total balance', 1) + th('Avg transaksi / hari', 1) + th('Inventory days', 1) + th('Sell-in saldo ' + M.sellin_cut_day + ' Okt', 1) + th('UAR', 1) + th('Sell-in MTD', 1) + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' +
       '<p class="note">DSO = pemimpin MC (satu DSO per MC), jadi baris MC sekaligus baris DSO. Persentase slab terhadap outlet pada baris itu. Sell-in saldo dari DAILY_DATA_MOBII (cut ' + esc(M.sellin_cut) + '), balance dari ENDBAL ' + esc(M.snapshot) + '.</p>');
-    var cov = '<p class="note" style="margin-top:8px;">Cakupan: ' + fmtCount(M.master_outlets) + ' dari 14,694 outlet PJP dan ' + fmtCount(M.adhoc_outlets) + ' outlet ad-hoc punya data ENDBAL. ' + fmtCount(M.classification['tidak terpetakan'] || 0) + ' outlet di file (cluster lama, a.l. Karawang, Depok Barat, Cikarang) belum terpetakan ke DSE atau MC dan belum ikut dihitung; total balance-nya Rp ' + fmtCount(Math.round((M.unmapped_stock_balance || 0) / 1e6)) + ' Jt.</p>';
+    var cov = '<p class="note" style="margin-top:8px;">Cakupan: ' + fmtCount(M.master_outlets) + ' dari ' + fmtCount(terrMasterN()) + ' outlet PJP dan ' + fmtCount(M.adhoc_outlets) + ' outlet ad-hoc punya data ENDBAL. ' + fmtCount(M.classification['tidak terpetakan'] || 0) + ' outlet di file (cluster lama, a.l. Karawang, Depok Barat, Cikarang) belum terpetakan ke DSE atau MC dan belum ikut dihitung; total balance-nya Rp ' + fmtCount(Math.round((M.unmapped_stock_balance || 0) / 1e6)) + ' Jt.</p>';
     return cards + tbl + cov;
   }
 
@@ -9670,12 +9696,12 @@
 
   function viewData() {
     var catalogues = [
-      ['Territory Management Master (outlet chain)', 'data/catalogues/territory_management_master.csv · .json', '14,694 outlets → site NBS → DSE → DSO → HoA, with GPS and Oct supply flags', 'Active & Governed', 'up'],
+      ['Territory Management Master (outlet chain)', 'data/catalogues/territory_management_master.csv · .json', fmtCount(terrMasterN()) + ' outlets → site NBS → DSE → DSO → HoA, with GPS, Oct supply flags and catalogue 202610 flags', 'Active & Governed', 'up'],
       ['Territory Hierarchy Chain', 'data/catalogues/territory_hierarchy_chain.json', '7 branches → 36 micro clusters → DSE codes with outlet counts', 'Active & Governed', 'up'],
       ['DSE Master Hierarchy', 'data/catalogues/dse_master_hierarchy.csv · .json', '272 DSEs with MOBO MSISDN, rayon, IM3 / 3ID codes', 'Active & Governed', 'up'],
       ['DSO Territory Mapping', 'data/catalogues/dso_territory_mapping.csv · .json', '36 micro clusters mapped to DSO leaders and Heads of Area', 'Active & Governed', 'up'],
       ['Branch Area Summary', 'data/catalogues/branch_area_summary.csv', '7 branches and Heads of Area', 'Active & Governed', 'up'],
-      ['Jakarta Map Feed', 'data/catalogues/jakarta_map_feed.json', '7 area, 36 MC and 185 kecamatan borders, 4,249 DSO-mapped site centroids, 14,694 outlets', 'Active & Governed', 'up'],
+      ['Jakarta Map Feed', 'data/catalogues/jakarta_map_feed.json', '7 area, 36 MC and 185 kecamatan borders, 4,249 DSO-mapped site centroids, ' + fmtCount(terrMasterN()) + ' outlets', 'Active & Governed', 'up'],
       ['DSE Visits Feed', 'website/data/dse_visits_feed.js', 'Planned vs actual visits, durations, GPS deviation, unvisited outlets and sites, ' + pjpPeriod('mtd') + ' 2026', 'Active & Loaded', 'up'],
       ['Daily Supply & Demand Feed', 'data/processed/daily_supply_demand_feed.json', 'ILLUSTRATIVE seeded numbers behind Morning Brief, Leaders Analysis and Supply vs Demand', 'Synthetic until Step 5', 'watch']
     ];
@@ -10003,7 +10029,9 @@
     DSE_IM3_3ID_BEDA: ['DSE IM3 ≠ 3ID', '', 'DSE untuk id IM3 dan id 3ID outlet ini berbeda di FINAL; DSE id IM3 dipakai.'],
     PAIR_DIUBAH_CATALOGUE: ['Pairing baru (katalog)', '', 'Pasangan IM3-3ID baru dari katalog 202610 yang didukung FINAL (DSE sama).'],
     PAIR_DIPISAH: ['Pairing dipisah', '', 'Id dilepas dari pasangan lama karena pasangan baru atau aturan 3ID ganda.'],
-    PAIR_3ID_GANDA: ['3ID dipakai >1 IM3', 'warn', 'Satu id 3ID dipakai lebih dari satu IM3; satu IM3 menjadi pasangan primer.']
+    PAIR_3ID_GANDA: ['3ID dipakai >1 IM3', 'warn', 'Satu id 3ID dipakai lebih dari satu IM3; satu IM3 menjadi pasangan primer.'],
+    BARU_DARI_FINAL: ['Baru dari FINAL', '', 'Outlet hanya ada di FINAL_20261020 dan ditambahkan ke master (lokasi dari IOH_Outlet 19 Okt; site NBS menunggu pemetaan).'],
+    IOH_NON_BERTENTANGAN: ['IOH = NON', 'warn', 'FINAL memetakan outlet ini ke DSE, tetapi IOH_Outlet (19 Okt) menyebutnya NON-PJP: sumber saling bertentangan.']
   };
   function flagChip(f, note) { var x = FLAG_INFO[f] || [f, '', '']; return '<span class="flag-chip' + (x[1] ? ' ' + x[1] : '') + '" title="' + esc((note ? note + ' · ' : '') + x[2]) + '">' + esc(x[0]) + '</span>'; }
   function flagChips(s) { return String(s || '').split('|').filter(Boolean).map(function (f) { return flagChip(f); }).join(''); }
@@ -10220,6 +10248,7 @@
     else if (t.hasAttribute('data-kro-mode')) { state.kroMode = t.getAttribute('data-kro-mode'); state.kroPage = 1; state.kroSearch = ''; }
     else if (t.hasAttribute('data-kro-prog')) { state.kroProg = t.getAttribute('data-kro-prog'); state.kroPage = 1; }
     else if (t.hasAttribute('data-kro-cg')) { var kc = kroCg(), kid = t.getAttribute('data-kro-cg'); kc[kid] = kc[kid] ? 0 : 1; try { localStorage.setItem('kroCols', JSON.stringify(kc)); } catch (e) { /* private window */ } }
+    else if (t.hasAttribute('data-terr-flag')) { state.terrFlag = t.getAttribute('data-terr-flag'); state.terrPage = 1; }
     else if (t.hasAttribute('data-prg-toggle')) { var pK = kroFeed(), pn = t.getAttribute('data-prg-toggle'), pc = prgSelected(pK), pi = pc.indexOf(pn); if (pi >= 0) pc.splice(pi, 1); else pc.push(pn); state.prg = pc.length === prgNames(pK).length ? '' : (pc.length ? pc.join('~') : '-'); state.kroPage = 1; }
     else if (t.hasAttribute('data-prg-mode')) { state.prgMode = t.getAttribute('data-prg-mode') === 'all' ? 'all' : 'any'; state.kroPage = 1; }
     else if (t.getAttribute('data-act') === 'prg-all') { state.prg = ''; state.kroPage = 1; }
@@ -10810,7 +10839,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
+    territory: ['terrFlag'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab'], mb_gatrend: ['gaTab'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };

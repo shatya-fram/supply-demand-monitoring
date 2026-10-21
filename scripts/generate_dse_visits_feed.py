@@ -280,8 +280,18 @@ if os.path.exists(DSE_MASTER_PATH):
                     persons[pid]["codes"].add(c)
                     if c.endswith("3ID"):
                         code_person.setdefault(c[:-3], pid)       # raw 3ID logins sometimes omit the suffix
-# DSEs that the outlet master maps outlets to but the hierarchy catalogue does not list (they carry their login code as
-# name, e.g. DSEIN124): add them as master people so their journey plans land on them instead of "not in master".
+# DSEs that the outlet master maps outlets to (login codes of the governed catalogue, e.g. DSEIN101 for a DSE whose hierarchy row
+# still carries the old login): the new logins become aliases of the hierarchy person with the same name, so one DSE stays one person.
+# Logins the owner keeps apart (data/catalogues/dse_login_sementara.csv, flag LOGIN_SEMENTARA) are never merged.  A name the hierarchy
+# does not list at all still becomes a temporary person.
+LOGIN_ONLY = set()
+if os.path.exists("data/catalogues/dse_login_sementara.csv"):
+    with open("data/catalogues/dse_login_sementara.csv", encoding="utf-8-sig") as f:
+        LOGIN_ONLY = {norm_id(r["login"]) for r in csv.DictReader(f)}
+name_pids = defaultdict(list)
+for _pid, _p in persons.items():
+    if _p["in_master"]:
+        name_pids[_p["dse_name"].strip().upper()].append(_pid)
 _by_name = defaultdict(lambda: {"codes": set(), "outlets": []})
 for o in master_outlets:
     nm = str(o.get("dse_name") or "").strip()
@@ -291,20 +301,59 @@ for o in master_outlets:
         if c:
             _by_name[nm]["codes"].add(c)
     _by_name[nm]["outlets"].append(o["outlet_key"])
-_added = 0
-for nm, e in sorted(_by_name.items()):
-    if not e["codes"] or any(c in code_person for c in e["codes"]):
-        continue
-    mode = lambda key: max(set(out_meta[k][key] for k in e["outlets"]), key=[out_meta[k][key] for k in e["outlets"]].count)
-    pid = f"T{_added:03d}"
-    add_person(pid, dse_name=nm, dso_leader=mode("dso"), hoa_leader=mode("hoa"), branch_master=mode("branch"), mc_master=mode("mc"), in_master=True)
-    for c in e["codes"]:
+_added = _aliased = 0
+
+
+def _attach(pid, codes):
+    for c in codes:
+        if c in LOGIN_ONLY or c in code_person:
+            continue
         code_person[c] = pid
         persons[pid]["codes"].add(c)
         if c.endswith("3ID"):
             code_person.setdefault(c[:-3], pid)
+
+
+# logins of the governed catalogue (sheet DSE): every login of a DSE listed there is attached to the hierarchy person of the same name (and MC)
+import glob as _glob
+for _pth in sorted(_glob.glob("data/catalogues/catalogue_[0-9]*/dse_logins.csv"))[-1:]:
+    with open(_pth, encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            _c = name_pids.get(r["dse_name"].strip().upper(), [])
+            if len(_c) > 1:
+                _c = [x for x in _c if persons[x]["mc_master"] == r["mc"]] or _c
+            if _c:
+                _attach(_c[0], [norm_id(r["login_im3"]), norm_id(r["login_3id"])]); _aliased += 1
+for nm, e in sorted(_by_name.items()):
+    if not e["codes"]:
+        continue
+    mode = lambda key: max(set(out_meta[k][key] for k in e["outlets"]), key=[out_meta[k][key] for k in e["outlets"]].count)
+    known = {code_person[c] for c in e["codes"] if c in code_person}
+    if known:                                   # at least one login already belongs to a person: its other logins are aliases of that person
+        if len(known) == 1 and any(c not in code_person and c not in LOGIN_ONLY for c in e["codes"]):
+            _attach(next(iter(known)), e["codes"]); _aliased += 1
+        continue
+    cands = name_pids.get(nm.upper(), [])
+    if len(cands) > 1:
+        cands = [c for c in cands if persons[c]["mc_master"] == mode("mc")] or cands
+    if cands:
+        _attach(cands[0], e["codes"]); _aliased += 1
+        continue
+    if all(c in LOGIN_ONLY for c in e["codes"]):
+        continue
+    pid = f"T{_added:03d}"
+    add_person(pid, dse_name=nm, dso_leader=mode("dso"), hoa_leader=mode("hoa"), branch_master=mode("branch"), mc_master=mode("mc"), in_master=True)
+    _attach(pid, e["codes"])
     _added += 1
-print(f"DSE master: {len(persons)} people ({_added} added from the outlet master), {len(code_person)} login codes.")
+print(f"DSE master: {len(persons)} people ({_added} added from the outlet master, {_aliased} with new logins attached), {len(code_person)} login codes.")
+
+
+# DSE / login flags (scripts/apply_final_dse_mapping.py -> data/catalogues/dse_flags.csv)
+FLAGS_BY_KEY = defaultdict(list)
+if os.path.exists("data/catalogues/dse_flags.csv"):
+    with open("data/catalogues/dse_flags.csv", encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            FLAGS_BY_KEY[r["key"].strip().upper()].append(r)
 
 
 def person_for(brand, op):
@@ -320,7 +369,7 @@ def person_for(brand, op):
         pid = code_person[partner]
     else:
         pid = f"O:{brand}:{u or 'BLANK'}"
-        add_person(pid, dse_name=code_name.get(u, ""))
+        add_person(pid, dse_name="" if u in LOGIN_ONLY else code_name.get(u, ""))   # a login kept apart (flag LOGIN_SEMENTARA) shows as its login
     code_person[u] = pid
     persons[pid]["codes"].add(u)
     return pid
@@ -665,10 +714,11 @@ for pid, S in op_stats.items():
         assigned |= code_outlets.get(c, set())
         if c.endswith("3ID"):
             assigned |= code_outlets.get(c[:-3], set())
-    name = P["dse_name"] or next((code_name[c] for c in codes if c in code_name), "") or (codes[0] if codes else pid)
+    name = P["dse_name"] or ("" if any(c in LOGIN_ONLY for c in codes) else next((code_name[c] for c in codes if c in code_name), "")) or (codes[0] if codes else pid)
     types = [t for t, _ in info["types"].most_common()]
     row = {
         "person_id": pid, "dse_name": name, "in_master": bool(P["in_master"]),
+        "flags": [], "flag_notes": [],
         "is_promotor": pid in promo_persons,        # promotor (PRJAYAIN##): visits are shown but not measured as PJP productivity
         "adhoc_planned": adhoc_by_person[pid]["planned"], "adhoc_actual": adhoc_by_person[pid]["actual"],   # ad-hoc visits at unassigned outlets (not PJP)
         "logins": sorted(info["logins"]), "operator_type": types[0], "operator_types": types,
@@ -684,6 +734,11 @@ for pid, S in op_stats.items():
         "assigned_coverage_rate": round(len(assigned & visited_keys_mtd) / len(assigned) * 100, 1) if assigned else None,
         "brands": {b: {"planned": bs["planned"], "actual": bs["actual"], "productive": bs["productive"]} for b, bs in op_brand[pid].items()},
     }
+    for _k in [name.upper()] + [norm_id(l.split(":", 1)[-1]) for l in row["logins"]]:
+        for _r in FLAGS_BY_KEY.get(_k, ()):
+            if _r["flag"] not in row["flags"]:
+                row["flags"].append(_r["flag"])
+            row["flag_notes"].append((_r["note"] + (" · dugaan pemilik: " + _r["dugaan_pemilik"] if _r.get("dugaan_pemilik") else "")).strip())
     row.update(stat_block(S))
     row["total_checkins"] = row["actual_visits"]
     row["daily"] = daily_series("op", pid)

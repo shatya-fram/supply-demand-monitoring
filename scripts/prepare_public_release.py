@@ -14,9 +14,9 @@ What it does
   3. scans the result and FAILS if a phone number or e-mail address is still present
   4. writes the GitHub Pages workflow (website/ is the published site) and initialises a fresh git repository with one commit
 
-It never contacts GitHub and never stores credentials. Pushing is a manual step (see the printed instructions).
+It reads the files as committed in HEAD (never the working tree) so unfinished work is not published. It never contacts GitHub and never stores credentials. Pushing is a manual step (see the printed instructions).
 
-Usage (from the project root): python3 scripts/prepare_public_release.py
+Usage (from the project root): python3 scripts/prepare_public_release.py [commit]   (default: HEAD)
 """
 import csv, io, json, os, re, shutil, subprocess, sys
 
@@ -37,9 +37,17 @@ PHONE_COLS = re.compile(r'(msisdn|phone|telepon|hp$)', re.I)
 MASK_PHONE, MASK_MAIL = '(nomor disamarkan)', '(email disamarkan)'
 
 
+REF = sys.argv[1] if len(sys.argv) > 1 else 'HEAD'      # export the files as committed at this ref (default HEAD): python3 scripts/prepare_public_release.py <commit>
+
+
 def tracked_files():
-    out = subprocess.check_output(['git', 'ls-files'], cwd=ROOT).decode('utf-8').split('\n')
+    out = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', REF], cwd=ROOT).decode('utf-8').split('\n')
     return [f for f in out if f]
+
+
+def head_bytes(rel):
+    """Content of a tracked file as committed in HEAD. The export never reads the working tree, so uncommitted work of another session is not published by accident."""
+    return subprocess.check_output(['git', 'show', REF + ':' + rel], cwd=ROOT)
 
 
 def wanted(path):
@@ -144,13 +152,13 @@ def main():
         src, dst = os.path.join(ROOT, rel), os.path.join(OUT, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         if rel.lower().endswith(TEXT_EXT):
-            raw = open(src, encoding='utf-8', errors='replace', newline='').read()
+            raw = head_bytes(rel).decode('utf-8', errors='replace')
             new = mask_csv(raw) if rel.lower().endswith('.csv') else mask_text(mask_json_keys(raw), quoted=rel.lower().endswith(('.json', '.js', '.html')))
             if new != raw:
                 masked_files += 1
             open(dst, 'w', encoding='utf-8', newline='').write(new)
         else:
-            shutil.copy2(src, dst)
+            open(dst, 'wb').write(head_bytes(rel))
         copied += 1
     open(os.path.join(OUT, 'README.md'), 'w', encoding='utf-8').write(README)
     os.makedirs(os.path.join(OUT, '.github', 'workflows'), exist_ok=True)
@@ -186,7 +194,7 @@ def main():
     subprocess.check_call(['git', 'add', '-A'], cwd=OUT)
     changed = subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=OUT).returncode != 0
     if changed or not keep_repo:
-        src_head = subprocess.check_output(['git', 'log', '-1', '--format=%h %s'], cwd=ROOT).decode().strip()
+        src_head = subprocess.check_output(['git', 'log', '-1', '--format=%h %s', REF], cwd=ROOT).decode().strip()
         msg = 'Initial public release (sanitized export, no history)' if not keep_repo else 'Update from working repository: ' + src_head
         subprocess.check_call(['git', 'commit', '-q', '-m', msg], cwd=OUT, env=env)
         print('committed:', msg)

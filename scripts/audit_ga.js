@@ -7,7 +7,7 @@ const path = require('path'), root = path.resolve(__dirname, '..');
 global.window = global; const noop = () => {};
 const el = () => ({ innerHTML: '', textContent: '', style: {}, addEventListener: noop, querySelectorAll: () => [], querySelector: () => null, focus: noop, classList: { add: noop, remove: noop, toggle: noop }, setAttribute: noop, getAttribute: () => null, appendChild: noop, remove: noop });
 global.document = { getElementById: el, querySelector: el, querySelectorAll: () => [], createElement: el, body: el(), documentElement: el(), addEventListener: noop };
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'pjp_mapping_feed.js']) require(path.join(root, 'website', 'data', f));
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js']) require(path.join(root, 'website', 'data', f));
 if (typeof global.dseVisitsFeed === 'undefined') { const src = require('fs').readFileSync(path.join(root, 'website', 'data', 'dse_visits_feed.js'), 'utf8'); const m = src.match(/var dseVisitsFeed = (\{[\s\S]*\});?\s*$/); if (m) global.dseVisitsFeed = JSON.parse(m[1]); }
 const app = require(path.join(root, 'website', 'app.js')); const { VIEWS, state } = app;
 const G = global.GA_FEED, M = G.metadata, mi = M.mc_info, cut = M.cut_day, days = M.cur_days || 31;

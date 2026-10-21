@@ -290,6 +290,12 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
   }
   state.kroOpenM = {};
   kroSet('sp', 'si', 'ringkasan'); state.gaBasis = 'outlet'; }
+// Territory Management: status panel of the catalogue flags and the flag filter of the outlet table
+{ const fl = new Set(); global.TERRITORY_FEED.outlets.forEach(o => String(o.flags || '').split('|').filter(Boolean).forEach(f => fl.add(f)));
+  if (!fl.size) { failures++; console.log('✗ no catalogue flag in the territory feed'); }
+  state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = '';
+  for (const f of fl) for (const sub of ['chain', 'dse']) { state.view = 'territory'; state.terrSubView = sub; state.terrFlag = f; check('territory/flag/' + f + '/' + sub, VIEWS.territory); }
+  state.terrSubView = 'auto'; state.terrFlag = ''; state.view = 'territory'; { const h = VIEWS.territory(); if (!/Status data katalog 202610/.test(h)) { failures++; console.log('✗ flag status panel missing'); } } }
 // Program & Tipe Outlet: every product / measure, program toggles (union and intersection), filters; clickable counts must resolve and match their cells
 { global.KRO_SLIM = global.KRO_SLIM || []; const KF = global.KRO_FEED, progs = Object.keys(KF.metadata.programs).filter(n => (KF.metadata.programs[n].keys || []).length);
   const pset = (prod, meas, prg, mode) => { state.view = 'mb_program'; state.kroProd = prod; state.kroMeas = meas; state.prg = prg; state.prgMode = mode; state.kroSearch = ''; state.kroPage = 1; state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = ''; };
