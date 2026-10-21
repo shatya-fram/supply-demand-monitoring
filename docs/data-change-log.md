@@ -2,6 +2,12 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 21 Oct 2026 (GA to 20 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| GA / SSO | `GA/Daily_RGUGA_OUTLET_202610.xlsb` (21 Oct 16:33) | Cut 18 → **20 Oct**. IOH October GA 135,860 → **152,825** pcs (IM3 90,157 → 101,256; 3ID 45,703 → 51,569). Same window September unchanged (IM3 159,420; 3ID 92,775); no new anomalies (20, all September or earlier). |
+| Daily refresh | MOBII / MOBO / SALMO (20 Oct 23:03), ENDBAL (21 Oct 05:14) | Feeds rebuilt in the same run: KRO feed, KPI feed and ENDBAL re-derived; `render_check`, `audit_kro.js` (reconciles) and `audit_ga.js` (4,672 checks) pass. The CVM sheet again carried RECARGE copies (58,802 rows, Rp 36.1 B removed). |
+
 ## 17 Oct 2026 (11:40 WIB)
 
 | Scope | Source (raw/) | Cut | Change |
