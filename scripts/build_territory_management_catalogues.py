@@ -571,12 +571,6 @@ def main():
     site_mapping = load_gcp_site_mapping()
     sp_vc_data, balance_data, visit_data = load_supply_transactions()
     outlets, hierarchy_tree = build_master_catalogue(mc_leadership, dse_leadership, site_mapping, sp_vc_data, balance_data, visit_data)
-    # Governed catalogue (raw/Catalogue ... FINAL_<date>, owner decisions of 21 Oct 2026): DSE per outlet, pairing and flags are applied on top of this
-    # baseline. The baseline is kept in territory_management_master_base.json.gz so scripts/apply_final_dse_mapping.py can be re-run on its own.
-    if glob.glob(os.path.join(CATALOGUES_DIR, 'catalogue_[0-9]*')):
-        import apply_final_dse_mapping as AF
-        AF.run(outlets, save_base=True)
-        return
     export_catalogues(outlets, hierarchy_tree, mc_leadership)
 
 

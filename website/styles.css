@@ -747,9 +747,3 @@ tr[style*="background:var(--ink)"] > td b { color: #fff !important; }
 #ovPop .ov-body td:nth-child(2), #ovPop .ov-body td:nth-child(3) { white-space: normal; }
 #ovPop .ov-actions .btn { font-size: 13px; padding: 7px 11px; }
 #ovPop .ov-lines { font-size: 13.5px; }
-
-/* flags from the governed catalogue (outlet and DSE flags) */
-.flag-chip { display: inline-block; border: 1px solid var(--ink, #111); color: var(--ink, #111); background: #fff; padding: 0 5px; margin: 3px 4px 0 0; font-size: 11px; line-height: 16px; font-weight: 700; white-space: nowrap; }
-.flag-chip.warn { border-color: #b45309; color: #92400e; }
-.flag-chip.alert { border-color: #991b1b; color: #991b1b; }
-.dse-flag { margin-top: 2px; }

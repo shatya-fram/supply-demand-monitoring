@@ -104,42 +104,16 @@ def main():
     roster = {}
     # two different DSEs can share a name (e.g. SUSANTO in MC-PONDOK GEDE and MC-CIMANGGIS): those get a code-based key
     # so their targets and sell-in are not merged. Outlets without a DSE (UNASSIGNED) are not a DSE and stay out of the roster.
-    # The IM3 and the 3ID login of one DSE are one person: they are linked through the hierarchy and the catalogue DSE sheet (not through outlets:
-    # an outlet can carry the IM3 login of one DSE and the 3ID login of another).
-    parent = {}
-    def find(x):
-        parent.setdefault(x, x)
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-    def union(a, b):
-        if a and b:
-            parent[find(a)] = find(b)
-    import csv as _csv, glob as _glob
-    code_owner = {}                                      # login code -> DSE name it belongs to (hierarchy first, then the catalogue sheet DSE)
-    for pth in [os.path.join(ROOT, 'data', 'catalogues', 'dse_master_hierarchy.csv')] + sorted(_glob.glob(os.path.join(ROOT, 'data', 'catalogues', 'catalogue_[0-9]*', 'dse_logins.csv')))[-1:]:
-        if os.path.exists(pth):
-            with open(pth, encoding='utf-8-sig') as f:
-                for r in _csv.DictReader(f):
-                    a, b = norm(r.get('dse_id_im3') or r.get('login_im3')), norm(r.get('dse_id_3id') or r.get('login_3id'))
-                    union(a, b)
-                    for c in (a, b):
-                        if c:
-                            code_owner[c] = norm(r.get('nama_dse') or r.get('dse_name'))
-    def pcode(o):
-        c = norm(o.get('dse_code_im3')) or norm(o.get('dse_code_3id'))
-        return find(c) if c else ''
     name_codes = defaultdict(set)
     for o in terr:
         nm = norm(o.get('dse_name'))
         if nm and not nm.startswith('UNASSIGNED'):
-            name_codes[nm].add(pcode(o))
+            name_codes[nm].add(norm(o.get('dse_code_im3')) or norm(o.get('dse_code_3id')))
     def dse_key(o):
         nm = norm(o.get('dse_name'))
         if not nm or nm.startswith('UNASSIGNED'):
             return None
-        return nm if len(name_codes[nm]) <= 1 else nm + ' | ' + pcode(o)
+        return nm if len(name_codes[nm]) <= 1 else nm + ' | ' + (norm(o.get('dse_code_im3')) or norm(o.get('dse_code_3id')))
     outlet_dse = {o['outlet_key']: dse_key(o) for o in terr}
     for o in terr:
         k = dse_key(o)
@@ -152,7 +126,7 @@ def main():
         e['dso'] = e['dso'] or o.get('dso_leader', '')
         e['hoa'] = e['hoa'] or o.get('hoa_leader', '')
         for c in (o.get('dse_code_im3'), o.get('dse_code_3id')):
-            if c and code_owner.get(norm(c), norm(o.get('dse_name'))) == norm(o.get('dse_name')):   # an outlet can carry another DSE's login on its other brand id
+            if c:
                 e['codes'].add(norm(c))
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
@@ -220,8 +194,6 @@ def main():
     vis = {}
     dup = 0
     for d in vf['dses']:
-        if 'LOGIN_SEMENTARA' in (d.get('flags') or []):      # a temporary login kept apart from the DSEs (owner, 21 Oct 2026): not merged into a DSE
-            continue
         k = norm(d.get('dse_name'))
         if k not in roster:
             k = None
@@ -237,15 +209,6 @@ def main():
         v = vis.setdefault(k, {'planned': 0, 'actual': 0, 'prod': 0, 'person': d.get('person_id')})
         v['planned'] += num(d.get('planned_visits')); v['actual'] += num(d.get('actual_visits')); v['prod'] += num(d.get('productive_visits'))
 
-    # temporary logins with exactly one probable owner (owner decision 21 Oct 2026: the logins stay separate in PJP; the target row follows the owner)
-    SEM_OWNER = {}
-    _sp = os.path.join(ROOT, 'data', 'catalogues', 'dse_login_sementara.csv')
-    if os.path.exists(_sp):
-        with open(_sp, encoding='utf-8-sig') as f:
-            for r in csv.DictReader(f):
-                if r.get('dugaan_pemilik') and '/' not in r['dugaan_pemilik']:
-                    SEM_OWNER[norm(r['login'])] = norm(r['dugaan_pemilik'])
-
     # ---- optional official targets / class
     given = {}
     if os.path.exists(TARGETS):
@@ -255,19 +218,12 @@ def main():
 
     # ---- official target setting (scripts/build_target_feed.py): OSA Rp and Sell-In SP pcs per DSE
     tgt = {}
-    tgt_orphans, tgt_rows, tgt_via_login = [], 0, []                  # target rows that cannot be placed on a roster DSE
+    tgt_orphans, tgt_rows = [], 0                  # target rows that cannot be placed on a roster DSE
     TF = os.path.join(ROOT, 'data', 'processed', 'target_feed.json')
     if os.path.exists(TF):
         for d in json.load(open(TF, encoding='utf-8'))['dses']:
             tgt_rows += 1
             k = code_to_key.get(norm(d['id'])) or code_to_key.get(norm(d['id3'])) or norm(d['n'])
-            if k not in roster:
-                # a temporary login (data/catalogues/dse_login_sementara.csv) is a target row whose DSE is not in the outlet master under that login:
-                # the target goes to the owner named there (when there is exactly one), so the region target stays whole; flagged in the audit
-                ow = SEM_OWNER.get(norm(d['id'])) or SEM_OWNER.get(norm(d['id3']))
-                if ow and ow in roster:
-                    k = ow
-                    tgt_via_login.append({'login': d['id'], 'owner': roster[ow]['name'], 'sp': d['sp'][2], 'osa': d['osa'][2]})
             if k not in roster:
                 tgt_orphans.append({'id': d['id'], 'n': d['n'], 'mc': d['mc'], 'sp': d['sp'][2], 'osa': d['osa'][2]})
             if k in roster:
@@ -315,7 +271,7 @@ def main():
             'period': 'MTD Oktober 2026', 'cut_day': M['cut_day'], 'cut': M['cut'], 'month_days': M.get('mtd_month_days', 31),
             'visits_cut_day': len((vf.get('metadata') or {}).get('days') or []), 'visits_cut': ((vf.get('metadata') or {}).get('period_end')),
             'dses': len(rows), 'dses_with_visits': sum(1 for r in rows if r['vis']),
-            'target_audit': {'target_rows': tgt_rows, 'placed': len(tgt), 'orphan_rows': tgt_orphans, 'placed_via_temporary_login': tgt_via_login, 'roster_without_official_target': [r['n'] for r in rows if r['osa_tgt_src'] != 'official']}, 'sources': {
+            'target_audit': {'target_rows': tgt_rows, 'placed': len(tgt), 'orphan_rows': tgt_orphans, 'roster_without_official_target': [r['n'] for r in rows if r['osa_tgt_src'] != 'official']}, 'sources': {
                 'sellin': 'data/processed/penjualan_feed.json (DAILY_DATA_MOBII)', 'visits': 'website/data/dse_visits_feed.js',
                 'master': 'website/data/territory_feed.json', 'targets': ('official: data/processed/target_feed.json (Target DSE Hybrid FINAL REBALANCING), %d DSEs' % len(tgt)) if tgt else ('file' if given else 'proxy: September actual per DSE (no data/catalogues/dse_kpi_targets.csv)')},
             'rules': {
