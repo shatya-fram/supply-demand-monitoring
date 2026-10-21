@@ -7710,53 +7710,121 @@
     return { g: g };
   }
 
+  /* Clickable End Balance counts (owner, 21 Okt 2026): every outlet count opens the list behind it: FM / MTD / LMTD saldo sell-in, Voucher Injection MTD / LMTD, End Balance, inventory days, PJP visits (count and last visit). Popup keys 'eb|<scope>|<metric>'; scope = kind:value (all, area, mc, dm = MC||DSE, site = site::MC). A measure without a baseline is n/a. */
+  var _ebCtx = null;
+  var EB_MON = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+  function ebScopeKey(kind, val) { return kind + ':' + encodeURIComponent(val == null ? '' : val); }
+  function ebKey(sc, metric) { return 'eb|' + sc + '|' + metric; }
+  function ebCell(sc, metric, inner, style, cls) { return ovCell(ebKey(sc, metric), inner, style, cls); }
+  function ebMaps() {
+    var D = poFeed(), V = mbVisitsFeed();
+    if (_ebCtx && _ebCtx.D === D && _ebCtx.V === V) return _ebCtx;
+    var dm = {}, cnt = {};
+    if (D) (D.outlets || []).forEach(function (x) { dm[x.k] = x; });
+    if (V) (V.dses || []).forEach(function (d) { if (d.is_promotor) return; (d.outlets || []).forEach(function (x) { if (!x.k) return; var c = 0, s = x.d || '', i; for (i = 0; i < s.length; i++) if (s.charAt(i) === 'x') c++; cnt[x.k] = (cnt[x.k] || 0) + c; }); });
+    _ebCtx = { D: D, V: V, dm: dm, cnt: cnt, last: (V && V.last_visit) || {} };
+    return _ebCtx;
+  }
+  function ebVisit(o, C) {   // [count, last visit]; PJP visits exist for master outlets only (promotors excluded), others n/a
+    if (!C.V || o.t !== 'M') return ['n/a', 'n/a'];
+    var l = C.last[o.k], m = l && String(l).match(/^(\d+)-(\w+)-(\d+)$/);
+    return [fmtCount(C.cnt[o.k] || 0), m ? m[3] + '-' + (EB_MON[m[2]] || '00') + '-' + m[1] : 'belum pernah'];
+  }
+  function ebDays(o) { return o.av > 0 ? (ebBal(o) / o.av).toFixed(1) : 'n/a'; }
+  var EB_ENTRY_COLS = ['Outlet', 'Outlet ID', 'MC · Area', 'DSE', 'FM Saldo Sell-In (Sep penuh)', 'MTD Saldo Sell-In', 'LMTD Saldo Sell-In', 'Voucher Injection MTD', 'Voucher Injection LMTD', 'End Balance', 'Avg transaksi / hari', 'Inventory days', 'Jumlah visit MTD', 'Last visit'];
+  function ebEntry(title, list, extra) {
+    var C = ebMaps(), M = (ebFeed() || {}).metadata || {}, tot = { fm: 0, mt: 0, lm: 0, bal: 0 };
+    var rows = list.slice().sort(function (a, b) { return (b.sf - a.sf) || (b.mt - a.mt); }).map(function (o) {
+      var d = C.dm[o.k], vm = C.D ? ((d && d.c && d.c.VCI) ? d.c.VCI[1] : 0) : null, vl = C.D ? ((d && d.l && d.l.VCI) ? d.l.VCI[1] : 0) : null, vi = ebVisit(o, C), b = ebBal(o);
+      tot.fm += o.sf || 0; tot.mt += o.mt || 0; tot.lm += o.sl || 0; tot.bal += b;
+      return [o.n || o.i.join(' / '), o.i.join(' / '), o.m + ' · ' + o.b, o.d, pjRp(o.sf || 0), pjRp(o.mt || 0), pjRp(o.sl || 0), ovRpT(vm), ovRpT(vl), pjRp(b), pjRp(o.av || 0), ebDays(o), vi[0], vi[1]];
+    });
+    return { title: title, cols: EB_ENTRY_COLS, rows: rows, lines: (extra || []).concat([
+      fmtCount(list.length) + ' outlet · End Balance total ' + pjRp(tot.bal) + ' (' + (state.ebBasis === 'all' ? 'Stock + rekening lainnya' : 'Stock Account') + ', snapshot ENDBAL ' + (M.snapshot || '—') + ', cut sell-in ' + (M.sellin_cut || '—') + ')',
+      'Saldo sell-in (MOBII, outlet-bound): FM Sep penuh ' + pjRp(tot.fm) + ' · MTD Okt ' + pjRp(tot.mt) + ' · LMTD 1–cut Sep ' + pjRp(tot.lm) + '. Voucher Injection = MOBO VCI (Rp).',
+      'Jumlah visit = hari check-in PJP selesai bulan ini (promotor dikecualikan); outlet non-PJP: n/a. Inventory days = End Balance ÷ rata-rata transaksi harian, n/a bila tanpa penjualan.'])};
+  }
+  var EB_METRIC = { n: 'Semua outlet', zero: 'Zero stock', lt50: 'Balance < 50K', b50: 'Balance 50–100K', b100: 'Balance 100–300K', b300: 'Balance ≥ 300K', sub50: 'Balance < 50K (zero + rendah)', zdem: 'Zero stock dengan permintaan', uar: 'Outlet beli saldo kemarin (UAR)', sg_demand: 'Kosong dengan permintaan', sg_sep: 'Beli September, tidak Oktober', sg_dormant: 'Outlet tidur', zsite: 'Zero stock di site bermasalah', c0: 'Inventory days < 1 hari', c1: 'Inventory days 1–3', c3: 'Inventory days 3–7', c7: 'Inventory days 7–14', c14: 'Inventory days 14–30', c30: 'Inventory days > 30 (overstock)', cn: 'Inventory days: tanpa penjualan' };
+  function ebMetricOk(o, m) {
+    var b = ebBal(o);
+    if (m === 'n') return true;
+    if (m === 'sub50') return b < 50000;
+    if (m === 'zdem') return b <= 0 && o.av > 0;
+    if (m === 'uar') return o.y > 0;
+    if (m === 'zsite') return b <= 0 && !!o.s;
+    if (m.indexOf('sg_') === 0) return ebSeg(o, m.slice(3));
+    if (m.charAt(0) === 'c' && m !== 'cn' || m === 'cn') return ebCoverBand(o) === m;
+    return ebBand(b) === m;
+  }
+  function ebScopeOk(o, sc) {
+    var i = sc.indexOf(':'), kind = sc.slice(0, i), v = decodeURIComponent(sc.slice(i + 1));
+    if (kind === 'area') return o.b === v;
+    if (kind === 'mc') return o.m === v;
+    if (kind === 'dm') return o.m + '||' + o.d === v;
+    if (kind === 'site') return o.s + '::' + o.m === v;
+    return true;
+  }
+  function ebLazy(key) {
+    var f = ebFeed(), p = String(key).split('|'); if (!f || p.length < 3 || !(p[2] in EB_METRIC)) return null;
+    var sc = p[1], i = sc.indexOf(':'), v = decodeURIComponent(sc.slice(i + 1)), kind = sc.slice(0, i);
+    var list = ebScope(f.outlets).filter(function (o) { return ebScopeOk(o, sc) && ebMetricOk(o, p[2]); });
+    var where = kind === 'all' ? 'Region Inner Jakarta' : (kind === 'dm' ? v.split('||').reverse().join(' · ') : (kind === 'site' ? 'Site ' + v.replace('::', ' · ') : v));
+    return ebEntry(EB_METRIC[p[2]] + ' · ' + where, list);
+  }
+  function ebResetPopups() {
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('eb|') === 0) delete _ovReg[k]; });
+    ovLazy('eb', ebLazy); var M = (ebFeed() || {}).metadata || {};
+    _ovScope = scopeText() + ' · ENDBAL ' + (M.snapshot || '—') + ' · FM = September penuh · LMTD = 1–cut September · MTD = Oktober';
+  }
+
   /* ---- Ringkasan: scorecard + summary per Region / Area / MC (DSO) / DSE ---- */
   function ebRingkasan(feed, list) {
     var A = ebAgg(list), M = feed.metadata, scope = esc(scopeText());
     var g = A.p > 0 ? (A.y / A.p - 1) * 100 : null;
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('Sell-in saldo kemarin (' + M.sellin_cut_day + ' Okt)', pjRp(A.y), (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%') + ' vs ' + ebDay(feed, 1) + ' (' + pjRp(A.p) + ')', g != null && g >= 0 ? 'up' : 'down', 'Nilai saldo ke outlet, DAILY_DATA_MOBII') +
-      kpi('Outlet beli saldo kemarin (UAR)', fmtCount(A.uarY), pctOf(A.uarY, A.n) + '% dari ' + fmtCount(A.n) + ' outlet · ' + ebDay(feed, 1) + ': ' + fmtCount(A.uarP), A.uarY >= A.uarP ? 'up' : 'down', 'Jumlah transaksi per outlet tidak ada di data harian; UAR dipakai sebagai pengganti') +
+      ovK(ebKey(ebScopeKey('all', ''), 'uar'), 'Outlet beli saldo kemarin (UAR)', fmtCount(A.uarY), pctOf(A.uarY, A.n) + '% dari ' + fmtCount(A.n) + ' outlet · ' + ebDay(feed, 1) + ': ' + fmtCount(A.uarP), A.uarY >= A.uarP ? 'up' : 'down', 'Jumlah transaksi per outlet tidak ada di data harian; UAR dipakai sebagai pengganti') +
       kpi('Rata-rata sell-in per outlet pembeli', pjRp(A.uarY ? A.y / A.uarY : 0), 'MTD ' + pjRp(A.mt) + ' · September penuh ' + pjRp(A.sf), 'up', 'Nilai kemarin ÷ UAR kemarin') +
       kpi('Total balance stok ' + M.snapshot.slice(8) + ' Okt', pjRp(A.bal), 'rata-rata Rp ' + fmtCount(Math.round(A.n ? A.bal / A.n / 1000 : 0)) + ' rb / outlet', 'up', (state.ebBasis === 'all' ? 'Stock + rekening lainnya' : 'Stock Account Normal') + ' · komisi Rp ' + fmtCount(Math.round(A.comm / 1e6)) + ' Jt terpisah') +
-      kpi('Outlet zero stock', fmtCount(A.bands.zero), ebPct(A.bands.zero, A.n) + ' dari outlet', A.bands.zero / Math.max(A.n, 1) >= 0.3 ? 'down' : 'up', fmtCount(A.zeroDemand) + ' di antaranya punya permintaan harian') +
-      kpi('Outlet balance ≥ Rp 300K', fmtCount(A.bands.b300), ebPct(A.bands.b300, A.n) + ' dari outlet', A.bands.b300 / Math.max(A.n, 1) >= 0.25 ? 'up' : 'down', 'ambang OSA GAPLOK') +
+      ovK(ebKey(ebScopeKey('all', ''), 'zero'), 'Outlet zero stock', fmtCount(A.bands.zero), ebPct(A.bands.zero, A.n) + ' dari outlet', A.bands.zero / Math.max(A.n, 1) >= 0.3 ? 'down' : 'up', fmtCount(A.zeroDemand) + ' di antaranya punya permintaan harian') +
+      ovK(ebKey(ebScopeKey('all', ''), 'b300'), 'Outlet balance ≥ Rp 300K', fmtCount(A.bands.b300), ebPct(A.bands.b300, A.n) + ' dari outlet', A.bands.b300 / Math.max(A.n, 1) >= 0.25 ? 'up' : 'down', 'ambang OSA GAPLOK') +
       kpi('Inventory days (tertimbang)', A.cov == null ? '—' : A.cov.toFixed(1) + ' hari', fmtCount(A.cover.c0) + ' outlet < 1 hari · ' + fmtCount(A.cover.c30) + ' outlet > 30 hari', A.cov != null && A.cov >= 3 ? 'up' : 'down', 'Hanya outlet dengan rata-rata transaksi > 0 (' + fmtCount(A.n - A.cover.cn) + ' outlet)') +
-      kpi('Outlet < Rp 50K (zero + rendah)', fmtCount(A.bands.zero + A.bands.lt50), ebPct(A.bands.zero + A.bands.lt50, A.n) + ' dari outlet', (A.bands.zero + A.bands.lt50) / Math.max(A.n, 1) >= 0.5 ? 'down' : 'up', 'target replenishment utama') +
+      ovK(ebKey(ebScopeKey('all', ''), 'sub50'), 'Outlet < Rp 50K (zero + rendah)', fmtCount(A.bands.zero + A.bands.lt50), ebPct(A.bands.zero + A.bands.lt50, A.n) + ' dari outlet', (A.bands.zero + A.bands.lt50) / Math.max(A.n, 1) >= 0.5 ? 'down' : 'up', 'target replenishment utama') +
     '</div>';
     // summary table: Region total, Area (+MC with DSO), or MCs, or DSEs
     var mode = ebMode(), col = state.ebCollapsed || {}, rows = [];
     function key(x) { return x; }
     function groupBy(l, f) { var g = {}; l.forEach(function (o) { var k = f(o); (g[k] || (g[k] = [])).push(o); }); return g; }
-    function rowHtml(label, parent, a, style, first) {
-      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + (style && /ink/.test(style) ? 'var(--ij-ink)' : (style && /wash/.test(style) ? 'var(--ij-wash)' : '#fff')) + ';">' + label + '</td><td>' + parent + '</td><td class="num">' + fmtCount(a.n) + '</td>' +
-        '<td class="num">' + ebZeroTag(a.bands.zero, a.n) + '</td><td class="num">' + ebPct(a.bands.lt50, a.n) + '</td><td class="num">' + ebPct(a.bands.b50, a.n) + '</td><td class="num">' + ebPct(a.bands.b100, a.n) + '</td><td class="num"><b>' + ebPct(a.bands.b300, a.n) + '</b></td>' +
+    function rowHtml(label, parent, a, style, sc) {
+      var bc = function (m, inner) { return ebCell(sc, m, inner); };
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + (style && /ink/.test(style) ? 'var(--ij-ink)' : (style && /wash/.test(style) ? 'var(--ij-wash)' : '#fff')) + ';">' + label + '</td><td>' + parent + '</td>' + bc('n', fmtCount(a.n)) +
+        bc('zero', ebZeroTag(a.bands.zero, a.n)) + bc('lt50', fmtCount(a.bands.lt50) + ' · ' + ebPct(a.bands.lt50, a.n)) + bc('b50', fmtCount(a.bands.b50) + ' · ' + ebPct(a.bands.b50, a.n)) + bc('b100', fmtCount(a.bands.b100) + ' · ' + ebPct(a.bands.b100, a.n)) + bc('b300', '<b>' + fmtCount(a.bands.b300) + ' · ' + ebPct(a.bands.b300, a.n) + '</b>') +
         '<td class="num">' + pjRp(a.bal) + '</td><td class="num">' + pjRp(a.av) + '</td><td class="num">' + (a.cov == null ? '—' : a.cov.toFixed(1)) + '</td>' +
-        '<td class="num cur">' + pjRp(a.y) + '</td><td class="num">' + fmtCount(a.uarY) + '</td><td class="num">' + pjRp(a.mt) + '</td></tr>';
+        '<td class="num cur">' + pjRp(a.y) + '</td>' + bc('uar', fmtCount(a.uarY)) + '<td class="num">' + pjRp(a.mt) + '</td></tr>';
     }
     var tot = ebAgg(list);
     if (mode === 'area') {
       var byA = groupBy(list, function (o) { return o.b; });
-      rows.push(rowHtml('<b>REGION INNER JAKARTA</b>', fmtCount(Object.keys(byA).length) + ' area', tot, 'background:var(--ink); color:#fff; font-weight:800;'));
+      rows.push(rowHtml('<b>REGION INNER JAKARTA</b>', fmtCount(Object.keys(byA).length) + ' area', tot, 'background:var(--ink); color:#fff; font-weight:800;', ebScopeKey('all', '')));
       Object.keys(byA).map(function (a) { return [a, ebAgg(byA[a])]; }).sort(function (x, y) { return y[1].bands.zero / Math.max(y[1].n, 1) - x[1].bands.zero / Math.max(x[1].n, 1); }).forEach(function (pair) {
         var closed = !!col[pair[0]], byM = groupBy(byA[pair[0]], function (o) { return o.m; });
-        rows.push(rowHtml('<button type="button" class="btn" data-eb-toggle="' + esc(pair[0]) + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (closed ? '＋' : '－') + '</button><b>' + esc(pair[0]) + '</b>', 'Area · ' + Object.keys(byM).length + ' MC', pair[1], 'background:var(--ij-wash); font-weight:800;'));
-        if (!closed) Object.keys(byM).map(function (m) { return [m, ebAgg(byM[m]), byM[m][0].o]; }).sort(function (x, y) { return y[1].bands.zero / Math.max(y[1].n, 1) - x[1].bands.zero / Math.max(x[1].n, 1); }).forEach(function (mm) { rows.push(rowHtml('<span style="padding-left:18px;">' + esc(mm[0]) + '</span>', 'DSO ' + esc(mm[2] || '—'), mm[1], '')); });
+        rows.push(rowHtml('<button type="button" class="btn" data-eb-toggle="' + esc(pair[0]) + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (closed ? '＋' : '－') + '</button><b>' + esc(pair[0]) + '</b>', 'Area · ' + Object.keys(byM).length + ' MC', pair[1], 'background:var(--ij-wash); font-weight:800;', ebScopeKey('area', pair[0])));
+        if (!closed) Object.keys(byM).map(function (m) { return [m, ebAgg(byM[m]), byM[m][0].o]; }).sort(function (x, y) { return y[1].bands.zero / Math.max(y[1].n, 1) - x[1].bands.zero / Math.max(x[1].n, 1); }).forEach(function (mm) { rows.push(rowHtml('<span style="padding-left:18px;">' + esc(mm[0]) + '</span>', 'DSO ' + esc(mm[2] || '—'), mm[1], '', ebScopeKey('mc', mm[0]))); });
       });
     } else if (mode === 'mc') {
       var byM2 = groupBy(list, function (o) { return o.m; });
-      rows.push(rowHtml('<b>' + esc(state.branch || state.hoa) + '</b>', 'total area', tot, 'background:var(--ink); color:#fff; font-weight:800;'));
-      Object.keys(byM2).map(function (m) { return [m, ebAgg(byM2[m]), byM2[m][0].o]; }).sort(function (x, y) { return y[1].bands.zero / Math.max(y[1].n, 1) - x[1].bands.zero / Math.max(x[1].n, 1); }).forEach(function (mm) { rows.push(rowHtml('<b>' + esc(mm[0]) + '</b>', 'DSO ' + esc(mm[2] || '—'), mm[1], '')); });
+      rows.push(rowHtml('<b>' + esc(state.branch || state.hoa) + '</b>', 'total area', tot, 'background:var(--ink); color:#fff; font-weight:800;', ebScopeKey('all', '')));
+      Object.keys(byM2).map(function (m) { return [m, ebAgg(byM2[m]), byM2[m][0].o]; }).sort(function (x, y) { return y[1].bands.zero / Math.max(y[1].n, 1) - x[1].bands.zero / Math.max(x[1].n, 1); }).forEach(function (mm) { rows.push(rowHtml('<b>' + esc(mm[0]) + '</b>', 'DSO ' + esc(mm[2] || '—'), mm[1], '', ebScopeKey('mc', mm[0]))); });
     } else {
       var byD = ebGroupDse(list);
-      rows.push(rowHtml('<b>' + esc(state.kec) + '</b>', 'DSO ' + esc((list[0] || {}).o || '—'), tot, 'background:var(--ink); color:#fff; font-weight:800;'));
-      byD.forEach(function (g) { rows.push(rowHtml('<b>' + esc(g.dse) + '</b>', 'DSE', g.a, '')); });
+      rows.push(rowHtml('<b>' + esc(state.kec) + '</b>', 'DSO ' + esc((list[0] || {}).o || '—'), tot, 'background:var(--ink); color:#fff; font-weight:800;', ebScopeKey('all', '')));
+      byD.forEach(function (g) { rows.push(rowHtml('<b>' + esc(g.dse) + '</b>', 'DSE', g.a, '', ebScopeKey('dm', g.key))); });
     }
     var tools = '<div class="map-toolbar" style="margin-bottom:8px;">' + (mode === 'area' ? '<div class="map-toolbar-group"><span class="map-label">Grup Area:</span><button type="button" class="map-btn" data-eb-expand="all">＋ Expand semua</button><button type="button" class="map-btn" data-eb-expand="none">－ Collapse semua</button></div>' : '<div class="map-toolbar-group"><span class="chip">' + (mode === 'mc' ? 'per MC / DSO · ikut filter' : 'per DSE · ikut filter') + '</span></div>') +
       '<div class="map-toolbar-group"><span class="note">Urut: persentase outlet zero stock tertinggi. Zero: merah ≥ 40% · kuning ≥ 20% · hijau di bawahnya.</span></div></div>';
     var tbl = card('Summary per ' + (mode === 'area' ? 'Region · Area · MC (DSO)' : (mode === 'mc' ? 'MC (DSO)' : 'DSE')) + ' · ' + scope,
       tools + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + th((mode === 'dse' ? 'DSE' : 'Region / Area / MC')) + th('DSO / ket.') + th('Outlet', 1) + th('Zero stock', 1) + th('&lt; 50K', 1) + th('50–100K', 1) + th('100–300K', 1) + th('≥ 300K', 1) + th('Total balance', 1) + th('Avg transaksi / hari', 1) + th('Inventory days', 1) + th('Sell-in saldo ' + M.sellin_cut_day + ' Okt', 1) + th('UAR', 1) + th('Sell-in MTD', 1) + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' +
-      '<p class="note">DSO = pemimpin MC (satu DSO per MC), jadi baris MC sekaligus baris DSO. Persentase slab terhadap outlet pada baris itu. Sell-in saldo dari DAILY_DATA_MOBII (cut ' + esc(M.sellin_cut) + '), balance dari ENDBAL ' + esc(M.snapshot) + '.</p>');
+      '<p class="note">DSO = pemimpin MC (satu DSO per MC), jadi baris MC sekaligus baris DSO. Kolom slab menampilkan jumlah outlet · persentase terhadap outlet pada baris itu; klik angka untuk daftar outlet (sell-in saldo FM / MTD / LMTD, Voucher Injection, End Balance, inventory days, visit). Sell-in saldo dari DAILY_DATA_MOBII (cut ' + esc(M.sellin_cut) + '), balance dari ENDBAL ' + esc(M.snapshot) + '.</p>');
     var cov = '<p class="note" style="margin-top:8px;">Cakupan: ' + fmtCount(M.master_outlets) + ' dari ' + fmtCount(terrMasterN()) + ' outlet PJP dan ' + fmtCount(M.adhoc_outlets) + ' outlet ad-hoc punya data ENDBAL. ' + fmtCount(M.classification['tidak terpetakan'] || 0) + ' outlet di file (cluster lama, a.l. Karawang, Depok Barat, Cikarang) belum terpetakan ke DSE atau MC dan belum ikut dihitung; total balance-nya Rp ' + fmtCount(Math.round((M.unmapped_stock_balance || 0) / 1e6)) + ' Jt.</p>';
     return cards + tbl + cov;
   }
@@ -7789,38 +7857,38 @@
     var rows = list.filter(function (o) { return ebSeg(o, seg) && (!q || (o.n + ' ' + o.i.join(' ') + ' ' + o.s + ' ' + o.d + ' ' + o.m).toLowerCase().indexOf(q) !== -1); });
     rows.sort(function (a, b) { return (b.av - a.av) || (b.sf - a.sf); });
     var cards = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Outlet zero stock', fmtCount(n.all), ebPct(n.all, list.length) + ' dari ' + fmtCount(list.length) + ' outlet', n.all / Math.max(list.length, 1) >= 0.3 ? 'down' : 'up', 'balance ≤ 0 pada basis terpilih') +
-      kpi('Kosong dengan permintaan', fmtCount(n.demand), 'rata-rata transaksi harian > 0', 'down', 'prioritas replenishment') +
-      kpi('Beli September, tidak Oktober', fmtCount(n.sep), 'zero dan sell-in saldo September ≥ Rp 300K', 'down', 'daftar reaktivasi') +
-      kpi('Outlet tidur', fmtCount(n.dormant), 'tanpa balance, penjualan, atau sell-in Sep/Okt', 'down', 'kandidat bersih-bersih PJP') + '</div>';
+      ovK(ebKey(ebScopeKey('all', ''), 'zero'), 'Outlet zero stock', fmtCount(n.all), ebPct(n.all, list.length) + ' dari ' + fmtCount(list.length) + ' outlet', n.all / Math.max(list.length, 1) >= 0.3 ? 'down' : 'up', 'balance ≤ 0 pada basis terpilih') +
+      ovK(ebKey(ebScopeKey('all', ''), 'sg_demand'), 'Kosong dengan permintaan', fmtCount(n.demand), 'rata-rata transaksi harian > 0', 'down', 'prioritas replenishment') +
+      ovK(ebKey(ebScopeKey('all', ''), 'sg_sep'), 'Beli September, tidak Oktober', fmtCount(n.sep), 'zero dan sell-in saldo September ≥ Rp 300K', 'down', 'daftar reaktivasi') +
+      ovK(ebKey(ebScopeKey('all', ''), 'sg_dormant'), 'Outlet tidur', fmtCount(n.dormant), 'tanpa balance, penjualan, atau sell-in Sep/Okt', 'down', 'kandidat bersih-bersih PJP') + '</div>';
     var seg_ = '<div class="map-toolbar" style="margin:10px 0 8px;">' + sellinBtnGroup('Segmen', 'eb-seg', [['all', 'Semua zero (' + fmtCount(n.all) + ')'], ['demand', 'Dengan permintaan (' + fmtCount(n.demand) + ')'], ['sep', 'Beli Sep, tidak Okt (' + fmtCount(n.sep) + ')'], ['dormant', 'Tidur (' + fmtCount(n.dormant) + ')']], seg) +
       '<div class="map-toolbar-group"><input type="text" id="ebSearchInput" aria-label="Cari outlet, site, DSE atau MC" placeholder="🔍 Cari outlet, ID, site, DSE, MC..." value="' + esc(state.ebSearch || '') + '" class="map-select" style="min-width:260px;"><button type="button" class="btn" data-act="eb-export">📥 Export CSV</button></div>' + grpBar('ebzero') + '</div>';
     function zRow(o) {
       return '<tr>' + dkStickyTd('<b>' + esc(o.n) + '</b><br><code style="font-size:12px;">' + esc(o.i.join(' / ')) + '</code>') + '<td><code>' + esc(o.s || '—') + '</code></td><td>' + esc(o.m) + '</td><td>' + esc(o.d) + '</td>' +
-        '<td class="num">' + pjRp(ebBal(o)) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num">' + pjRp(o.y) + '</td><td class="num">' + pjRp(o.mt) + '</td><td class="num">' + pjRp(o.sf) + '</td><td>' + ebFlagCell(o) + '</td></tr>';
+        '<td class="num">' + pjRp(ebBal(o)) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num">' + pjRp(o.y) + '</td><td class="num">' + pjRp(o.mt) + '</td><td class="num">' + pjRp(o.sf) + '</td><td class="num">' + ebVisit(o, ebMaps())[0] + '</td><td>' + ebVisit(o, ebMaps())[1] + '</td><td>' + ebFlagCell(o) + '</td></tr>';
     }
-    function zSub(items) { var t = { b: 0, av: 0, y: 0, mt: 0, sf: 0 }; items.forEach(function (o) { t.b += ebBal(o); t.av += o.av; t.y += o.y; t.mt += o.mt; t.sf += o.sf; }); return '<td class="num">' + pjRp(t.b) + '</td><td class="num">' + pjRp(t.av) + '</td><td class="num">' + pjRp(t.y) + '</td><td class="num">' + pjRp(t.mt) + '</td><td class="num">' + pjRp(t.sf) + '</td><td></td>'; }
+    function zSub(items) { var t = { b: 0, av: 0, y: 0, mt: 0, sf: 0 }; items.forEach(function (o) { t.b += ebBal(o); t.av += o.av; t.y += o.y; t.mt += o.mt; t.sf += o.sf; }); return '<td class="num">' + pjRp(t.b) + '</td><td class="num">' + pjRp(t.av) + '</td><td class="num">' + pjRp(t.y) + '</td><td class="num">' + pjRp(t.mt) + '</td><td class="num">' + pjRp(t.sf) + '</td><td></td><td></td><td></td>'; }
     var hoaOf = {}; list.forEach(function (o) { if (!hoaOf[o.b]) hoaOf[o.b] = o.h; }); var dsoOf = {}; list.forEach(function (o) { if (!dsoOf[o.m]) dsoOf[o.m] = o.o; });
     var trs = grpBody('ebzero', { items: rows, area: function (o) { return o.b; }, mc: function (o) { return o.m; }, dso: function (m) { return dsoOf[m] || '—'; }, hoa: function (a) { return hoaOf[a] || '—'; },
-      val: function (o) { return o.av; }, span: 4, cols: 10, sub: zSub, row: zRow, search: !!q });
-    return cards + card('Outlet zero stock · ' + esc(scopeText()), seg_ + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + dkStickyTh('Area › MC › Outlet', 1) + th('Site') + th('MC') + th('DSE') + th('Balance', 1) + th('Avg transaksi / hari', 1) + th('Sell-in kemarin', 1) + th('Sell-in MTD', 1) + th('Sell-in Sep', 1) + th('Status') + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
-      '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); baris grup menjumlahkan outlet di dalamnya. Diurutkan dari rata-rata transaksi harian tertinggi: outlet yang paling cepat kehilangan penjualan karena kosong tampil paling atas.</p>');
+      val: function (o) { return o.av; }, span: 4, cols: 12, sub: zSub, row: zRow, search: !!q });
+    return cards + card('Outlet zero stock · ' + esc(scopeText()), seg_ + '<div class="tbl-wrap"><table class="tbl wide"><thead><tr>' + dkStickyTh('Area › MC › Outlet', 1) + th('Site') + th('MC') + th('DSE') + th('Balance', 1) + th('Avg transaksi / hari', 1) + th('Sell-in kemarin', 1) + th('Sell-in MTD', 1) + th('Sell-in Sep', 1) + th('Jumlah visit MTD', 1) + th('Last visit') + th('Status') + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
+      '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); baris grup menjumlahkan outlet di dalamnya. Jumlah visit = hari check-in PJP selesai bulan ini; Last visit = tanggal check-in terakhir (n/a untuk outlet di luar PJP). Kartu di atas bisa diklik untuk daftar lengkap. Diurutkan dari rata-rata transaksi harian tertinggi: outlet yang paling cepat kehilangan penjualan karena kosong tampil paling atas.</p>');
   }
 
   /* ---- Slab balance and inventory days ---- */
   function ebSlab(feed, list) {
     var mode = ebMode(), A = ebAgg(list), g = {}, groups;
-    if (mode === 'dse') groups = ebGroupDse(list).map(function (x) { return { label: x.dse, parent: 'DSE', a: x.a }; });
-    else { list.forEach(function (o) { var k = mode === 'area' ? o.b : o.m; (g[k] || (g[k] = [])).push(o); }); groups = Object.keys(g).map(function (k) { return { label: k, parent: mode === 'area' ? 'Area' : 'DSO ' + (g[k][0].o || '—'), a: ebAgg(g[k]) }; }).sort(function (x, y) { return y.a.bands.zero / Math.max(y.a.n, 1) - x.a.bands.zero / Math.max(x.a.n, 1); }); }
-    function cell(n, d, kind) {
+    if (mode === 'dse') groups = ebGroupDse(list).map(function (x) { return { label: x.dse, parent: 'DSE', a: x.a, sc: ebScopeKey('dm', x.key) }; });
+    else { list.forEach(function (o) { var k = mode === 'area' ? o.b : o.m; (g[k] || (g[k] = [])).push(o); }); groups = Object.keys(g).map(function (k) { return { label: k, parent: mode === 'area' ? 'Area' : 'DSO ' + (g[k][0].o || '—'), a: ebAgg(g[k]), sc: ebScopeKey(mode === 'area' ? 'area' : 'mc', k) }; }).sort(function (x, y) { return y.a.bands.zero / Math.max(y.a.n, 1) - x.a.bands.zero / Math.max(x.a.n, 1); }); }
+    function cell(n, d, kind, sc, m) {
       if (!n) return '<td class="num" style="color:var(--ij-label);">·</td>';
       var pc = d ? n / d : 0, c = DK_COL[kind];
-      return '<td class="num" style="background:' + c[0] + '; color:' + c[1] + ';"><b>' + fmtCount(n) + '</b><br><span style="font-size:12px; font-weight:700;">' + (pc * 100).toFixed(1) + '%</span></td>';
+      return ebCell(sc, m, '<b>' + fmtCount(n) + '</b><br><span style="font-size:12px; font-weight:700;">' + (pc * 100).toFixed(1) + '%</span>', 'background:' + c[0] + '; color:' + c[1] + ';');
     }
     function table(title, cols, key, rowsF) {
       var head = '<tr>' + th(mode === 'area' ? 'Area' : (mode === 'mc' ? 'MC (DSO)' : 'DSE')) + th('Outlet', 1) + cols.map(function (c) { var cc = DK_COL[c[2]]; return '<th class="num" style="background:' + cc[0] + '; color:' + cc[1] + ';">' + c[1] + '</th>'; }).join('') + '</tr>';
-      var body = groups.map(function (x) { return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + esc(x.label) + '</b><div class="note">' + esc(x.parent) + '</div></td><td class="num">' + fmtCount(x.a.n) + '</td>' + cols.map(function (c) { return cell(x.a[key][c[0]], x.a.n, c[2]); }).join('') + '</tr>'; }).join('');
-      var totRow = '<tr style="background:var(--ij-ink); color:#fff; font-weight:800;"><td>TOTAL</td><td class="num">' + fmtCount(A.n) + '</td>' + cols.map(function (c) { return '<td class="num">' + fmtCount(A[key][c[0]]) + '<br>' + ebPct(A[key][c[0]], A.n) + '</td>'; }).join('') + '</tr>';
+      var body = groups.map(function (x) { return '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + esc(x.label) + '</b><div class="note">' + esc(x.parent) + '</div></td>' + ebCell(x.sc, 'n', fmtCount(x.a.n)) + cols.map(function (c) { return cell(x.a[key][c[0]], x.a.n, c[2], x.sc, c[0]); }).join('') + '</tr>'; }).join('');
+      var totRow = '<tr style="background:var(--ij-ink); color:#fff; font-weight:800;"><td>TOTAL</td>' + ebCell(ebScopeKey('all', ''), 'n', fmtCount(A.n)) + cols.map(function (c) { return ebCell(ebScopeKey('all', ''), c[0], fmtCount(A[key][c[0]]) + '<br>' + ebPct(A[key][c[0]], A.n)); }).join('') + '</tr>';
       return card(title + ' · ' + esc(scopeText()), '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + body + totRow + '</tbody></table></div>');
     }
     var cover = table('Inventory days (balance ÷ rata-rata transaksi harian)', EB_COVER, 'cover');
@@ -7839,14 +7907,14 @@
       kpi('Site dalam lingkup', fmtCount(sites.length), 'site DSO (site × MC) dengan outlet ber-ENDBAL', 'up', esc(scopeText())) +
       kpi('Site dengan ≥ 1 outlet zero', fmtCount(withZero.length), ebPct(withZero.length, sites.length) + ' dari site', withZero.length / Math.max(sites.length, 1) >= 0.7 ? 'down' : 'up', 'minimal satu outlet balance ≤ 0') +
       kpi('Site seluruh outlet zero', fmtCount(allZero.length), ebPct(allZero.length, sites.length) + ' dari site', allZero.length ? 'down' : 'up', 'tidak ada satu pun outlet yang punya stok') +
-      kpi('Outlet zero di site bermasalah', fmtCount(withZero.reduce(function (a, x) { return a + x.zero; }, 0)), 'dari ' + fmtCount(withZero.reduce(function (a, x) { return a + x.n; }, 0)) + ' outlet di site tersebut', 'down', 'untuk rute replenishment') + '</div>';
+      ovK(ebKey(ebScopeKey('all', ''), 'zsite'), 'Outlet zero di site bermasalah', fmtCount(withZero.reduce(function (a, x) { return a + x.zero; }, 0)), 'dari ' + fmtCount(withZero.reduce(function (a, x) { return a + x.n; }, 0)) + ' outlet di site tersebut', 'down', 'untuk rute replenishment') + '</div>';
     var dsoOf = {}, hoaOf = {}; list.forEach(function (o) { dsoOf[o.m] = o.o; hoaOf[o.b] = o.h; });
     var row = function (x) {
       var open = state.ebSite === x.key;
-      var main = '<tr><td class="cur" style="padding-left:56px;"><code>' + esc(x.site) + '</code></td><td class="num">' + fmtCount(x.n) + '</td><td class="num">' + ebZeroTag(x.zero, x.n) + '</td><td class="num">' + fmtCount(x.dem) + '</td><td class="num">' + ebPct(x.a.bands.b300, x.n) + '</td><td class="num">' + pjRp(x.a.bal) + '</td><td class="num">' + pjRp(x.a.y) + '</td><td>' + (x.zero === x.n ? dkTag('bad', 'Seluruh outlet zero') : dkTag('warn', 'Sebagian zero')) + '</td><td><button type="button" class="btn" data-eb-site="' + (open ? '' : esc(x.key)) + '" style="font-size:13px; padding:4px 9px;">' + (open ? '▾ Tutup' : '▸ Outlet') + '</button></td></tr>';
+      var main = '<tr><td class="cur" style="padding-left:56px;"><code>' + esc(x.site) + '</code></td>' + ebCell(ebScopeKey('site', x.key), 'n', fmtCount(x.n)) + ebCell(ebScopeKey('site', x.key), 'zero', ebZeroTag(x.zero, x.n)) + ebCell(ebScopeKey('site', x.key), 'zdem', fmtCount(x.dem)) + '<td class="num">' + ebPct(x.a.bands.b300, x.n) + '</td><td class="num">' + pjRp(x.a.bal) + '</td><td class="num">' + pjRp(x.a.y) + '</td><td>' + (x.zero === x.n ? dkTag('bad', 'Seluruh outlet zero') : dkTag('warn', 'Sebagian zero')) + '</td><td><button type="button" class="btn" data-eb-site="' + (open ? '' : esc(x.key)) + '" style="font-size:13px; padding:4px 9px;">' + (open ? '▾ Tutup' : '▸ Outlet') + '</button></td></tr>';
       if (!open) return main;
-      var sub = x.list.slice().sort(function (a, b) { return ebBal(a) - ebBal(b); }).map(function (o) { return '<tr><td><b>' + esc(o.n) + '</b> <code style="font-size:12px;">' + esc(o.i.join(' / ')) + '</code></td><td>' + esc(o.d) + '</td><td class="num">' + pjRp(ebBal(o)) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num">' + (o.av > 0 ? (ebBal(o) / o.av).toFixed(1) : '—') + '</td><td class="num">' + pjRp(o.y) + '</td><td>' + ebFlagCell(o) + '</td></tr>'; }).join('');
-      return main + '<tr><td colspan="9" style="background:var(--ij-ground); padding:8px 12px;"><div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Outlet') + th('DSE') + th('Balance', 1) + th('Avg transaksi', 1) + th('Inventory days', 1) + th('Sell-in kemarin', 1) + th('Status') + '</tr></thead><tbody>' + sub + '</tbody></table></div></td></tr>';
+      var sub = x.list.slice().sort(function (a, b) { return ebBal(a) - ebBal(b); }).map(function (o) { return '<tr><td><b>' + esc(o.n) + '</b> <code style="font-size:12px;">' + esc(o.i.join(' / ')) + '</code></td><td>' + esc(o.d) + '</td><td class="num">' + pjRp(ebBal(o)) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num">' + (o.av > 0 ? (ebBal(o) / o.av).toFixed(1) : '—') + '</td><td class="num">' + pjRp(o.y) + '</td><td class="num">' + ebVisit(o, ebMaps())[0] + '</td><td>' + ebVisit(o, ebMaps())[1] + '</td><td>' + ebFlagCell(o) + '</td></tr>'; }).join('');
+      return main + '<tr><td colspan="9" style="background:var(--ij-ground); padding:8px 12px;"><div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Outlet') + th('DSE') + th('Balance', 1) + th('Avg transaksi', 1) + th('Inventory days', 1) + th('Sell-in kemarin', 1) + th('Jumlah visit MTD', 1) + th('Last visit') + th('Status') + '</tr></thead><tbody>' + sub + '</tbody></table></div></td></tr>';
     };
     var sub = function (it) { var n = grpSum(it, function (x) { return x.n; }), z = grpSum(it, function (x) { return x.zero; }); return '<td class="num">' + fmtCount(n) + '</td><td class="num">' + ebZeroTag(z, n) + '</td><td class="num">' + fmtCount(grpSum(it, function (x) { return x.dem; })) + '</td><td class="num">' + ebPct(grpSum(it, function (x) { return x.a.bands.b300; }), n) + '</td><td class="num">' + pjRp(grpSum(it, function (x) { return x.a.bal; })) + '</td><td class="num">' + pjRp(grpSum(it, function (x) { return x.a.y; })) + '</td><td></td><td></td>'; };
     var trs = grpBody('ebsite', { items: rows, area: function (x) { return x.br; }, mc: function (x) { return x.mc; }, dse: function (x) { return x.dse; }, dso: function (m) { return dsoOf[m] || '—'; }, hoa: function (a) { return hoaOf[a] || '—'; }, val: function (x) { return x.zero; }, span: 1, cols: 9, sub: sub, row: row, unit: 'site', cap: 150, search: !!q });
@@ -7859,21 +7927,21 @@
   /* ---- Detail per DSO and DSE ---- */
   function ebDetailRow(o) {
     var b = ebBal(o), tot = o.st + o.ot + o.cm;
-    return '<tr><td><code>' + esc(o.i.join(' / ')) + '</code></td><td><b>' + esc(o.n) + '</b></td><td class="num">' + pjRp(o.st) + '</td><td class="num">' + pjRp(o.cm) + '</td><td class="num">' + pjRp(o.ot) + '</td><td class="num">' + pjRp(tot) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num cur"><b>' + pjRp(b) + '</b></td><td class="num">' + (o.av > 0 ? (b / o.av).toFixed(1) : '—') + '</td><td>' + dkTag(b <= 0 ? 'bad' : (b < 50000 ? 'warn' : (b >= 300000 ? 'top' : 'ok')), EB_BANDS.filter(function (x) { return x[0] === ebBand(b); })[0][1]) + '</td></tr>';
+    return '<tr><td><code>' + esc(o.i.join(' / ')) + '</code></td><td><b>' + esc(o.n) + '</b></td><td class="num">' + pjRp(o.st) + '</td><td class="num">' + pjRp(o.cm) + '</td><td class="num">' + pjRp(o.ot) + '</td><td class="num">' + pjRp(tot) + '</td><td class="num">' + pjRp(o.av) + '</td><td class="num cur"><b>' + pjRp(b) + '</b></td><td class="num">' + (o.av > 0 ? (b / o.av).toFixed(1) : '—') + '</td><td>' + dkTag(b <= 0 ? 'bad' : (b < 50000 ? 'warn' : (b >= 300000 ? 'top' : 'ok')), EB_BANDS.filter(function (x) { return x[0] === ebBand(b); })[0][1]) + '</td><td class="num">' + ebVisit(o, ebMaps())[0] + '</td><td>' + ebVisit(o, ebMaps())[1] + '</td></tr>';
   }
   function ebDetail(feed, list) {
     var q = (state.ebSearch || '').toLowerCase();
     var groups = ebGroupDse(list).filter(function (g) { return !q || (g.dse + ' ' + g.mc + ' ' + g.dso).toLowerCase().indexOf(q) !== -1; });
     var pg = ebPager(groups.length, 25), open = state.ebOpen || {};
-    var detHead = '<tr>' + th('Outlet ID') + th('Outlet Name') + th('Stock Account', 1) + th('Komisi', 1) + th('Rekening lainnya', 1) + th('Total semua rekening', 1) + th('Average transaksi', 1) + th('Balance terakhir', 1) + th('Inventory days', 1) + th('Slab') + '</tr>';
+    var detHead = '<tr>' + th('Outlet ID') + th('Outlet Name') + th('Stock Account', 1) + th('Komisi', 1) + th('Rekening lainnya', 1) + th('Total semua rekening', 1) + th('Average transaksi', 1) + th('Balance terakhir', 1) + th('Inventory days', 1) + th('Slab') + th('Jumlah visit MTD', 1) + th('Last visit') + '</tr>';
     var body = '', lastMc = null;
     groups.slice(pg.start, pg.end).forEach(function (g) {
-      if (g.mc !== lastMc) { lastMc = g.mc; body += '<tr style="background:var(--ij-ink); color:#fff; font-weight:800;"><td colspan="10">DSO ' + esc(g.dso || '—') + ' · ' + esc(g.mc) + ' · ' + esc(g.br) + '</td></tr>'; }
+      if (g.mc !== lastMc) { lastMc = g.mc; body += '<tr style="background:var(--ij-ink); color:#fff; font-weight:800;"><td colspan="12">DSO ' + esc(g.dso || '—') + ' · ' + esc(g.mc) + ' · ' + esc(g.br) + '</td></tr>'; }
       var isOpen = !!open[g.key], a = g.a;
-      body += '<tr style="background:var(--ij-wash); font-weight:700;"><td colspan="2"><button type="button" class="btn" data-eb-open="' + esc(g.key) + '" aria-expanded="' + isOpen + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (isOpen ? '－' : '＋') + '</button>DSE ' + esc(g.dse) + ' · ' + fmtCount(a.n) + ' outlet</td><td class="num">' + pjRp(a.bal) + '</td><td class="num">' + pjRp(a.comm) + '</td><td class="num">' + pjRp(a.other) + '</td><td class="num">' + pjRp(a.bal + a.other + a.comm) + '</td><td class="num">' + pjRp(a.av) + '</td><td class="num">' + pjRp(a.bal) + '</td><td class="num">' + (a.cov == null ? '—' : a.cov.toFixed(1)) + '</td><td>' + ebZeroTag(a.bands.zero, a.n) + ' zero</td></tr>';
+      body += '<tr style="background:var(--ij-wash); font-weight:700;"><td colspan="2"><button type="button" class="btn" data-eb-open="' + esc(g.key) + '" aria-expanded="' + isOpen + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (isOpen ? '－' : '＋') + '</button>DSE ' + esc(g.dse) + ' · ' + fmtCount(a.n) + ' outlet</td><td class="num">' + pjRp(a.bal) + '</td><td class="num">' + pjRp(a.comm) + '</td><td class="num">' + pjRp(a.other) + '</td><td class="num">' + pjRp(a.bal + a.other + a.comm) + '</td><td class="num">' + pjRp(a.av) + '</td><td class="num">' + pjRp(a.bal) + '</td><td class="num">' + (a.cov == null ? '—' : a.cov.toFixed(1)) + '</td>' + ebCell(ebScopeKey('dm', g.key), 'zero', ebZeroTag(a.bands.zero, a.n) + ' zero', '', '') + '<td></td><td></td></tr>';
       if (isOpen) {
         var outs = g.list.slice().sort(function (x, y) { return ebBal(x) - ebBal(y); });
-        body += outs.slice(0, 300).map(ebDetailRow).join('') + (outs.length > 300 ? '<tr><td colspan="10" class="note">300 dari ' + fmtCount(outs.length) + ' outlet ditampilkan (terendah dulu); gunakan Export CSV untuk semua.</td></tr>' : '');
+        body += outs.slice(0, 300).map(ebDetailRow).join('') + (outs.length > 300 ? '<tr><td colspan="12" class="note">300 dari ' + fmtCount(outs.length) + ' outlet ditampilkan (terendah dulu); gunakan Export CSV untuk semua.</td></tr>' : '');
       }
     });
     var tools = '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><button type="button" class="map-btn" data-eb-expand="dse">＋ Buka semua DSE (halaman ini ' + fmtCount(pg.end - pg.start) + ')</button><button type="button" class="map-btn" data-eb-expand="none">－ Tutup semua</button></div>' +
@@ -7886,8 +7954,8 @@
   function ebExportCsv(feed) {
     if (typeof window === 'undefined') return;
     function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
-    var list = ebScope(feed.outlets), lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Stock Account', 'Komisi', 'Rekening lainnya', 'Total semua rekening', 'Average transaksi harian', 'Balance terakhir (basis)', 'Inventory days', 'Sell-in saldo kemarin', 'Sell-in saldo MTD', 'Sell-in saldo Sep penuh', 'Status'].map(q).join(',')];
-    list.forEach(function (o) { var b = ebBal(o); lines.push([o.b, o.m, o.o, o.d, o.s, o.i.join(' / '), o.n, o.st, o.cm, o.ot, o.st + o.cm + o.ot, o.av, b, o.av > 0 ? (b / o.av).toFixed(1) : '', o.y, o.mt, o.sf, ebFlags(o).map(function (f) { return f[1]; }).join('; ')].map(q).join(',')); });
+    var list = ebScope(feed.outlets), lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Stock Account', 'Komisi', 'Rekening lainnya', 'Total semua rekening', 'Average transaksi harian', 'Balance terakhir (basis)', 'Inventory days', 'Sell-in saldo kemarin', 'Sell-in saldo MTD', 'Sell-in saldo Sep penuh', 'Jumlah visit MTD', 'Last visit', 'Status'].map(q).join(',')];
+    list.forEach(function (o) { var b = ebBal(o); lines.push([o.b, o.m, o.o, o.d, o.s, o.i.join(' / '), o.n, o.st, o.cm, o.ot, o.st + o.cm + o.ot, o.av, b, o.av > 0 ? (b / o.av).toFixed(1) : '', o.y, o.mt, o.sf, ebVisit(o, ebMaps())[0], ebVisit(o, ebMaps())[1], ebFlags(o).map(function (f) { return f[1]; }).join('; ')].map(q).join(',')); });
     var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), link = document.createElement('a');
     link.href = URL.createObjectURL(blob); link.download = 'end_balance_outlet_' + feed.metadata.snapshot + '.csv'; link.click();
   }
@@ -7895,7 +7963,7 @@
   function viewEndBalance(embed) {
     var feed = ebFeed();
     if (!feed) return card('END BALANCE Outlet', '<p class="note">Feed belum dibangun. Jalankan <code>python3 scripts/build_endbal_feed.py</code>.</p>');
-    var list = ebScope(feed.outlets), tab = state.ebTab || 'ringkasan';
+    var list = ebScope(feed.outlets), tab = state.ebTab || 'ringkasan'; ebResetPopups();
     if (embed && tab === 'detail') tab = state.ebTab = 'ringkasan';
     var body = tab === 'zero' ? ebZero(feed, list) : (tab === 'slab' ? ebSlab(feed, list) : (tab === 'site' ? ebSites(feed, list) : (tab === 'detail' ? ebDetail(feed, list) : ebRingkasan(feed, list))));
     return ebTabNav(embed) + ebBasisBar() + body;

@@ -93,3 +93,16 @@ Pending the owner's answer on point 1 and the daily file.
 
 `scripts/build_endbal_feed.py` → `website/data/endbal_feed.js`; view `mb_endbal` under Morning DSE Briefing. Tabs: Ringkasan (scorecard + summary Region/Area/MC-DSO/DSE following the header filter), Outlet Zero Stock (segments: with demand, bought Sep not Oct, dormant; CSV export), Slab Balance & Inventory Days, Site dengan Outlet Zero (expandable), Detail DSO · DSE (Outlet ID, Name, Stock/Komisi/Lainnya, Total, Average Transaction, Balance terakhir, Inventory Days). Basis toggle: Stock Account only (default) or + unlabelled accounts; commission never counts as stock.
 Sell-in saldo kemarin uses DAILY_DATA_MOBII (value only; no transaction count exists, so UAR is the proxy). 15,278 outlets in old clusters are unmapped and excluded. Open owner questions in section 5 still apply.
+
+## 8. Clickable counts and outlet popups (21 October 2026)
+
+**Data check before the change (data contract).** All per outlet, keyed by the master `outlet_key` (`k`):
+
+| Need | Source | Check |
+|---|---|---|
+| End Balance, average transaction, inventory days | `endbal_feed` (`st`, `ot`, `av`), basis toggle | 18,063 outlets; snapshot **20 Oct 2026** = sell-in cut 20 Oct (lag 0 days; the Data checklist already warns when it lags) |
+| Saldo sell-in FM / MTD / LMTD | `endbal_feed` `sf` / `mt` / `sl`, copied from `penjualan_feed` SALMO facts (`[mtd q, mtd v, lmtd q, lmtd v, fm q, fm v]`) | present for every outlet (0 when no sell-in); Rp only, the popup does not show quantity. 1–9 Oct is depressed by the system migration (genuine) |
+| Voucher Injection MTD / LMTD | `demand_feed` `c.VCI[1]` / `l.VCI[1]` (MOBO VCI, Rp), matched by `k` for 16,188 of 18,063 outlets; an outlet absent from the demand feed has no demand = Rp 0 | `l` exists for 16,061 outlets (September workbook loaded), so LMTD 0 is a real 0; n/a only when the demand feed itself is not loaded |
+| Visit count, last visit | `dse_visits_feed` `dses[].outlets[].d` (count of `x` = completed PJP check-in days, promotors excluded) and `last_visit[k]` | 13,421 of 16,025 master outlets have a last visit; master outlets in no journey plan show 0 / "belum pernah"; ad-hoc outlets (non-PJP) show **n/a** |
+
+**Built.** In every End Balance table each balance-band and inventory-days slab cell shows `count · %` (Ringkasan, Slab, Site, Detail), and every count (outlets, zero stock, bands, UAR, zero with demand, KPI cards, segment cards) opens a popup (`eb|<scope>|<metric>`; scope = all, area, mc, DSE of an MC, site). Popup columns: outlet, ID, MC · Area, DSE, FM / MTD / LMTD saldo sell-in, Voucher Injection MTD / LMTD, End Balance, average transaction, inventory days, visit count, last visit (ISO date, sortable). Rows are sortable; copy as text, image or PNG takes all rows. The zero-stock list, the site detail, the DSE detail and the CSV export gained Jumlah visit MTD and Last visit. No existing figure changed. Check: `node scripts/render_check.js` ("endbal popups": popup rows = cell count).
