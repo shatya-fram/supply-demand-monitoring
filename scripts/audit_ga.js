@@ -19,7 +19,7 @@ let fails = 0, checks = 0;
 function eq(tag, label, shown, truth, tol) { checks++; if (!(Math.abs(shown - truth) <= (tol == null ? 0.51 : tol))) { fails++; console.log('✗ [' + tag + '] ' + label + ': tampil ' + shown + ' ≠ hitung ' + truth); } }
 function cards(html) {
   const out = {}, re = /<div class="card kpi">(.*?)<\/div><\/div>|<div class="card kpi"><h2 class="sect">(.*?)<\/h2><div class="value">(.*?)<\/div><div class="delta[^"]*">(.*?)<\/div><div class="note">(.*?)<\/div>/g; let x;
-  const re2 = /<div class="card kpi"><h2 class="sect">(.*?)<\/h2><div class="value">(.*?)<\/div><div class="delta[^"]*">(.*?)<\/div><div class="note">(.*?)<\/div>/g;
+  const re2 = /<div class="card kpi"[^>]*><h2 class="sect">(.*?)<\/h2><div class="value">(.*?)<\/div><div class="delta[^"]*">(.*?)<\/div><div class="note">(.*?)<\/div>/g;
   while ((x = re2.exec(html))) out[strip(x[1]).toUpperCase()] = { value: strip(x[2]), delta: strip(x[3]), note: strip(x[4]) };
   return out;
 }
@@ -150,7 +150,13 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     c = R('KEMASUKAN DI LUAR MC'); eq(tag, 'kemasukan di luar MC', num(c.value), tot - A[0]);
     c = R('KEMASUKAN DARI LUAR IJ'); eq(tag, 'kemasukan dari luar IJ', num(c.value), ext);
     let tg = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tg[i] += v[i]; if (brand !== 'IM3') tg[i] += v[5 + i]; } });
-    c = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ'); eq(tag, 'pengiriman luar IJ', num(c.value), tg[3]); eq(tag, 'GA tagging IJ', num((c.delta.match(/GA tagging ([\d,]+)/) || [, 0])[1]), T0(tg));
+    const N1 = R('GA SITE LOCATION · OVERALL'), N2 = R('GA DARI LOKASI YANG SAMA'), N3 = R('GA DARI LOKASI LAIN'), N4 = R('GA FROM NON INNER'), N5 = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ · SITE');
+    eq(tag, 'kartu overall', num(N1.value), tot); eq(tag, 'kartu lokasi yang sama', num(N2.value), A[0]); eq(tag, 'kartu lokasi lain IJ', num(N3.value), A[1] + A[2]); eq(tag, 'kartu non IJ', num(N4.value), ext);
+    eq(tag, 'overall = sama + lain + non IJ', tot, A[0] + A[1] + A[2] + ext);
+    { let tgp = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tgp[i] += v[i]; if (brand !== 'IM3') tgp[i] += v[5 + i]; } }); eq(tag, 'kartu tagging IJ aktivasi luar IJ', num(N5.value), tgp[3]); }
+    // popups: top 20 rows add up to at most the card and are sorted by RGU GA; the popup of card 5 sums the outflow rows
+    for (const [kk, card] of [[1, tot], [2, A[0]], [3, A[1] + A[2]], [4, ext]]) { const e = app.ovEntry('gl|' + kk); checks++; if (!e || e.rows.length > 20) { fails++; console.log('✗ [' + tag + '] popup gl|' + kk + ' tidak ada / lebih dari 20 baris'); continue; } const q = e.rows.map(r => num(r[5])); eq(tag, 'popup ' + kk + ' urut GA', q.every((x, i) => i === 0 || q[i - 1] >= x) ? 1 : 0, 1); eq(tag, 'popup ' + kk + ' <= kartu', q.reduce((x, y) => x + y, 0) <= card ? 1 : 0, 1); }
+    c = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ (PENGIRIMAN)'); eq(tag, 'pengiriman luar IJ', num(c.value), tg[3]); eq(tag, 'GA tagging IJ', num((c.delta.match(/GA tagging ([\d,]+)/) || [, 0])[1]), T0(tg));
     // kecamatan and site lists add up to the MC total
     let kt = 0, st = 0; SF.kec.forEach(r => { if (!mc || r.mc[0] === mc) kt += T0(vb(r.v, brand)); }); SF.sites.forEach(r => { if (!mc || r.mc === mc) st += T0(vb(r.v, brand)); });
     if (!mc) { eq(tag, 'jumlah kecamatan = GA di IJ', kt, tot); eq(tag, 'jumlah site = GA di IJ', st, tot); }

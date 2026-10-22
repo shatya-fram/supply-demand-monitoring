@@ -59,7 +59,7 @@ def find_csv():
 def main():
     tmp = tempfile.mkdtemp()
     subprocess.run(['node', '-e', """global.window=global;require(process.argv[2]+'/website/data/ga_feed.js');const F=GA_FEED,fs=require('fs');
-fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
+fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk,k:r.k})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
     F = json.load(open(tmp + '/feed.json'))
     fo = {(r['b'], nid(r['i'])): r for r in F['outlets']}
     mapping = {r['micro_cluster']: r for r in csv.DictReader(open(os.path.join(ROOT, 'data/catalogues/gaplok_location_mapping.csv')))}
@@ -90,6 +90,10 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     dest_kab, dest_prov, dest_site = C.defaultdict(lambda: [0, 0]), C.defaultdict(lambda: [0, 0]), C.defaultdict(lambda: [0, 0])
     dsite_info, dkab_src = {}, C.defaultdict(C.Counter)
     days, n_rows, d_lo, d_hi = C.Counter(), 0, '9', '0'
+    mc_idx = {m: i for i, m in enumerate(sorted(mapping))}
+    oid_ix, loc_ix, dloc_ix = {}, {}, {}
+    ix = lambda d, k: d.setdefault(k, len(d))
+    inrows, outrows = C.defaultdict(lambda: [0, 0]), C.defaultdict(lambda: [0, 0])
     with open(path, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
             n_rows += 1
@@ -129,6 +133,10 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
                 mcv[amc][i] += 1
                 if sid not in sinfo:
                     sinfo[sid] = [row['activation_site_name'], ak, amc, sj]
+                okec = (row['outlet_kecamatan'] or (F['loc_keys'][fr['lk']].split('|')[0] if fr and fr.get('lk') is not None else '')) if (o_ij or omc) else ''
+                oloc = (okec or '(kecamatan tidak tertulis)', okab if not okab.startswith('(') else '', o_mc if o_ij else omc, oarea) if (o_ij or omc) else ('(lokasi tidak diketahui)', '', '', '')
+                okey = fr['k'] if fr else ((row['ga_brand'] + ':' + oid) if oid else None)
+                inrows[(ix(oid_ix, okey) if okey else -1, ix(loc_ix, oloc), mc_idx.get(amc, -1), k)][b] += 1
                 sup_area[oarea][b] += 1
                 sup_kab[okab][b] += 1
                 sup_prov[PROV.get(okab, '(tidak diketahui)') if not okab.startswith('(') else '(tidak diketahui)'][b] += 1
@@ -142,6 +150,8 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
                 if act == 'OUT':
                     kab = row['activation_kabkot']
                     dest_kab[kab][b] += 1
+                    okey2 = fr['k'] if fr else (row['ga_brand'] + ':' + oid)
+                    outrows[(ix(oid_ix, okey2), ix(dloc_ix, (row['activation_kecamatan'], kab, PROV.get(kab, '(provinsi belum dipetakan)'))), mc_idx.get(o_mc, -1))][b] += 1
                     dest_prov[PROV.get(kab, '(provinsi belum dipetakan)')][b] += 1
                     sid = row['activation_site_id']
                     dest_site[sid][b] += 1
@@ -183,6 +193,8 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
         'matrix': {k: v for k, v in mat.items()}, 'mc': mc_rows, 'kec': kec_rows, 'sites': site_rows,
         'sup_area': top(sup_area, 60), 'sup_kab': top(sup_kab, 60), 'sup_prov': top(sup_prov, 40),
         'out_area': [[k, v] for k, v in out_area.items()], 'out_mc': [[k, v] for k, v in out_mc.items()], 'out_seg': [[k, v] for k, v in out_seg.items()],
+        'ol': [list(k) for k in loc_ix], 'ir': [[o, l, m, c, v[0], v[1]] for (o, l, m, c), v in inrows.items()],
+        'dl': [list(k) for k in dloc_ix], 'or': [[o, d, m, v[0], v[1]] for (o, d, m), v in outrows.items()],
         'dest_prov': top(dest_prov, 40), 'dest_kab': [[k, v, [[a, c] for a, c in dkab_src[k].most_common(2)]] for k, v in sorted(dest_kab.items(), key=lambda x: -sum(x[1]))[:60]],
         'dest_site': [[k, dsite_info[k], v] for k, v in sorted(dest_site.items(), key=lambda x: -sum(x[1]))[:150]], 'dest_n': {'kab': len(dest_kab), 'sites': len(dest_site)}}
     out = os.path.join(ROOT, 'website', 'data', 'ga_site_feed.js')
