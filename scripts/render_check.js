@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -351,6 +351,7 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gtDay = 0;
 { const mc1 = Object.keys(global.GA_FEED.metadata.mc_info)[0], br1 = global.GA_FEED.metadata.mc_info[mc1].br;
   state.view = 'mb_overall'; state.branch = ''; state.kec = ''; check('overall/ga-target/all', VIEWS.mb_overall); state.branch = br1; check('overall/ga-target/branch', VIEWS.mb_overall); state.kec = mc1; check('overall/ga-target/mc', VIEWS.mb_overall);
   state.view = 'mb_gatrend'; state.gaBasis = 'outlet'; state.gtDay = 8; check('gatrend/target/mc/D8', VIEWS.mb_gatrend); state.gaBasis = 'site'; check('gatrend/target/site/mc', VIEWS.mb_gatrend); state.gaBasis = 'outlet'; state.gtDay = 0; state.branch = ''; state.kec = ''; }
+  { const mcS = Object.keys(global.GA_FEED.metadata.mc_info)[0], brS = global.GA_FEED.metadata.mc_info[mcS].br; state.view = 'mb_gatrend'; state.gtSec = 'site'; for (const br of ['all', 'IM3', '3ID']) { state.gaBrand = br; for (const so of ['x', 'i']) { state.gtSort = so; state.gtUse = so === 'x' ? 'all' : 'gt'; state.branch = ''; state.kec = ''; check('gatrend/site/' + br + '/' + so, VIEWS.mb_gatrend); state.branch = brS; check('gatrend/site/' + br + '/' + so + '/branch', VIEWS.mb_gatrend); state.kec = mcS; check('gatrend/site/' + br + '/' + so + '/mc', VIEWS.mb_gatrend); } } state.gtSec = 'trend'; state.gtSort = 'x'; state.gtUse = 'all'; state.gaBrand = 'all'; state.branch = ''; state.kec = ''; }
 state.view = 'mb_ringkasan'; state.rkTab = 'demand'; check('ringkasan/demand', VIEWS.mb_ringkasan); for (const tb of ['ringkasan', 'dse', 'outlet', 'harian', 'slab']) { state.rkTab = 'grossadd'; state.gaTab = tb; check('ringkasan/grossadd/' + tb, VIEWS.mb_ringkasan); } state.gaTab = 'ringkasan';
 for (const sb of ['growth', 'slab', 'aktif', 'inaktif']) { state.view = 'mb_ringkasan'; state.rkTab = 'uar'; state.uarSub = sb; state.uarTab = 'sp'; check('ringkasan/uar/' + sb, VIEWS.mb_ringkasan); }
 state.rkTab = 'dse'; state.uarSub = 'growth'; state.view = 'mb_uar';

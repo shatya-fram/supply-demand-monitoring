@@ -7,7 +7,7 @@ const path = require('path'), root = path.resolve(__dirname, '..');
 global.window = global; const noop = () => {};
 const el = () => ({ innerHTML: '', textContent: '', style: {}, addEventListener: noop, querySelectorAll: () => [], querySelector: () => null, focus: noop, classList: { add: noop, remove: noop, toggle: noop }, setAttribute: noop, getAttribute: () => null, appendChild: noop, remove: noop });
 global.document = { getElementById: el, querySelector: el, querySelectorAll: () => [], createElement: el, body: el(), documentElement: el(), addEventListener: noop };
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'kro_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) require(path.join(root, 'website', 'data', f));
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) require(path.join(root, 'website', 'data', f));
 if (typeof global.dseVisitsFeed === 'undefined') { const src = require('fs').readFileSync(path.join(root, 'website', 'data', 'dse_visits_feed.js'), 'utf8'); const m = src.match(/var dseVisitsFeed = (\{[\s\S]*\});?\s*$/); if (m) global.dseVisitsFeed = JSON.parse(m[1]); }
 const app = require(path.join(root, 'website', 'app.js')); const { VIEWS, state } = app;
 const G = global.GA_FEED, M = G.metadata, mi = M.mc_info, cut = M.cut_day, days = M.cur_days || 31;
@@ -110,6 +110,54 @@ state.gaTab = 'ringkasan';
 state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gaSg = 'all'; state.gaCover = 'all'; state.branch = ''; state.hoa = ''; state.kec = '';
 { const T = table(VIEWS.mb_grossadd(), 'BRAND'); if (T) { const ig = T.head.indexOf('GA MTD (PCS)'), ip = T.head.indexOf('GA LMTD (PCS)'), iu = T.head.indexOf('SSO MTD (SEMUA OUTLET)'), iw = T.head.indexOf('OUTLET PJP');
   [['IM3', 'IM3'], ['3ID', '3ID'], ['IOH (IM3 + 3ID)', 'all']].forEach(([lab, br]) => { const r = T.rows.find(x => x[0] === lab); if (!r) return; const A = model('outlet', br, 'all', false, () => true).A; eq('brand-tabel/' + lab, 'GA MTD', num(r[ig]), A.q); eq('brand-tabel/' + lab, 'GA LMTD', num(r[ip]), A.p); eq('brand-tabel/' + lab, 'SSO', num(r[iu]), A.u); eq('brand-tabel/' + lab, 'outlet master', num(r[iw]), A.n); }); } }
+// Daily GA Trend (mb_gatrend): every card follows the chosen basis, brand, sumber, cakupan, territory and day; the target cards exist only on the site basis
+for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID']) for (const [pn, f] of probes) for (const [sg, onlyM] of [['all', false], ['PJP', false], ['all', true]]) for (const day of [0, 10]) {
+  const tag = 'trend/' + basis + '/' + brand + '/' + pn + '/' + sg + (onlyM ? '/master' : '') + '/d' + (day || 'cut');
+  Object.assign(state, { view: 'mb_gatrend', gaTab: 'ringkasan', gaBasis: basis, gaBrand: brand, gaSg: sg, gaCover: onlyM ? 'master' : 'all', branch: f.branch || '', hoa: '', kec: f.kec || '', dse: '', gtDay: day });
+  const html = VIEWS.mb_gatrend(), C = cards(html), R = k => C[Object.keys(C).find(x => x.startsWith(k))], ne = day || cut;
+  const inScope = o => basis === 'site' ? ((!state.branch || (o.la || (mi[o.lm] || {}).br || o.br) === state.branch) && (!state.kec || o.lm === state.kec)) : ((!state.branch || o.br === state.branch) && (!state.kec || o.mc === state.kec));
+  const { A, list } = model(basis, brand, sg, onlyM, inScope), tag2 = basis === 'site' ? 'BASIS SITE' : 'BASIS OUTLET';
+  let mtd = 0, lmtd = 0, dayQ = 0, w7 = 0; list.forEach(o => { mtd += sum(o.o, 1, ne); lmtd += sum(o.s, 1, ne); dayQ += o.o[ne]; w7 += sum(o.o, Math.max(1, ne - 6), ne); });
+  let c = R('MTD D1'); checks++; if (!c || !/BASIS/.test(Object.keys(C).find(x => x.startsWith('MTD D1')))) { fails++; console.log('✗ [' + tag + '] kartu MTD tanpa label basis'); }
+  c = R('MTD D1'); if (c) { eq(tag, 'trend MTD', num(c.value), mtd); eq(tag, 'trend LMTD', num((c.delta.match(/LMTD D1–D\d+ ([\d,]+)/) || [, 0])[1]), lmtd); }
+  checks++; if (!Object.keys(C).some(x => x.includes(tag2))) { fails++; console.log('✗ [' + tag + '] label basis salah / hilang'); }
+  c = R('GA D' + ne + ' ·'); if (c) eq(tag, 'trend GA hari terpilih', num(c.value), dayQ);
+  c = R('RUN-RATE HARIAN'); if (c) { eq(tag, 'trend run-rate', num(c.value), mtd / ne, 0.51); eq(tag, 'trend run-rate 7 hari', num((c.note.match(/: ([\d,]+)\/hari vs/) || [, 0])[1]), w7 / Math.min(7, ne), 0.51); }
+  c = R('PROYEKSI AKHIR OKTOBER ·'); if (c) eq(tag, 'trend proyeksi', num(c.value), mtd / ne * 31, 0.6);
+  const hasT = Object.keys(C).some(x => x.startsWith('TARGET GA OKTOBER'));
+  checks++; if (hasT !== (basis === 'site')) { fails++; console.log('✗ [' + tag + '] kartu target ' + (hasT ? 'tampil di basis outlet' : 'hilang di basis site')); }
+  checks++; if (basis === 'outlet' && !/Target GA hanya untuk basis site/.test(html)) { fails++; console.log('✗ [' + tag + '] catatan "target hanya basis site" hilang'); }
+  if (basis === 'site') {
+    const tin = r => (!state.branch || r.br === state.branch) && (!state.kec || r.mc === state.kec), tv = r => brand === 'all' ? r.IM3 + r['3ID'] : r[brand];
+    let T = 0, Q = 0; TK.filter(tin).forEach(r => { T += tv(r); }); list.forEach(o => { const k = tkey(o.lk); if (k && tin(tby[k])) Q += sum(o.o, 1, ne); });
+    c = R('TARGET GA OKTOBER'); if (c) eq(tag, 'trend target Okt', num(c.value), T, 1);
+    c = R('GA D1–D' + ne + ' VS TARGET'); if (c) { const pro = T * ne / days; eq(tag, 'trend GA di kecamatan target', num(c.value), Q); eq(tag, 'trend gap vs pro-rata', num((c.delta.match(/gap vs pro-rata ([\-−+\d,]+)/) || [, '0'])[1].replace('−', '-')), Q - pro, 0.6); eq(tag, 'trend % pro-rata', num((c.delta.match(/(\d+)% dari pro-rata/) || [, 0])[1]), pro ? Q / pro * 100 : 0, 0.51); }
+    c = R('PROYEKSI AKHIR OKTOBER VS'); if (c) eq(tag, 'trend proyeksi vs target', num(c.note.match(/run-rate D1–D\d+ ([\d,]+)\/hari/)[1]) * days, Q / ne * days, days * 0.51);
+  }
+}
+// the shared link of the trend page carries basis, brand, sumber, cakupan (and day)
+{ for (const k of ['gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay']) { checks++; if (!new RegExp("mb_gatrend: \\[[^\\]]*'" + k + "'").test(require('fs').readFileSync(path.join(root, 'website', 'app.js'), 'utf8'))) { fails++; console.log('✗ [link] RT_VIEW_TABS mb_gatrend tanpa ' + k); } } }
+// Daily GA Trend · section Site (GA_SITE_FEED): cards, area tables and the matrix recomputed from the feed arrays per brand and per MC
+{ const SF = global.GA_SITE_FEED, vb = (v, b) => { const a = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < 6; i++) { if (b !== '3ID') a[i] += v[i]; if (b !== 'IM3') a[i] += v[6 + i]; } return a; };
+  const T0 = a => a.reduce((x, y) => x + y, 0);
+  for (const brand of ['all', 'IM3', '3ID']) for (const mc of ['', SF.mc[0].mc]) {
+    const tag = 'site-sec/' + brand + '/' + (mc || 'region'); Object.assign(state, { view: 'mb_gatrend', gtSec: 'site', gaBrand: brand, branch: mc ? SF.mc[0].area : '', hoa: '', kec: mc, dse: '', gtSort: 'x', gtUse: 'all' });
+    const C2 = cards(VIEWS.mb_gatrend()), R = k => C2[Object.keys(C2).find(x => x.startsWith(k))];
+    const rows = SF.mc.filter(r => !mc || r.mc === mc); let A = [0, 0, 0, 0, 0, 0]; rows.forEach(r => vb(r.v, brand).forEach((x, i) => A[i] += x));
+    const tot = T0(A), ext = A[3] + A[4] + A[5];
+    let c = R('GA AKTIVASI DI INNER JAKARTA'); eq(tag, 'GA aktivasi di IJ', num(c.value), tot);
+    c = R('KEMASUKAN DI LUAR MC'); eq(tag, 'kemasukan di luar MC', num(c.value), tot - A[0]);
+    c = R('KEMASUKAN DARI LUAR IJ'); eq(tag, 'kemasukan dari luar IJ', num(c.value), ext);
+    let tg = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tg[i] += v[i]; if (brand !== 'IM3') tg[i] += v[5 + i]; } });
+    c = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ'); eq(tag, 'pengiriman luar IJ', num(c.value), tg[3]); eq(tag, 'GA tagging IJ', num((c.delta.match(/GA tagging ([\d,]+)/) || [, 0])[1]), T0(tg));
+    // kecamatan and site lists add up to the MC total
+    let kt = 0, st = 0; SF.kec.forEach(r => { if (!mc || r.mc[0] === mc) kt += T0(vb(r.v, brand)); }); SF.sites.forEach(r => { if (!mc || r.mc === mc) st += T0(vb(r.v, brand)); });
+    if (!mc) { eq(tag, 'jumlah kecamatan = GA di IJ', kt, tot); eq(tag, 'jumlah site = GA di IJ', st, tot); }
+  }
+  // the matrix of the feed sums to the rows of the file, and the IJ column equals the sites
+  let mt = 0, ij = 0; Object.entries(SF.matrix).forEach(([k, v]) => { const n = v[0] + v[1]; mt += n; if (k.split('|')[1] === 'IJ') ij += n; });
+  eq('site-sec', 'matriks = baris file', mt, SF.metadata.rows); eq('site-sec', 'kolom IJ matriks = GA di site', ij, SF.sites.reduce((s, r) => s + T0(vb(r.v, 'all')), 0));
+  Object.assign(state, { gtSec: 'trend', gaBrand: 'all', branch: '', kec: '' }); }
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);
   checks++; if (dup.length) { fails++; console.log('✗ [loc_keys] kecamatan tanpa kabupaten sementara ada label lengkapnya (dihitung dua kali sebagai site): ' + dup.join(', ')); } }

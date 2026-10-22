@@ -12,7 +12,7 @@ Refreshes, in dependency order:
   3. PJP     · DSE visits             *_visit_dse_YYYYMM__DD_DD.zip (all ranges) -> generate_dse_visits_feed.py
   4. DSE KPI inputs (needs 1 + 3)     -> build_dse_kpi_feed.py
   +  ENDBAL stock balance (needs 2)   -> build_endbal_feed.py   (newest snapshot only)
-  +  GA / SSO (raw/GA)                -> build_ga_feed.py, then build_kro_feed.py (KRO / Wholesaler catalogue)
+  +  GA / SSO (raw/GA)                -> build_ga_feed.py, build_ga_site_feed.py (Site_rguga_daily_outlet_*.csv, when present), then build_kro_feed.py (KRO / Wholesaler catalogue)
   5. Render check of every view       -> node scripts/render_check.js
 
 "Latest" = newest modified time under raw/ (any sub-folder, including OneDrive_* drops).
@@ -223,6 +223,8 @@ def main():
         steps.append(("PJP · Weekly mapping (permanent outlet -> DSE)", [py, "scripts/build_pjp_mapping_feed.py"]))   # needs the penjualan feed (saldo sell-in)
     if ga_ok:   # Gross Add / SSO feed (raw/GA); needs no other feed
         steps.append(("GA · Gross Add / SSO feed (RGUGA)", [py, "scripts/build_ga_feed.py"]))
+        if find(r"^Site_rguga_daily_outlet_.*\.csv$"):   # MSISDN-level GA with activation site (counts only reach the feed)
+            steps.append(("GA · Site aktivasi vs outlet tagging (kemasukan / pengiriman)", [py, "scripts/build_ga_site_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
