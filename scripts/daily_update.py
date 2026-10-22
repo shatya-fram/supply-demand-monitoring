@@ -176,7 +176,7 @@ def main():
     salmo = [p for p in salmo_all if cur_tag and ("_SALMO_" + cur_tag) in os.path.basename(p)]
     salmo_lm = [p for p in salmo_all if lm_tag and ("_SALMO_" + lm_tag) in os.path.basename(p)]
     show("Demand  · MOBO_SALMO bulan berjalan " + str(cur_tag) + " (Saldo Mobo ke pelanggan; ikut demand feed, di luar total)", salmo[:2])
-    show("Demand  · MOBO_SALMO bulan lalu " + str(lm_tag) + " (belum dipakai: baseline SAL September menunggu keputusan)", salmo_lm[:2])
+    show("Demand  · MOBO_SALMO bulan lalu " + str(lm_tag) + " (baseline SAL: LMTD dan Last FM Saldo Mobo)", salmo_lm[:2])
     show("PJP     · Weekly PJP (permanent beat plan; newest file is used)", find(r"^(Weekly_PJP_.*|.*WEEKLY_PJP.*)\.xlsx$")[:3])
     show("PJP     · DSE visits (journey plan zip/csv, all ranges are merged)", visits)
     endbal = find(r"^(endbal_.*|.*Stock Balance Daily Report.*)\.csv$")
@@ -209,6 +209,8 @@ def main():
         env["MOBO_LM_SRC"] = mobo_lm[0]
     if salmo:
         env["MOBO_SALMO_SRC"] = salmo[0]
+    if salmo_lm:
+        env["MOBO_SALMO_LM_SRC"] = salmo_lm[0]
     ga_ok = bool(find(r"^Daily_RGUGA_OUTLET_\d{6}\.xlsb$"))
     steps = [
         ("1/5 Demand · demand feed (MOBO)", [py, "scripts/build_demand_feed.py"]),   # first: Sell-In feed merges SP Injection from it

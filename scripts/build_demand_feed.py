@@ -40,6 +40,14 @@ def _salmo_default():
     same = [p for p in files if tag and ("_SALMO_" + tag.group(1)) in os.path.basename(p)]
     return next(iter(sorted(same or files, key=os.path.getmtime, reverse=True)), None)
 SALMO_SRC = os.environ.get("MOBO_SALMO_SRC") or _salmo_default()      # MOBO_SALMO report of the running month (Saldo Mobo demand), optional
+def _salmo_lm_default():
+    """SALMO workbook of the previous (closed) month, e.g. DAILY_DATA_MOBO_SALMO_202609.xlsb (arrived 22 Oct 2026); optional."""
+    _m = re.search(r"DAILY_DATA_MOBO_(\d{4})(\d{2})", os.environ.get("MOBO_SRC") or "")
+    _y, _mo = (int(_m.group(1)), int(_m.group(2))) if _m else (2026, 10)
+    _tag = f"{_y - 1}12" if _mo == 1 else f"{_y}{_mo - 1:02d}"
+    files = [os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBO_SALMO_" + _tag + r"[^A-Za-z]*\.xlsb$", f, re.I)]
+    return next(iter(sorted(files, key=os.path.getmtime, reverse=True)), None)
+SALMO_LM_SRC = os.environ.get("MOBO_SALMO_LM_SRC") or _salmo_lm_default()      # MOBO_SALMO of the previous month (Last FM / LMTD of Saldo Mobo demand), optional
 TERRITORY = "website/data/territory_feed.js"
 PENJUALAN_JSON = "data/processed/penjualan_feed.json"
 OUT_JS = "website/data/demand_feed.js"
@@ -416,6 +424,51 @@ if LM_SRC and os.path.exists(LM_SRC):
 else:
     print(f"   MOBO {LM_TAG} tidak ditemukan: LMTD dan Last FM demand dilewati")
 
+# ---- previous month SALMO (Saldo Mobo): same layout as the running month (MOBO_SALMO, id_outlet, DT_01..DT_31, Rp); LMTD = days <= CUT_DAY, Last FM = whole month. l.SAL = [0, LMTD Rp, 0, FM Rp]
+lm_daily["SAL"] = [0.0] * 32; lm_dailyq["SAL"] = [0.0] * 32
+lm_sal_unknown = defaultdict(float)
+lm_sal_meta = {"source": None, "month": f"{_PY}-{_PM:02d}", "days": 0, "rows": 0, "duplicate_ids": 0, "outlets": 0, "file_total": 0, "attributed": {"lmtd": 0, "fm": 0}, "unknown": {"ids": 0, "lmtd": 0, "fm": 0}}
+if SALMO_LM_SRC and os.path.exists(SALMO_LM_SRC):
+    print("   MOBO_SALMO bulan lalu:", SALMO_LM_SRC)
+    _sr = next(iter(read_xlsb(SALMO_LM_SRC).values()))
+    _h = {c: str(v).strip() for c, v in _sr[0].items()}
+    _cid = next(c for c, v in _h.items() if v.lower() == "id_outlet")
+    _dc = {int(m.group(1)): c for c, v in _h.items() for m in [re.match(r"^DT_(\d{1,2})$", v, re.I)] if m}
+    _seen = defaultdict(int)
+    for r in _sr[1:]:
+        oid = norm_id(r.get(_cid))
+        if not oid:
+            continue
+        _seen[oid] += 1
+        days = {d: float(r.get(c) or 0) for d, c in _dc.items() if isinstance(r.get(c), (int, float)) and r.get(c)}
+        if not days:
+            continue
+        fv = sum(days.values()); lv = sum(v for d, v in days.items() if d <= CUT_DAY)
+        lm_sal_meta["file_total"] += fv; lm_sal_meta["rows"] += 1; lm_sal_meta["days"] = max(lm_sal_meta["days"], max(days))
+        for d, v in days.items():
+            lm_daily["SAL"][d] += v
+        key, brand, tier, cls = resolve(oid)
+        if key is None:
+            lm_sal_unknown[oid] += fv; lm_sal_meta["unknown"]["lmtd"] += lv
+            continue
+        if key in master and key not in outlets:
+            outlets[key] = master[key]
+        outlet_brand.setdefault(key, brand)
+        e = lm[key]["SAL"]; e[1] += lv; e[3] += fv
+        lm_sal_meta["attributed"]["lmtd"] += lv; lm_sal_meta["attributed"]["fm"] += fv
+    lm_sal_meta["duplicate_ids"] = sum(1 for v in _seen.values() if v > 1)
+    lm_sal_meta["outlets"] = sum(1 for k in lm if "SAL" in lm[k])
+    lm_sal_meta["unknown"].update({"ids": len(lm_sal_unknown), "fm": int(sum(lm_sal_unknown.values()))})
+    lm_sal_meta["source"] = SALMO_LM_SRC
+    for _k in ("file_total",):
+        lm_sal_meta[_k] = int(lm_sal_meta[_k])
+    lm_sal_meta["attributed"] = {k: int(v) for k, v in lm_sal_meta["attributed"].items()}
+    lm_sal_meta["unknown"]["lmtd"] = int(lm_sal_meta["unknown"]["lmtd"])
+    lm_meta["totals"]["SAL"] = {"lmtd": lm_sal_meta["attributed"]["lmtd"], "fm": lm_sal_meta["attributed"]["fm"], "region_fm": int(sum(lm_daily["SAL"])), "region_lmtd": int(sum(lm_daily["SAL"][1:CUT_DAY + 1])), "outlets": lm_sal_meta["outlets"]}
+    print(f"   MOBO_SALMO bulan lalu: {lm_sal_meta['rows']:,} baris, {lm_sal_meta['outlets']:,} outlet teratribusi, hari {lm_sal_meta['days']}, ID ganda {lm_sal_meta['duplicate_ids']}; total file Rp {lm_sal_meta['file_total'] / 1e9:.2f} M, teratribusi FM Rp {lm_sal_meta['attributed']['fm'] / 1e9:.2f} M / LMTD (1..{CUT_DAY}) Rp {lm_sal_meta['attributed']['lmtd'] / 1e9:.2f} M, id tidak dikenal {lm_sal_meta['unknown']['ids']} (FM Rp {lm_sal_meta['unknown']['fm'] / 1e6:.1f} jt)")
+else:
+    print("   MOBO_SALMO bulan lalu tidak ditemukan: SAL tanpa LMTD / Last FM")
+
 print("[3/4] Menyusun feed...")
 products = []
 for (code, pname) in set(prod) | set(lm_prod):
@@ -456,7 +509,7 @@ feed = {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
         "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
-        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in CATS}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
+        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in list(CATS) + ["SAL"]}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}, "salmo": lm_sal_meta}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],
         "lm_columns": "outlets[].l[cat] = [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp] (September, LMTD = days 1..cut_day); products[] carry lq, lv, fq, fv, lo, fo",
@@ -464,7 +517,7 @@ feed = {
                   "SP Injection berisi unit dan (sejak file 14 Okt 18:12) rupiah; tidak dijumlahkan ke total demand. Reload/Voucher/CVM/Paket Data berisi rupiah.",
                   "MTD_RECARGE (judul kolom RECHARGE) berisi penjualan paket data, bukan isi ulang pulsa; dimuat sebagai kategori PKT Paket Data.",
                   "Brand disimpulkan dari id (tidak ada kolom brand).",
-                  "SAL = Saldo Mobo yang ditransaksikan outlet ke pelanggan (DAILY_DATA_MOBO_SALMO, Rp per hari); hanya Oktober, tidak dijumlahkan ke total demand sampai hubungannya dengan Reload / Voucher / Paket Data dikonfirmasi (docs/assessments/daily_data_mobo_salmo.md)."],
+                  "SAL = Saldo Mobo yang ditransaksikan outlet ke pelanggan (DAILY_DATA_MOBO_SALMO, Rp per hari); tidak dijumlahkan ke total demand sampai hubungannya dengan Reload / Voucher / Paket Data dikonfirmasi (docs/assessments/daily_data_mobo_salmo.md). Sejak 22 Okt 2026 ada baseline September (DAILY_DATA_MOBO_SALMO_<bulan lalu>): outlets[].l.SAL = [0, LMTD Rp, 0, Last FM Rp]."],
         "master_counts": {"br": {k[1]: v for k, v in master_count.items() if k[0] == "br"}, "mc": {k[1]: v for k, v in master_count.items() if k[0] == "mc"}, "dse": {k[1]: v for k, v in master_count.items() if k[0] == "dse"}},
         "mc_info": mc_info,
         "unknown": {"ids": len(unknown_ids), "value": int(sum(unknown_ids.values()))},

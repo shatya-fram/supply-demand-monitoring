@@ -102,3 +102,12 @@ Observation: September Reload rises from about Rp 0.1–0.2 B/day (early Sep) to
 ## 10. CVM sheet with a stale RECARGE copy (19 Oct 2026)
 `DAILY_DATA_MOBO_202610.xlsb` (18 Oct 22:49): CVM 75,692 rows, RECARGE 79,968 rows. Against RECARGE on outlet + product: 46,374 CVM rows identical (Rp 16.2 B), 13,718 equal up to 16 Oct and different on 17–18 Oct (Rp 20.0 B), 15,600 not in RECARGE (Rp 2.08 B, the genuine CVM: about Rp 0.1 B/day, in line with September at Rp 0.2 B/day). The RECARGE sheet had moved on while the CVM copy had not. Rule in `drop_copied_rows`: a CVM row whose outlet + product exists in RECARGE is a copy when it matches through day 16 (or fully). Check each new file: the builder prints the removed count and amount; a CVM total above about Rp 0.3 B/day means the filter missed something. Ask the MOBO owner to stop copying RECARGE into CVM.
 Daily total demand (RLD+VCI+CVM+PKT), Rp B: 15 Oct 2.71, 16 Oct 2.74, 17 Oct 2.72, 18 Oct 2.61 (Sunday).
+
+## SALMO September (baseline Saldo Mobo), 22 Oct 2026
+
+File `raw/MOBO  MOBII Data as of (Daily Update by Thofa)/DAILY_DATA_MOBO_SALMO_202609.xlsb`, sheet `Sheet1`: kolom `MOBO_SALMO`, `id_outlet`, `DT_01..DT_31` (Rp per hari); layout sama dengan file Oktober. 23.432 baris, 30 hari (DT_31 kosong), 3 `id_outlet` ganda (baris dijumlahkan), total file **Rp 143,39 M**; LMTD 1..21 September (cut 21 Okt) di file Rp 90,35 M.
+
+Resolusi id memakai `resolve()` yang sama dengan Oktober (master, adhoc, tidak dikenal): 17.598 outlet teratribusi, **Last FM teratribusi Rp 128,97 M** dan **LMTD teratribusi Rp 80,08 M**; **58 id tidak dikenal (bukan outlet master maupun adhoc) Rp 14,42 M FM** (10,1% file; Oktober punya 57 id, Rp 7,9 M, pola sama) tidak masuk outlet mana pun. Rekonsiliasi: teratribusi + tidak dikenal = total file (Rp 128,97 + 14,42 = 143,39 M).
+
+Pemakaian: builder `build_demand_feed.py` membaca file ini (env `MOBO_SALMO_LM_SRC`, diisi `daily_update.py` bila file bulan lalu ada) dan mengisi `outlets[].l.SAL = [0, LMTD Rp, 0, Last FM Rp]` (konvensi `l[cat]` kategori lain; SAL tetap di luar total demand), `metadata.lm.totals.SAL`, `metadata.lm.daily.SAL` dan `metadata.lm.salmo` (rekonsiliasi). Outlet yang hanya bertransaksi saldo di September mendapat baris sendiri seperti kategori lain. Menu Demand Customer (baris Saldo Mobo) dan Outlet & KRO Management (Saldo sell-out) kini punya FM, LMTD, growth, gap dan perpindahan kelas.
+

@@ -96,6 +96,8 @@ def main():
     VS = load_js("dse_visits_feed.js")
     TR = load_js("territory_feed.js")
     gm, pm, dm, vm = GA["metadata"], PJ["metadata"], DM["metadata"], VS["metadata"]
+    has_sal_lm = bool(((dm.get("lm") or {}).get("salmo") or {}).get("source"))      # demand feed carries l.SAL (September SALMO) since 22 Oct 2026
+    KEYS["sso"] = ("val", has_sal_lm, KEYS["sso"][2])
     ga_cut, sup_cut, dem_cut = int(gm["cut_day"]), int(pm["cut_day"]), int(dm["cut_day"])
     vis_cut = len(vm["days"])
     mi = gm.get("mc_info", {})
@@ -147,7 +149,7 @@ def main():
 
     def dem_rel(x):
         c, l = x.get("c") or {}, x.get("l") or {}
-        return bool(g(c.get("VCI"), 1) or g(c.get("SAL"), 1) or g(c.get("SPI"), 0) or g(l.get("VCI"), 1) or g(l.get("VCI"), 3) or g(l.get("SPI"), 0) or g(l.get("SPI"), 2))
+        return bool(g(c.get("VCI"), 1) or g(c.get("SAL"), 1) or g(l.get("SAL"), 1) or g(l.get("SAL"), 3) or g(c.get("SPI"), 0) or g(l.get("VCI"), 1) or g(l.get("VCI"), 3) or g(l.get("SPI"), 0) or g(l.get("SPI"), 2))
 
     # ---- outlets that no GA row claims (adhoc / master without GA) join the universe with zero GA (t = "S") when they carry sell-in, injection or demand volume
     claimed = set()
@@ -231,7 +233,7 @@ def main():
         if not rows:
             return None
         tot, cat = 0, {"RLD": 0, "PKT": 0, "SAL": 0}
-        a = {"vci": [0, 0, 0], "vcid": defaultdict(int), "sald": defaultdict(int), "spi": [0, 0, 0], "spid": defaultdict(int), "vcn": [0, 0, 0], "spiv": [0, 0, 0]}
+        a = {"vci": [0, 0, 0], "vcid": defaultdict(int), "sald": defaultdict(int), "spi": [0, 0, 0], "spid": defaultdict(int), "vcn": [0, 0, 0], "spiv": [0, 0, 0], "salf": [0, 0]}
         seen = set()
         for x in rows:
             if id(x) in seen:
@@ -253,6 +255,8 @@ def main():
             a["vcn"][1] += g(l.get("VCI"), 0)
             a["vcn"][2] += g(l.get("VCI"), 2)
             v = c.get("SAL") or []
+            a["salf"][0] += g(l.get("SAL"), 1)       # September LMTD Rp (l.SAL = [0, LMTD Rp, 0, Last FM Rp])
+            a["salf"][1] += g(l.get("SAL"), 3)
             for dd in (v[4] if len(v) > 4 and v[4] else []):
                 a["sald"][dd[0]] += dd[1] or 0
             v = c.get("SPI") or []
@@ -310,7 +314,7 @@ def main():
         ga_pr = ga_mtd / ga_cut * 31 if ga_cut else 0
         sp = supply_of(k, o["ids"])
         dmd = demand_of(k, o["ids"])
-        da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}, "vcn": [0, 0, 0], "spiv": [0, 0, 0]}
+        da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}, "vcn": [0, 0, 0], "spiv": [0, 0, 0], "salf": [0, 0]}
         sp_mtd, sp_lm, sp_fm = (sp["sp"][0], sp["sp"][1], sp["sp"][2]) if sp else (0, 0, 0)
         sp_pr7 = d7(sp["spd"], sup_cut) / 7 * 31 if sp else 0
         sal_mtd = sum(v for _, v in (dmd and dmd["_a"]["sald"].items() or []))
@@ -320,7 +324,7 @@ def main():
             "vsi": [sp["vcv"][2], sp["vcv"][1], sp["vcv"][0], d7(sp["vcd"], sup_cut) / 7 * 31] if sp else [0, 0, 0, 0],
             "vso": [da["vci"][2], da["vci"][1], da["vci"][0], d7(da["vcid"], dem_cut) / 7 * 31],
             "ssi": [sp["sal"][2], sp["sal"][1], sp["sal"][0], d7(sp["sald"], sup_cut) / 7 * 31] if sp else [0, 0, 0, 0],
-            "sso": [None, None, sal_mtd, d7(da["sald"], dem_cut) / 7 * 31],
+            "sso": [da["salf"][1] if has_sal_lm else None, da["salf"][0] if has_sal_lm else None, sal_mtd, d7(da["sald"], dem_cut) / 7 * 31],
         }
         q = {key: [rnd(key, x) for x in v] for key, v in q.items()}
         # counterpart of each measure for the popups: value (Rp) for the pcs keys, quantity for the Rp keys; [fm, lm, mtd], None = not available (never 0)

@@ -5154,7 +5154,7 @@
   /* SAL (Saldo Mobo, MOBO_SALMO) is a separate category outside the total demand: outlets that only have SALMO stay out of the demand tables */
   function poHasDemand(o) { return !!(o.c.RLD || o.c.VCI || o.c.CVM || o.c.PKT || o.c.SPI || o.l); }   // o.l = September (LMTD / Last FM) from the closed-month MOBO workbook
   function poOutlets(F) { return (F.outlets || []).filter(function (o) { return poInScope(o, F) && poHasDemand(o); }); }
-  function poSalOutlets(F) { return (F.outlets || []).filter(function (o) { return o.c.SAL && poInScope(o, F); }); }
+  function poSalOutlets(F) { return (F.outlets || []).filter(function (o) { return (o.c.SAL || (o.l && o.l.SAL)) && poInScope(o, F); }); }   // includes outlets that only transacted saldo in September (l.SAL)
   function poVal(o, cat) {
     if (cat === 'all') return PO_VALUE_CATS.reduce(function (s, c) { return s + (o.c[c] ? o.c[c][1] : 0); }, 0);
     var x = o.c[cat]; if (!x) return 0; return cat === 'SPI' ? x[0] : x[1];
@@ -5313,9 +5313,13 @@
       '<tr style="font-weight:800; background:var(--ij-wash, #f6f4f1);"><td class="cur">Total demand (Reload + Voucher + CVM + Paket Data)</td><td class="num">' + pjRp(A.tot.v) + '</td>' + poLmCells(A.tot.v, A.tot.lv, A.tot.fv, rem, pjRp) + '<td class="num">' + fmtCount(A.RLD.q + A.VCI.q + A.CVM.q + A.PKT.q) + '</td><td class="num">' + fmtCount(A.tot.u) + '</td><td class="num">' + fmtCount(A.tot.lu) + '</td><td class="num">100%</td><td class="num">' + pjRp(A.tot.v / n) + '</td><td class="num">' + pjRp(A.tot.v / n * mdays) + '</td><td class="num">' + (A.tot.u ? pjRp(A.tot.v / A.tot.u) : '—') + '</td>' + ldCells('tot') + '</tr>';
     var SL = poSalOutlets(F);
     if (SL.length) {
-      var sTot = 0, sU = 0, sD = 0, sP = 0;
-      SL.forEach(function (o) { var x = o.c.SAL; sTot += x[1]; if (x[1] > 0) sU++; (x[4] || []).forEach(function (e) { if (LD.W.day && e[0] === LD.W.day) sD += e[1]; if (LD.W.prevDay && e[0] === LD.W.prevDay) sP += e[1]; }); });
-      trs += '<tr style="border-top:2px solid var(--ij-ink);"><td class="cur"><b>Saldo Mobo (SALMO)</b> <span class="note">(saldo ditransaksikan outlet ke pelanggan, di luar total demand · hanya Oktober)</span></td><td class="num cur"><b>' + pjRp(sTot) + '</b></td><td class="num" colspan="5" style="text-align:center;"><span class="note">tanpa September (file SALMO hanya Oktober)</span></td><td class="num">—</td><td class="num">' + fmtCount(sU) + '</td><td class="num">—</td><td class="num">·</td><td class="num">' + pjRp(sTot / n) + '</td><td class="num">' + pjRp(sTot / n * mdays) + '</td><td class="num">' + (sU ? pjRp(sTot / sU) : '—') + '</td>' +
+      var sTot = 0, sU = 0, sD = 0, sP = 0, sL = 0, sF = 0, sLu = 0, hasLm = !!(F.metadata.lm && F.metadata.lm.salmo && F.metadata.lm.salmo.source);
+      SL.forEach(function (o) {
+        var x = o.c.SAL || [0, 0, null, 0, []], l = (o.l && o.l.SAL) || [0, 0, 0, 0]; sTot += x[1]; if (x[1] > 0) sU++; sL += l[1]; sF += l[3]; if (l[1] > 0) sLu++;
+        (x[4] || []).forEach(function (e) { if (LD.W.day && e[0] === LD.W.day) sD += e[1]; if (LD.W.prevDay && e[0] === LD.W.prevDay) sP += e[1]; });
+      });
+      trs += '<tr style="border-top:2px solid var(--ij-ink);"><td class="cur"><b>Saldo Mobo (SALMO)</b> <span class="note">(saldo ditransaksikan outlet ke pelanggan, di luar total demand)</span></td><td class="num cur"><b>' + pjRp(sTot) + '</b></td>' +
+        (hasLm ? poLmCells(sTot, sL, sF, rem, pjRp) : '<td class="num" colspan="5" style="text-align:center;"><span class="note">n/a (file SALMO bulan lalu belum ada)</span></td>') + '<td class="num">—</td><td class="num">' + fmtCount(sU) + '</td><td class="num">' + (hasLm ? fmtCount(sLu) : '—') + '</td><td class="num">·</td><td class="num">' + pjRp(sTot / n) + '</td><td class="num">' + pjRp(sTot / n * mdays) + '</td><td class="num">' + (sU ? pjRp(sTot / sU) : '—') + '</td>' +
         '<td class="num cur" style="border-left:2px solid var(--ij-ink);"><b>' + (sD ? pjRp(sD) : '·') + '</b></td><td class="num">' + (sD && sP ? pjGrowth(sD, sP) : '·') + '</td></tr>';
     }
     var GS = poGaScope();
@@ -6746,7 +6750,7 @@
     if (key === 'vsi') return 'Voucher sell-in = nilai Voucher isi + Voucher blank ke outlet (MOBII, outlet-bound, cut ' + c.supply + ' Okt). Proyeksi Oktober = run-rate 7 hari terakhir × 31.';
     if (key === 'vso') return 'Voucher sell-out = Voucher Injection (MOBO, cut ' + c.demand + ' Okt); sheet CVM tidak dipakai. Proyeksi Oktober = run-rate 7 hari terakhir × 31.';
     if (key === 'ssi') return 'Saldo sell-in = transfer saldo Mobo ke outlet (MOBII, cut ' + c.supply + ' Okt). Proyeksi Oktober = run-rate 7 hari terakhir × 31.';
-    return 'Saldo sell-out = Saldo Mobo yang ditransaksikan outlet (MOBO SALMO, cut ' + c.demand + ' Okt). <b>Tidak ada file SALMO September</b>: tidak ada bulan lalu / LMTD, sehingga kelas hanya dari proyeksi Oktober (run-rate 7 hari terakhir × 31) dan perpindahan kelas tidak bisa dihitung.';
+    return 'Saldo sell-out = Saldo Mobo yang ditransaksikan outlet (MOBO SALMO, cut ' + c.demand + ' Okt). ' + (kroHasFm('sso') ? 'FM = September penuh dan LMTD = 1–' + c.demand + ' September dari file SALMO September. ' : '<b>Tidak ada file SALMO September</b>: tidak ada bulan lalu / LMTD, sehingga kelas hanya dari proyeksi Oktober dan perpindahan kelas tidak bisa dihitung. ') + 'Proyeksi Oktober = run-rate 7 hari terakhir × 31.';
   }
   function kroNav(K) {
     var key = kroKey(), prod = kroProd(), meas = kroMeas();
@@ -6924,7 +6928,7 @@
     var e = ovMeasEntry(title, ['Outlet', 'ID', 'Area · MC', 'DSE'], items, lines);
     e.cols = e.cols.concat([hasFm ? 'Slab Sep → Okt' : 'Slab proyeksi Okt', 'Check-in selesai / rencana', 'Flag']);
     e.rows = e.rows.map(function (row, i) { var r = items[i].r, v = items[i].v; return row.concat([(hasFm ? kroLabel(v.cf, key) + ' → ' : '') + kroLabel(v.cp, key), r.v.x + ' / ' + r.v.p, kroFl(r, key).map(function (f) { return (KRO_FLAGS[f] || [f])[0]; }).join(', ')]); });
-    e.lines.push('Slab = tangga ' + (kroIsVal(key) ? 'nilai Rupiah' : 'pcs') + ' · ' + kroKeyName(key) + '; kolom Rp / qty n/a bila ukuran itu tidak punya data (mis. GA tanpa Rp, Saldo sell-out tanpa September).');
+    e.lines.push('Slab = tangga ' + (kroIsVal(key) ? 'nilai Rupiah' : 'pcs') + ' · ' + kroKeyName(key) + '; kolom Rp / qty n/a bila ukuran itu tidak punya data (mis. GA tanpa Rp, Saldo tanpa qty).');
     return e;
   }
   function kroGMatch(r, grp, gk, key) {

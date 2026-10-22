@@ -26,10 +26,10 @@ P.outlets.forEach(o => { const c = o.c || {};
 D.outlets.forEach(o => { const c = o.c || {}, l = o.l || {};
   src.sp[0] += g(c.SPI, 0); src.sp[1] += g(l.SPI, 0); src.sp[2] += g(l.SPI, 2);
   src.vso[0] += g(c.VCI, 1); src.vso[1] += g(l.VCI, 1); src.vso[2] += g(l.VCI, 3);
-  src.sso[0] += g(c.SAL, 1); });
+  src.sso[0] += g(c.SAL, 1); src.sso[1] += g(l.SAL, 1); src.sso[2] += g(l.SAL, 3); });
 GA.outlets.forEach(o => { const cut = GA.metadata.cut_day; let m = 0, f = 0, lm = 0; for (let i = 0; i < (o.o || []).length; i += 2) if (o.o[i] <= cut) m += o.o[i + 1]; for (let i = 0; i < (o.s || []).length; i += 2) { f += o.s[i + 1]; if (o.s[i] <= cut) lm += o.s[i + 1]; } src.ga[0] += m; src.ga[1] += lm; src.ga[2] += f; });
 ORD.forEach(k => [0, 1, 2].forEach(i => {
-  const lab = ['MTD', 'LMTD', 'Last FM'][i]; if (k === 'sso' && i > 0) return;
+  const lab = ['MTD', 'LMTD', 'Last FM'][i]; if (k === 'sso' && !K.metadata.keys.sso.has_fm && i > 0) return;
   ok(Math.abs(got[k][i] - src[k][i]) <= Math.max(1, Math.abs(src[k][i]) * 1e-9), k + ' ' + lab + ': feed ' + Math.round(got[k][i]) + ' = source ' + Math.round(src[k][i]));
 }));
 // 2. classifier: KRO and Wholesaler counts per key, September and projection, from the stored q values

@@ -19,7 +19,7 @@ Ditulis 20 Okt 2026 sebelum perubahan skema atau kode (CLAUDE.md §2). Memperlua
 | **Voucher · Sell In** | `penjualan_feed` `c.VCF` + `c.VCB` (nilai Rp: isi = QTY × RATE, blank = QTY × harga blank per brand) | Rp | `fv` | `lv` | outlet-bound saja (DSE / MPC / SDP tidak masuk), sesuai CLAUDE.md §5. |
 | **Voucher · Sell Out** | `demand_feed` `c.VCI` (Voucher Injection MOBO) | Rp | `l.VCI[3]` | `l.VCI[1]` | CVM tidak dipakai: sheet CVM di file MOBO dapat memuat salinan RECARGE (builder demand sudah menyaringnya); sell-out voucher = VCI saja. |
 | **Saldo · Sell In** | `penjualan_feed` `c.SALMO` (transfer saldo MOBII, nilai Rp) | Rp | `fv` | `lv` | file MOBII punya Sep penuh, jadi bulan lalu tersedia. |
-| **Saldo · Sell Out** | `demand_feed` `c.SAL` (SALMO MOBO, Rp transaksi saldo outlet ke pelanggan) | Rp | **tidak ada** | **tidak ada** | `DAILY_DATA_MOBO_SALMO_202610` hanya Oktober; tidak ada file September. Katalog "slab bulan lalu" tidak bisa dihitung; layar memakai proyeksi Oktober dan menyatakannya. 57 id SALMO (Rp 7,9 M) tidak ada di master / adhoc dan tidak masuk outlet mana pun. |
+| **Saldo · Sell Out** | `demand_feed` `c.SAL` (SALMO MOBO, Rp transaksi saldo outlet ke pelanggan) | Rp | `l.SAL[3]` (sejak 22 Okt 2026) | `l.SAL[1]` (sejak 22 Okt 2026) | `DAILY_DATA_MOBO_SALMO_202610` hanya Oktober; tidak ada file September. Katalog "slab bulan lalu" tidak bisa dihitung; layar memakai proyeksi Oktober dan menyatakannya. 57 id SALMO (Rp 7,9 M) tidak ada di master / adhoc dan tidak masuk outlet mana pun. |
 | **GA** (dipertahankan) | `ga_feed` | pcs | Sep | Sep 1..cut | Tetap sebagai produk keempat agar tidak ada fungsi 18 Okt yang hilang. |
 
 Kunci join sama dengan builder sebelumnya: kunci fisik outlet master (`k`), outlet adhoc via `(brand, id)`. Outlet master dengan dua id (IM3 + 3ID) dilipat menjadi satu outlet fisik.
@@ -74,8 +74,8 @@ Catatan: kelas SP di Okt lebih tinggi dari di September karena SP Injection ikut
 ## 9. Terbuka
 
 - Daftar anggota program (BOSS, Tebus Murah, dan program lain) belum ada di `raw/`: dibutuhkan file `program,outlet_id` dari pemilik program.
-- Saldo sell-out menunggu file `DAILY_DATA_MOBO_SALMO_202609` agar punya Last FM / LMTD dan perpindahan kelas.
-- Id SALMO yang bukan outlet master / adhoc (57 id, Rp 7.9 M) tidak masuk outlet mana pun.
+- ~~Saldo sell-out menunggu file SALMO September~~: selesai 22 Okt 2026 (`daily_data_mobo_demand.md`, bagian SALMO September); Saldo sell-out kini punya FM, LMTD, gap, growth dan perpindahan kelas.
+- Id SALMO yang bukan outlet master / adhoc (Oktober 57 id Rp 7,9 M; September 58 id Rp 14,4 M) tidak masuk outlet mana pun.
 
 ## 10. Tambahan 20 Okt (sore): hierarki Area › MC dan popup di semua tabel slab
 
