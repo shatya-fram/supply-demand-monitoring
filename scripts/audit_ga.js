@@ -150,7 +150,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     c = R('KEMASUKAN DI LUAR MC'); eq(tag, 'kemasukan di luar MC', num(c.value), tot - A[0]);
     c = R('KEMASUKAN DARI LUAR IJ'); eq(tag, 'kemasukan dari luar IJ', num(c.value), ext);
     let tg = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tg[i] += v[i]; if (brand !== 'IM3') tg[i] += v[5 + i]; } });
-    const N1 = R('GA SITE LOCATION · OVERALL'), N2 = R('GA DARI LOKASI YANG SAMA'), N3 = R('GA DARI LOKASI LAIN'), N4 = R('GA FROM NON INNER'), N5 = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ · SITE');
+    const N1 = R('GA SITE LOCATION · OVERALL'), N2 = R('GA DARI LOKASI YANG SAMA'), N3 = R('GA DARI LOKASI LAIN'), N4 = R('GA FROM NON INNER'), N5 = C2['GA TAGGING IJ DIAKTIVASI DI LUAR IJ'];
     eq(tag, 'kartu overall', num(N1.value), tot); eq(tag, 'kartu lokasi yang sama', num(N2.value), A[0]); eq(tag, 'kartu lokasi lain IJ', num(N3.value), A[1] + A[2]); eq(tag, 'kartu non IJ', num(N4.value), ext);
     eq(tag, 'overall = sama + lain + non IJ', tot, A[0] + A[1] + A[2] + ext);
     { let tgp = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tgp[i] += v[i]; if (brand !== 'IM3') tgp[i] += v[5 + i]; } }); eq(tag, 'kartu tagging IJ aktivasi luar IJ', num(N5.value), tgp[3]); }
