@@ -416,6 +416,16 @@ state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringk
 { const eo = (global.ENDBAL_FEED && global.ENDBAL_FEED.outlets.find(o => o.m === fm.micro_cluster)); if (eo) { state.ebOpen = {}; state.ebOpen[eo.m + '||' + eo.d] = true; state.ebTab = 'detail'; check('endbal/detail/open-dse', VIEWS.mb_endbal); state.ebOpen = {}; } }
 state.ebTab = 'site'; { const so = global.ENDBAL_FEED.outlets.find(o => o.s && o.m === fm.micro_cluster); if (so) { state.ebSite = so.s + '::' + so.m; check('endbal/site/open', VIEWS.mb_endbal); state.ebSite = null; } }
 state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
+// PJP heatmap P / A / T split (23 Okt 2026): every cell view renders at every level in both heatmaps, and the feed adds up (T = P + ad-hoc: regional ad-hoc = sum of the daily timeline = sum of areas)
+{ const F = global.dseVisitsFeed, rs = F.regional_summary.adhoc_visits_no_beatplan, tl = F.daily_timeline.reduce((a, d) => a + (d.adhoc || 0), 0), br = F.branches.reduce((a, b) => a + (b.adhoc_visits || 0), 0);
+  if (!(rs > 0) || rs !== tl || rs !== br) { failures++; console.log('✗ pjp adhoc totals regional ' + rs + ' timeline ' + tl + ' areas ' + br); } else console.log('✓ pjp adhoc totals'.padEnd(32) + String(rs).padStart(9) + ' ad-hoc visits = timeline = areas');
+  for (const mt of ['pjp', 'adhoc', 'total', 'ec']) for (const lv of ['area', 'mc', 'dse', 'outlet']) {
+    state.pjpMetric = mt; state.visitsLevel = lv; state.visitsDse = null; state.branch = ''; state.kec = ''; state.visitsBrandFilter = 'all';
+    let h = ''; state.view = 'visits'; state.visitsSubView = 'heat'; check('pjp-heat-split/visits/' + mt + '/' + lv, () => (h = VIEWS.visits()));
+    if (!/Adhoc \(A\)/.test(h)) { failures++; console.log('✗ visits heatmap lacks P / A / T columns at ' + lv); }
+    state.view = 'mb_pjp'; check('pjp-heat-split/mb_pjp/' + mt + '/' + lv, () => VIEWS.mb_pjp());
+  }
+  state.pjpMetric = 'pjp'; state.visitsLevel = 'auto'; state.visitsBrandFilter = 'all'; }
 // END BALANCE clickable counts (popup keys 'eb|...'): every key resolves, carries the visit / VCI columns and no undefined / NaN, and the popup row count equals the count printed in the cell
 { const fm0 = global.TERRITORY_FEED.outlets[0]; let nCells = 0, nKeys = 0;
   const modes = [['all', '', ''], ['branch', fm0.branch, ''], ['mc', fm0.branch, fm0.micro_cluster]];

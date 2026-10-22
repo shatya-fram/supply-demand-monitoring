@@ -2472,7 +2472,8 @@
     var hoaMap = hoaOfBranch(feed);
     var q = (state.visitsSearch || '').toLowerCase();
     var ix = dailyIdx();
-    function series(r) { return (r.daily || []).map(function (c) { return [c[ix[0]] || 0, c[ix[1]] || 0, ix[0] === 0 ? (c[6] || 0) : 0]; }); }
+    var ahI = ix[0] === 0 ? 7 : (ix[0] === 2 ? 8 : 9);   // ad-hoc visits (stop without BEATPLANID) per brand filter; series cell = [total planned, total executed, productive, ad-hoc]
+    function series(r) { return (r.daily || []).map(function (c) { return [c[ix[0]] || 0, c[ix[1]] || 0, ix[0] === 0 ? (c[6] || 0) : 0, c[ahI] || 0]; }); }
     function okQ(hay) { return !q || hay.toLowerCase().indexOf(q) !== -1; }
     var out = [];
     if (level === 'area') {
@@ -2510,11 +2511,12 @@
           if (state.kec && o.mc !== state.kec) return;
           if (!okQ(o.n + ' ' + o.id + ' ' + o.mc + ' ' + d.dse_name)) return;
           var daily = [], pl = 0, ac = 0;
-          for (var i = 0; i < o.d.length; i++) { var p = o.d[i] !== '.' ? 1 : 0, x = o.d[i] === 'x' ? 1 : 0; pl += p; ac += x; daily.push([p, x]); }
+          for (var i = 0; i < o.d.length; i++) { var p = o.d[i] !== '.' ? 1 : 0, x = o.d[i] === 'x' ? 1 : 0, a = o.a && o.a[i] === 'a' ? 1 : 0; pl += p; ac += x; daily.push([p, x, 0, a]); }
           out.push({ key: d.person_id + '|' + o.id, label: o.n || o.id, sub: o.id, parent: o.mc + ' · ' + d.dse_name, planned: pl, actual: ac, prod: null, daily: daily, master: o.k, br: d.branch, mc: o.mc || d.micro_cluster, dse: d.dse_name, dso: d.dso_leader, hoa: d.hoa_leader, drill: null });
         });
       });
     }
+    out.forEach(function (r) { r.ah = (r.daily || []).reduce(function (a, c) { return a + (c[3] || 0); }, 0); });
     out.sort(function (a, b) { return b.planned - a.planned || String(a.label).localeCompare(String(b.label)); });
     return out;
   }
@@ -2728,6 +2730,31 @@
     var pct = Math.round(x / p * 100), band = heatBand(Math.round(pct / EC_TARGET * 100));
     return '<td class="num" title="' + x + ' kunjungan efektif dari ' + p + ' rencana; target Eff Call ' + EC_TARGET + '%" style="background:' + band.bg + '; color:' + band.fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + x + '/' + p + '</span></td>';
   }
+  /* PJP heatmap split (owner, 23 Okt 2026): P = PJP stops on a beat plan (executed vs planned); A = ad-hoc visits (stops without BEATPLANID, always executed, never planned); T = P + A: total visits vs plan + ad-hoc (the figures shown before). A series cell is [total planned, total executed, productive, ad-hoc]; P = total minus ad-hoc. */
+  var PJ_VIEWS = [['pjp', 'P · PJP terlaksana ÷ rencana'], ['adhoc', 'A · Adhoc (visit di luar rencana)'], ['total', 'T · Total (P + Adhoc) ÷ (rencana + adhoc)']];
+  function pjView() { var m = state.pjpMetric; return m === 'adhoc' || m === 'total' ? m : 'pjp'; }
+  function pjP(c) { var a = c[3] || 0; return [Math.max(0, (c[0] || 0) - a), Math.max(0, (c[1] || 0) - a)]; }
+  function heatCellAh(a, binary) {
+    if (!a) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
+    return binary ? '<td title="Visit adhoc: check-in tanpa rencana (BEATPLANID kosong)" style="background:#dbeafe; color:#1e3a8a; text-align:center; font-weight:800;">A</td>'
+      : '<td class="num" title="' + a + ' visit adhoc (check-in tanpa rencana)" style="background:#dbeafe; color:#1e3a8a; text-align:center; font-weight:700;">' + fmtCount(a) + '</td>';
+  }
+  function pjCell(c, view, binary) {
+    if (view === 'adhoc') return heatCellAh(c[3] || 0, binary);
+    if (view === 'total') return heatCell(c[0], c[1], binary);
+    var q = pjP(c); return heatCell(q[0], q[1], binary);
+  }
+  function pjViewBar(extra) {
+    var v = pjView(), cur = extra || v;
+    return '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.map(function (m) { return '<button type="button" class="map-btn' + (cur === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + '</div>';
+  }
+  function pjOverallCells(pl, ac, ah, bold) {   // Rencana PJP · Terlaksana PJP · % P · Adhoc · Total visit · % T
+    var o = bold ? '<b>' : '', c = bold ? '</b>' : '', pp = Math.max(0, pl - ah), pa = Math.max(0, ac - ah);
+    return '<td class="num">' + o + fmtCount(pp) + c + '</td><td class="num cur">' + o + fmtCount(pa) + c + '</td><td class="num">' + o + hitPct({ planned: pp, actual: pa }) + '%' + c + '</td>' +
+      '<td class="num" style="background:#eff6ff; color:#1e3a8a;">' + o + fmtCount(ah) + c + '</td><td class="num cur">' + o + fmtCount(ac) + c + '</td><td class="num">' + o + hitPct({ planned: pl, actual: ac }) + '%' + c + '</td>';
+  }
+  function pjOverallHead() { return th('Rencana PJP (P)', 1) + th('Terlaksana PJP (P)', 1) + th('% P', 1) + th('Adhoc (A)', 1) + th('Total visit (T = P + A)', 1) + th('% T', 1); }
+  var PJ_VIEW_NOTE = ' P = visit PJP dalam beat plan ÷ rencana beat plan; A = visit adhoc (check-in tanpa beat plan, selalu terlaksana, tidak masuk rencana); T = total visit (P + A) ÷ (rencana + adhoc), yaitu angka yang sebelumnya ditampilkan. Kolom total di kiri selalu menampilkan P, A dan T.';
   function heatCell(p, x, binary) {
     if (!p) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
     if (binary) {
@@ -2748,8 +2775,8 @@
     if (page > totalPages) { page = totalPages; state.visitsPage = page; }
     var start = paged ? (page - 1) * pageSize : 0;
     var slice = paged ? rows.slice(start, start + pageSize) : rows;
-    var tot = days.map(function () { return [0, 0]; }), TP = 0, TA = 0;
-    rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; }); TP += r.planned; TA += r.actual; });
+    var view = pjView(), tot = days.map(function () { return [0, 0, 0, 0]; }), TP = 0, TA = 0, TH = 0;
+    rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][3] += c[3] || 0; }); TP += r.planned; TA += r.actual; TH += r.ah || 0; });
     var missing = (feed.metadata || {}).missing_days || [];
     function naCell(d) { return '<td class="num" title="Data not available: no PJP export for ' + esc(d) + '" style="text-align:center; color:var(--ij-muted); background:repeating-linear-gradient(45deg, transparent 0 4px, rgba(0,0,0,.06) 4px 8px);">n/a</td>'; }
     var dayHead = days.map(function (d) {
@@ -2759,24 +2786,24 @@
     }).join('');
     var entityHead = { area: 'Branch', mc: 'Micro Cluster', dse: 'DSE', outlet: 'Outlet' }[level];
     var parentHead = { area: 'Head of Area', mc: 'Branch · DSO', dse: 'MC · Branch', outlet: 'MC · DSE' }[level];
-    function perf(p, a) { return '<td class="num">' + fmtCount(p) + '</td><td class="num cur"><b>' + fmtCount(a) + '</b></td><td class="num"><b>' + hitPct({ planned: p, actual: a }) + '%</b></td>'; }
-    var totalRow = '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">All in scope (' + fmtCount(rows.length) + ' rows)</td>' + (showParent ? '<td></td>' : '') + perf(TP, TA) +
-      tot.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : heatCell(c[0], c[1], false); }).join('') + '<td></td></tr>';
+    function perf(p, a, h) { return pjOverallCells(p, a, h || 0, true); }
+    var totalRow = '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">All in scope (' + fmtCount(rows.length) + ' rows)</td>' + (showParent ? '<td></td>' : '') + perf(TP, TA, TH) +
+      tot.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : pjCell(c, view, false); }).join('') + '<td></td></tr>';
     function heatRow(r) {
       var muted = r.outside ? ' style="color:var(--ij-muted);"' : '';
-      return '<tr' + muted + '><td class="cur"' + (paged ? ' style="padding-left:' + (level === 'outlet' ? 56 : 40) + 'px;"' : '') + '><b>' + esc(r.label) + '</b>' + (r.sub ? '<br><code style="font-size:11px;">' + esc(r.sub) + '</code>' : '') + '</td>' + (showParent && !paged ? '<td>' + esc(r.parent) + '</td>' : '') + perf(r.planned, r.actual) +
-        r.daily.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : heatCell(c[0], c[1], binary); }).join('') + '<td>' + detailBtn(r, 'Detail') + '</td></tr>';
+      return '<tr' + muted + '><td class="cur"' + (paged ? ' style="padding-left:' + (level === 'outlet' ? 56 : 40) + 'px;"' : '') + '><b>' + esc(r.label) + '</b>' + (r.sub ? '<br><code style="font-size:11px;">' + esc(r.sub) + '</code>' : '') + '</td>' + (showParent && !paged ? '<td>' + esc(r.parent) + '</td>' : '') + perf(r.planned, r.actual, r.ah) +
+        r.daily.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : pjCell(c, view, binary); }).join('') + '<td>' + detailBtn(r, 'Detail') + '</td></tr>';
     }
     var body;
     if (paged) {   // dse / outlet: Area > MC (> DSE for outlets), toggles + subtotals
       var hoaOfA = {}, dsoOfM = {}; rows.forEach(function (r) { if (r.br && r.hoa) hoaOfA[r.br] = r.hoa; if (r.mc && r.dso) dsoOfM[r.mc] = r.dso; });
       body = grpBody('visheat' + level, { items: rows, area: function (r) { return r.br; }, mc: function (r) { return r.mc; }, dse: level === 'outlet' ? function (r) { return r.dse; } : null,
         hoa: function (a) { return hoaOfA[a] || '—'; }, dso: function (m) { return dsoOfM[m] || '—'; }, unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; },
-        span: 1, cols: 1 + 3 + days.length + 1, cap: 150, search: !!state.visitsSearch,
+        span: 1, cols: 1 + 6 + days.length + 1, cap: 150, search: !!state.visitsSearch,
         sub: function (items) {
-          var pl = 0, ac = 0, dd = days.map(function () { return [0, 0]; });
-          items.forEach(function (r) { pl += r.planned; ac += r.actual; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; }); });
-          return perf(pl, ac) + dd.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : heatCell(c[0], c[1], false); }).join('') + '<td></td>';
+          var pl = 0, ac = 0, ah = 0, dd = days.map(function () { return [0, 0, 0, 0]; });
+          items.forEach(function (r) { pl += r.planned; ac += r.actual; ah += r.ah || 0; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][3] += c[3] || 0; }); });
+          return perf(pl, ac, ah) + dd.map(function (c, i) { return missing.indexOf(days[i]) >= 0 ? naCell(days[i]) : pjCell(c, view, false); }).join('') + '<td></td>';
         }, row: heatRow });
     } else body = slice.map(heatRow).join('');
     var pag = paged ? '<div style="margin-top:10px;" class="note">' + fmtCount(rows.length) + ' rows · dikelompokkan Area › MC' + (level === 'outlet' ? ' › DSE' : '') + '</div>' : '';
@@ -2786,8 +2813,8 @@
     var next = { area: 'its micro clusters', mc: 'its DSEs', dse: 'its outlets' }[level];
     return visitsSelectionBand(feed) + (visitsScoped() ? visitsScorecard(feed) : '') + visitsLevelBar(feed) +
       card('Daily PJP Heatmap · ' + VISIT_LEVEL_LABEL[level] + ' · ' + brandLabel(),
-      (paged ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('visheat' + level) + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(paged ? 'Area › MC › ' + (level === 'outlet' ? 'DSE › ' : '') + entityHead : entityHead) + (showParent && !paged ? th(parentHead) : '') + th('Planned', 1) + th('Executed', 1) + th('Hit %', 1) + dayHead + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
-      '<p class="note">Overall columns (planned, executed, hit %) come first, then the calendar days. ' + legend + (next ? ' "Detail" drills a row down to ' + next + '.' : '') + ' The selected territory is shown once in the Area selection band, not repeated per row.</p>') + renderNeverBlock(feed);
+      '<div class="map-toolbar" style="margin-bottom:8px;">' + pjViewBar() + (paged ? grpBar('visheat' + level) : '') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(paged ? 'Area › MC › ' + (level === 'outlet' ? 'DSE › ' : '') + entityHead : entityHead) + (showParent && !paged ? th(parentHead) : '') + pjOverallHead() + dayHead + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
+      '<p class="note">Overall columns (P, A, T) come first, then the calendar days.' + PJ_VIEW_NOTE + ' ' + legend + (next ? ' "Detail" drills a row down to ' + next + '.' : '') + ' The selected territory is shown once in the Area selection band, not repeated per row.</p>') + renderNeverBlock(feed);
   }
 
   // ===== Inactivity: site detail by days-since-last-visit slabs, and locations map =====
@@ -9215,24 +9242,24 @@
     var totalPages = paged ? (Math.ceil(rows.length / pageSize) || 1) : 1;
     if (page > totalPages) { page = totalPages; state.visitsPage = page; }
     var start = paged ? (page - 1) * pageSize : 0, slice = paged ? rows.slice(start, start + pageSize) : rows;
-    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && !binary && ecBrandOk;
+    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && !binary && ecBrandOk, view = pjView();
     rows.forEach(function (r) { r.pr = 0; r.daily.forEach(function (c) { r.pr += c[2] || 0; }); });
-    var tot = days.map(function () { return [0, 0, 0]; }), TP = 0, TA = 0, TR = 0;
-    rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][2] += c[2] || 0; }); TP += r.planned; TA += r.actual; TR += r.pr; });
-    var cellFn = function (c, i, bin) { return mbDayAttr(ecOn ? heatCellEc(c[0], c[2] || 0) : heatCell(c[0], c[1], bin), i); };
+    var tot = days.map(function () { return [0, 0, 0, 0]; }), TP = 0, TA = 0, TR = 0, TH = 0;
+    rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][2] += c[2] || 0; tot[i][3] += c[3] || 0; }); TP += r.planned; TA += r.actual; TR += r.pr; TH += r.ah || 0; });
+    var cellFn = function (c, i, bin) { return mbDayAttr(ecOn ? heatCellEc(c[0], c[2] || 0) : pjCell(c, view, bin), i); };
     var seenParent = {}; rows.forEach(function (r) { seenParent[r.parent] = 1; });
     var showParent = Object.keys(seenParent).length > 1;
-    function overall(pl, ac, bold, pr) { var o = bold ? '<b>' : '', c = bold ? '</b>' : '', x = ecOn ? pr : ac; return '<td class="num">' + o + fmtCount(pl) + c + '</td><td class="num cur">' + o + fmtCount(x) + c + '</td><td class="num">' + o + (ecOn ? (pl ? (x / pl * 100).toFixed(1) : '0.0') : hitPct({ planned: pl, actual: ac })) + '%' + c + '</td>'; }
+    function overall(pl, ac, bold, pr, ah) { if (!ecOn) return pjOverallCells(pl, ac, ah || 0, bold); var o = bold ? '<b>' : '', c = bold ? '</b>' : '', x = ecOn ? pr : ac; return '<td class="num">' + o + fmtCount(pl) + c + '</td><td class="num cur">' + o + fmtCount(x) + c + '</td><td class="num">' + o + (ecOn ? (pl ? (x / pl * 100).toFixed(1) : '0.0') : hitPct({ planned: pl, actual: ac })) + '%' + c + '</td>'; }
     var head = days.map(function (d, i) {
       var dt = new Date(d.replace(/-/g, ' ')), wd = isNaN(dt) ? '' : HARI_ID[dt.getDay()];
       return '<th class="num" data-pjp-day="' + i + '" title="Klik untuk lihat performa hari ini" style="text-align:center; min-width:56px; cursor:pointer;' + (sel === i ? ' background:var(--ij-ink); color:#fff;' : '') + '">' + esc(d.slice(0, 2)) + '<br><span style="font-weight:500;">' + wd + '</span></th>';
     }).join('');
     var totalRow = '<tr style="background:var(--ij-wash); font-weight:800;"><td class="cur">Semua dalam cakupan (' + fmtCount(rows.length) + ' baris)</td>' + (showParent ? '<td>' + esc(scopeText()) + '</td>' : '') +
-      overall(TP, TA, true, TR) +
+      overall(TP, TA, true, TR, TH) +
       tot.map(function (c, i) { return cellFn(c, i, false); }).join('') + '<td></td></tr>';
     function heatRow(r) {
       return '<tr' + (r.outside ? ' style="color:var(--ij-muted);"' : '') + '><td class="cur"><b>' + esc(r.label) + '</b>' + (r.sub ? '<br><code style="font-size:13px;">' + esc(r.sub) + '</code>' : '') + '</td>' + (showParent ? '<td>' + esc(r.parent) + '</td>' : '') +
-        overall(r.planned, r.actual, false, r.pr) +
+        overall(r.planned, r.actual, false, r.pr, r.ah) +
         r.daily.map(function (c, i) { return cellFn(c, i, binary); }).join('') +
         '<td>' + detailBtn(r, 'Detail') + '</td></tr>';
     }
@@ -9240,19 +9267,19 @@
     if (grouped) {
       var hoaOfA = {}, dsoOfM = {}; rows.forEach(function (r) { if (r.br && r.hoa) hoaOfA[r.br] = r.hoa; if (r.mc && r.dso) dsoOfM[r.mc] = r.dso; });
       body = grpBody('pjpheat', { items: rows, area: function (r) { return r.br; }, mc: function (r) { return r.mc; }, hoa: function (a) { return hoaOfA[a] || '—'; }, dso: function (m) { return dsoOfM[m] || '—'; },
-        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + 3 + days.length + 1, cap: 100, search: !!state.visitsSearch,
+        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + (ecOn ? 3 : 6) + days.length + 1, cap: 100, search: !!state.visitsSearch,
         sub: function (items) {
-          var pl = 0, ac = 0, pr = 0, dd = days.map(function () { return [0, 0, 0]; });
-          items.forEach(function (r) { pl += r.planned; ac += r.actual; pr += r.pr; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][2] += c[2] || 0; }); });
-          return overall(pl, ac, true, pr) + dd.map(function (c, i) { return cellFn(c, i, false); }).join('') + '<td></td>';
+          var pl = 0, ac = 0, pr = 0, ah = 0, dd = days.map(function () { return [0, 0, 0, 0]; });
+          items.forEach(function (r) { pl += r.planned; ac += r.actual; pr += r.pr; ah += r.ah || 0; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][2] += c[2] || 0; dd[i][3] += c[3] || 0; }); });
+          return overall(pl, ac, true, pr, ah) + dd.map(function (c, i) { return cellFn(c, i, false); }).join('') + '<td></td>';
         }, row: heatRow });
     } else body = slice.map(heatRow).join('');
     var entity = { area: 'Area', mc: 'Micro Cluster', dse: 'DSE', outlet: 'Outlet' }[level], parent = { area: 'Head of Area', mc: 'Area · DSO', dse: 'MC · Area', outlet: 'MC · DSE' }[level];
     var pag = grouped ? '<p class="note">' + fmtCount(rows.length) + ' baris, dikelompokkan Area › Micro Cluster; klik panah untuk membuka.</p>' : paged ? mbPager('visits-page', page, totalPages, 'Menampilkan ' + (rows.length ? start + 1 : 0) + '–' + Math.min(start + pageSize, rows.length) + ' dari ' + fmtCount(rows.length) + ' baris') : '';
     var legend = ecOn ? 'Sel = Effective Call hari itu: kunjungan produktif (Sell-In SP/VC > 0 atau saldo > Rp 50 Rb) ÷ rencana kunjungan, yaitu % outlet PJP yang berhasil sell-in. Warna = EC ÷ target KPI ' + EC_TARGET + '% pada standar: ' + heatLegend(true) + '; · = tidak ada rencana.' : binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu. Warna: ' + heatLegend(true) + '; · = tidak ada rencana.';
     return card('Heatmap PJP Harian · per ' + entity + ' · ' + mbScopeLabel(vf),
-      '' + '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><span class="map-label">Metrik sel:</span>' + [['pjp', 'PJP terlaksana ÷ rencana'], ['ec', 'Eff Call of the day (produktif ÷ rencana)']].map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : 'pjp') === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && (binary || !ecBrandOk) ? '<span class="note">' + (binary ? 'Eff Call per outlet tidak dihitung harian; tampilan outlet memakai ✓ / ○.' : 'Eff Call hanya untuk semua brand; kosongkan filter brand.') + '</span>' : '') + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + th('Rencana', 1) + th(ecOn ? 'Produktif' : 'Terlaksana', 1) + th(ecOn ? '% Eff Call' : '% Sukses', 1) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
-      '<p class="note">' + legend + ' Klik tanggal (kolom) atau sel mana pun untuk membuka performa hari itu per DSE dan per outlet. "Detail" memperkecil cakupan ke tingkat di bawahnya.</p>');
+      '' + '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.concat([['ec', 'Eff Call of the day (produktif ÷ rencana)']]).map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : view) === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && (binary || !ecBrandOk) ? '<span class="note">' + (binary ? 'Eff Call per outlet tidak dihitung harian; tampilan outlet memakai ✓ / ○.' : 'Eff Call hanya untuk semua brand; kosongkan filter brand.') + '</span>' : '') + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + (ecOn ? th('Rencana', 1) + th('Produktif', 1) + th('% Eff Call', 1) : pjOverallHead()) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
+      '<p class="note">' + (ecOn ? '' : PJ_VIEW_NOTE.trim() + ' ') + legend + ' Klik tanggal (kolom) atau sel mana pun untuk membuka performa hari itu per DSE dan per outlet. "Detail" memperkecil cakupan ke tingkat di bawahnya.</p>');
   }
   function mbDayDetail(vf) {
     var di = state.pjpDay;

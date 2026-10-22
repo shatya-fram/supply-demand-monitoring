@@ -387,7 +387,8 @@ def is_promo(op, optype):
 def new_stat():
     return {"planned": 0, "actual": 0, "productive": 0, "prod_phys": 0, "prod_saldo": 0, "flow": 0, "im3": 0, "3id": 0,
             "planned_im3": 0, "planned_3id": 0, "sellin": 0, "balance": 0, "sp_qty": 0, "vc_qty": 0, "saldo_rp": 0.0,
-            "durations": [], "deviations": []}
+            "durations": [], "deviations": [],
+            "ah": 0, "ah_im3": 0, "ah_3id": 0, "ah_prod": 0}      # ad-hoc visits = stops without BEATPLANID (owner, 23 Oct 2026); they stay inside planned / actual and are split out for the heatmap (P = total - ad-hoc)
 
 
 x_stats = {"promo": None, "adhoc": None}      # visits left out of the PJP measures: promotors and ad-hoc visits at unassigned outlets
@@ -423,8 +424,9 @@ def stat_sets(s, sched, brand, brand_level=False):
             t.append(op_brand[s["pid"]][brand])
     return t
 
-# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive]
-daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0, 0, 0, 0, 0, 0, 0])) for lvl in ("br", "mc", "op")}
+# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive, adhoc, adhoc_im3, adhoc_3id, adhoc_productive]
+# (planned / executed / productive are totals incl. ad-hoc stops, i.e. the T view; P = total - ad-hoc)
+daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0] * 11)) for lvl in ("br", "mc", "op")}
 op_outlet_days = defaultdict(dict)           # person -> (brand, org id) -> {n, mc, k, d: {date: 'p' planned | 'x' executed}}
 
 stops = {}                                   # stop key -> dict(flags)
@@ -495,7 +497,7 @@ for brand, zpath in FILES:
                     else:
                         k = thrid_to_key.get(norm_id(mobo)) or thrid_to_key.get(norm_id(org)) or thrid_to_key.get(mobo.lstrip("0"))
                     xk = "promo" if is_promo(op, r[c_optype]) else ("adhoc" if k in ADHOC_KEYS else None)
-                    stops[skey] = {"br": br, "mc": mc, "pid": pid, "k": k, "ci": False, "si": False, "bt": False, "sp": 0.0, "vc": 0.0, "saldo": 0.0, "x": xk}
+                    stops[skey] = {"br": br, "mc": mc, "pid": pid, "k": k, "ci": False, "si": False, "bt": False, "sp": 0.0, "vc": 0.0, "saldo": 0.0, "x": xk, "ah": not r[c_bp].strip()}
                     raw_branch_counter[raw_br] += 1
                     if xk == "promo":
                         promo_persons.add(pid)
@@ -515,6 +517,8 @@ for brand, zpath in FILES:
                             cell[bi] += 1
                         od = op_outlet_days[pid].setdefault((brand, org), {"n": r[c_name].strip() if len(r) > c_name else "", "mc": mc, "k": k, "d": {}})
                         od["d"].setdefault(sched, "p")
+                        if not stops[skey]["ah"]:
+                            od.setdefault("pl", set()).add(sched)
 
                 s = stops[skey]
                 if st != "completed":
@@ -526,6 +530,9 @@ for brand, zpath in FILES:
                         for S in stat_sets(s, sched, brand, True):
                             S["actual"] += 1
                             S[bk] += 1
+                            if s["ah"]:
+                                S["ah"] += 1
+                                S["ah_" + bk] += 1
                         k = s["k"]
                         if s["x"] == "adhoc":
                             adhoc_by_person[s["pid"]]["actual"] += 1
@@ -539,7 +546,12 @@ for brand, zpath in FILES:
                                 cell = daily_by[lvl][key][sched]
                                 cell[1] += 1
                                 cell[bi + 1] += 1
+                                if s["ah"]:
+                                    cell[7] += 1
+                                    cell[8 if brand == "IM3" else 9] += 1
                             op_outlet_days[s["pid"]][(brand, skey[3])]["d"][sched] = "x"
+                            if s["ah"]:
+                                op_outlet_days[s["pid"]][(brand, skey[3])].setdefault("ah", set()).add(sched)
                             if k and not s["x"]:            # a promotor visit does not count as PJP coverage of the outlet
                                 outlet_visit_dates[k].add(sched)
                                 outlet_visit_brands[k].add(brand)
@@ -585,6 +597,8 @@ for (brand, sched, _bp, _org), s in stops.items():
     if phys or sal:       # productive visit per day for branch / MC / person (Effective Call D-1)
         for lvl, key in ((("br", s["br"]), ("mc", s["mc"])) if not s["x"] else ()) + ((("op", s["pid"]),) if s["x"] != "adhoc" else ()):
             daily_by[lvl][key][sched][6] += 1
+            if s["ah"]:
+                daily_by[lvl][key][sched][10] += 1
     for S in stat_sets(s, sched, brand, True):
         if flow: S["flow"] += 1
         if s["si"]: S["sellin"] += 1
@@ -592,6 +606,7 @@ for (brand, sched, _bp, _org), s in stops.items():
         if phys: S["prod_phys"] += 1
         if sal: S["prod_saldo"] += 1
         if phys or sal: S["productive"] += 1
+        if s["ah"] and (phys or sal): S["ah_prod"] += 1
         S["sp_qty"] += s["sp"]; S["vc_qty"] += s["vc"]; S["saldo_rp"] += s["saldo"]
 pjp_stops = {k_: v_ for k_, v_ in stops.items() if not v_["x"]}      # promotor and ad-hoc visits are not PJP measures
 total_planned = len(pjp_stops)
@@ -618,7 +633,7 @@ total_sites = len(site_outlets)
 
 def daily_series(lvl, key):
     inner = daily_by[lvl].get(key, {})
-    return [list(inner[d]) if d in inner else [0, 0, 0, 0, 0, 0, 0] for d in DAYS]
+    return [list(inner[d]) if d in inner else [0] * 11 for d in DAYS]
 
 
 def hybrid(keys):
@@ -635,6 +650,7 @@ def stat_block(S):
         "flow_completed": S["flow"], "flow_rate": round(S["flow"] / ac * 100, 1) if ac else 0.0,
         "sellin_visits": S["sellin"], "balance_visits": S["balance"],
         "sp_qty": int(S["sp_qty"]), "vc_qty": int(S["vc_qty"]), "saldo_rp": int(S["saldo_rp"]),
+        "adhoc_visits": S["ah"], "adhoc_im3": S["ah_im3"], "adhoc_3id": S["ah_3id"], "adhoc_productive": S["ah_prod"],
         "avg_duration": format_dur(statistics.mean(S["durations"]) if S["durations"] else 0),
         "avg_duration_sec": round(statistics.mean(S["durations"]), 0) if S["durations"] else 0,
         "median_deviation_m": round(statistics.median(S["deviations"]), 0) if S["deviations"] else 0,
@@ -664,6 +680,7 @@ for d in sorted(daily_stats, key=lambda x: parse_d(x)):
     row.update({"planned": sb["planned_visits"], "actual": sb["actual_visits"], "target_hit_rate": sb["target_hit_rate"],
                 "planned_im3": sb["planned_im3"], "planned_3id": sb["planned_3id"], "im3": sb["im3_visits"], "3id": sb["3id_visits"],
                 "productive": sb["productive_visits"], "productive_rate": sb["productive_rate"], "productive_phys": sb["productive_phys"], "productive_saldo": sb["productive_saldo"], "flow_rate": sb["flow_rate"],
+                "adhoc": sb["adhoc_visits"], "adhoc_im3": sb["adhoc_im3"], "adhoc_3id": sb["adhoc_3id"], "adhoc_productive": sb["adhoc_productive"],
                 "avg_duration": sb["avg_duration"], "median_deviation_m": sb["median_deviation_m"]})
     daily_timeline.append(row)
 for d in MISSING_DAYS:
@@ -743,7 +760,8 @@ for pid, S in op_stats.items():
     row["total_checkins"] = row["actual_visits"]
     row["daily"] = daily_series("op", pid)
     row["outlets"] = sorted(
-        [{"id": f"{b}:{org}", "b": b, "n": od["n"], "mc": od["mc"], "k": od["k"], "d": "".join(od["d"].get(d, ".") for d in DAYS)}
+        [{"id": f"{b}:{org}", "b": b, "n": od["n"], "mc": od["mc"], "k": od["k"], "d": "".join(od["d"].get(d, ".") for d in DAYS),
+          **({"a": "".join("a" if (d in od["ah"] and d not in od.get("pl", ())) else "." for d in DAYS)} if od.get("ah") and any(d in od["ah"] and d not in od.get("pl", ()) for d in DAYS) else {})}      # a = ad-hoc visit (no BEATPLANID) on a day the outlet had no planned stop
          for (b, org), od in op_outlet_days[pid].items()],
         key=lambda o: (o["n"].upper(), o["id"]))
     dse_list.append(row)
@@ -849,7 +867,7 @@ W1_AVAIL = [d for d in W1_DAYS if d not in MISSING_DAYS]; W2_AVAIL = [d for d in
 w1_rate, w2_rate = w1_ac / max(len(W1_AVAIL), 1), w2_ac / max(len(W2_AVAIL), 1)
 
 regional_summary = {
-    "total_planned_visits": total_planned, "total_actual_visits": total_actual,
+    "total_planned_visits": total_planned, "total_actual_visits": total_actual, "adhoc_visits_no_beatplan": sum(1 for s_ in pjp_stops.values() if s_["ah"] and s_["ci"]),
     "target_hit_rate": round(total_actual / total_planned * 100, 1) if total_planned else 0.0,
     "planned_im3": sum(d["planned_im3"] for d in daily_stats.values()), "planned_3id": sum(d["planned_3id"] for d in daily_stats.values()),
     "im3_visits": sum(d["im3"] for d in daily_stats.values()), "3id_visits": sum(d["3id"] for d in daily_stats.values()),

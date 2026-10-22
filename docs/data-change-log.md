@@ -2,6 +2,11 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 23 Oct 2026 · catalogue workbook re-saved (no substantive change)
+| Scope | Source | Change |
+|---|---|---|
+| Governed catalogue | `raw/Catalogue/CATALAGUE_INNER_JAKARTA_202610.xlsb` (re-saved 22 Oct 19:28) | `build_catalogue_overlay_inputs.py` and `apply_final_dse_mapping.py` re-run: FINAL_20261020 (22,426 brand-outlet rows), DSE logins, pairing (7,229 pairs), outlet types, programs (AVA 297, DTU 331, KRO 587, Promotor 199, Wholesaler 117) and the outlet catalogue (16,614 rows) are **identical** to the 21 Oct run; every count of `apply_report.json` is unchanged (14,960 outlets with FINAL DSE, 421 pairs held, 306 swaps accepted). Only `outlet_locations.csv` differs: 6 outlet names (capitalisation, and three `Unnamed Outlet` now blank, taken from the current feeds) plus `generated_at`. The territory master and the downstream feeds do not change, so no re-run of the chain was needed. |
+
 ## 23 Oct 2026 (refresh to 22 Oct)
 | Scope | Source | Change |
 |---|---|---|
