@@ -6511,6 +6511,15 @@
       '<p class="note">Target = kolom <b>' + esc(X.cols.IM3) + '</b> (IM3) dan <b>' + esc(X.cols['3ID']) + '</b> (3ID) per kecamatan di file ' + esc(X.src || '') + ', dijumlahkan ke MC dan Area memakai sheet DEMARKASI di file yang sama (121 kecamatan; "KOTA BEKASI" di file = Area BEKASI). Pencapaian = GA RGUGA (tagging outlet) yang kecamatannya tertulis di file Daily_RGUGA_OUTLET; GA di outlet tanpa kecamatan tidak ikut baris-baris ini (lihat kartu terakhir). % vs pro-rata = GA MTD ÷ (target × ' + cut + '/' + days + '); warna mengikuti standar heat map. Perlu / hari = (target − MTD) ÷ ' + rem + ' hari tersisa. Brand, sumber outlet dan cakupan mengikuti tombol di atas; filter DSE tidak berlaku.</p>') +
       card('10 kecamatan terjauh dari target pro-rata', '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Kecamatan · MC · Area') + th('Target Okt', 1) + th('GA MTD', 1) + th('% vs pro-rata', 1) + th('Selisih vs pro-rata', 1) + th('Perlu / hari', 1) + '</tr></thead><tbody>' + wrows + '</tbody></table></div>');
   }
+  /* GA recorded at outlets tagged OUTSIDE Inner Jakarta (national, raw RGUGA pivot; brand and day only, so basis, sumber, cakupan and territory filters do not apply) */
+  function gaOutsideCard(brand) {
+    var G = gaPrep(), TG = G.src.metadata.tag || {}, cut = G.cut, i, b, q = 0, p = 0, bq = {}, pc = function (v) { return v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; };
+    if (!TG.oct_outside_ij) return '';
+    ['IM3', '3ID'].forEach(function (x) { bq[x] = 0; if (brand !== 'all' && brand !== x) return; for (i = 1; i <= cut; i++) { bq[x] += ((TG.oct_outside_ij || {})[x] || {})[i] || 0; p += ((TG.sep_outside_ij || {})[x] || {})[i] || 0; } q += bq[x]; });
+    var ij = gaAgg(G.list.filter(function (o) { return brand === 'all' || o.ids[brand]; }), brand).q, g = gaGrow(q, p);
+    return '<div class="kpis" style="margin-top:10px;">' + kpi('GA outlet tagging Non Inner Jakarta (MTD 1–' + cut + ' Okt)', fmtCount(q) + ' pcs', pc(g) + ' vs LMTD ' + fmtCount(p) + ' pcs (1–' + cut + ' Sep)', g != null && g >= 0 ? 'up' : 'down',
+      (brand === 'all' ? 'IM3 ' + fmtCount(bq.IM3) + ' · 3ID ' + fmtCount(bq['3ID']) + ' · ' : '') + 'nasional, di luar GA Inner Jakarta ' + fmtCount(ij) + ' pcs (' + pctOf(ij, ij + q) + '% dari GA di kedua sisi) · pivot raw RGUGA per brand per hari: tidak ada filter basis, sumber, cakupan atau teritori') + '</div>';
+  }
   function viewGrossAdd() {
     var G = gaPrep(); if (!G) return card('Gross Add', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
     var tab = state.gaTab || 'ringkasan', list = gaScopeList(), brand = gaBrand();
@@ -6520,7 +6529,7 @@
     else if (gaBasis() === 'site' && (tab === 'dse' || tab === 'outlet')) body = gaSiteNote(tab);
     else if (gaBasis() === 'site' && tab === 'ringkasan') body = gsFeed() ? gtSiteView() : gaSiteView(list, brand);
     else body = tab === 'dse' ? gaDse(list, brand) : (tab === 'outlet' ? gaOutlet(list, brand) : (tab === 'harian' ? gaHarian(list, brand) : (tab === 'slab' ? gaSlab(list, brand, gaBasis() === 'site') : gaRingkasan(list, brand))));
-    return gaTabNav() + body;
+    return gaTabNav() + (tab === 'ringkasan' ? gaOutsideCard(brand) : '') + body;
   }
 
 
@@ -6623,11 +6632,6 @@
     var tg = gsSum(tagged), inIJ = tagged[0] + tagged[1] + tagged[2];
     var bt3 = ' · site location', scoped = !!(state.branch || state.hoa || state.kec), note = scoped ? ' · wilayah: ' + esc(scopeText()) : ' · seluruh Inner Jakarta';
     var banner = '<p class="note" style="margin:8px 0 0;"><b>Site location GA (RGU GA per MSISDN, basis site aktivasi):</b> GA Inner Jakarta = aktivasi di 121 kecamatan IJ (termasuk Kepulauan Seribu), kinerja DSO dan HoA. Asalnya dilacak ke <b>outlet tagging</b> (sell-in, KPI DSE). Sumber ' + esc(M.source) + ', ' + M.date_from.slice(8) + '–' + M.date_to.slice(8) + ' Okt 2026 (' + fmtCount(M.rows) + ' MSISDN nasional). Mengikuti Brand dan Branch / HoA / MC (MC = MC site aktivasi untuk kemasukan, MC tagging untuk pengiriman); <b>tidak mengikuti</b> Basis GA, Sumber outlet, Cakupan dan DSE.' + note + '.</p>';
-    var cards = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('GA aktivasi di Inner Jakarta · basis site', fmtCount(tot) + ' pcs', fmtCount(mcRows.length) + ' MC · semua baris (tanpa syarat usage)', 'up', 'kecamatan aktivasi di dalam 121 kecamatan IJ' + (scoped ? ' · wilayah terpilih' : '')) +
-      kpi('Kemasukan di luar MC site', fmtCount(inf) + ' pcs', gsPct(inf, tot) + ' dari GA di site · dari MC IJ lain ' + fmtCount(inf - ext), inf / (tot || 1) >= 0.5 ? 'down' : 'up', 'dijual outlet yang bukan tagging MC site: MC lain, area lain atau luar IJ') +
-      kpi('Kemasukan dari luar IJ', fmtCount(ext) + ' pcs', gsPct(ext, tot) + ' dari GA di site', ext / (tot || 1) >= 0.25 ? 'down' : 'up', 'outlet luar IJ ' + fmtCount(T[3]) + ' · outlet ber-ID tanpa atribut ' + fmtCount(T[4]) + ' · tanpa ID outlet ' + fmtCount(T[5])) +
-      kpi('GA tagging IJ diaktivasi di luar IJ (pengiriman)', fmtCount(tagged[3]) + ' pcs', gsPct(tagged[3], tg) + ' dari GA tagging ' + fmtCount(tg) + ' · tanpa site ' + fmtCount(tagged[4]), tagged[3] / (tg || 1) >= 0.25 ? 'down' : 'up', 'GA tagging di dalam IJ ' + fmtCount(inIJ) + ' (' + gsPct(inIJ, tg) + ')') + '</div>';
     /* five clickable scorecards of the site location GA, each with the top 20 locations (outlet count and RGU GA) behind it */
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('gl|') === 0) delete _ovReg[k]; });
     var GL = [[1, [0, 1, 2, 3, 4, 5], 'GA site location · overall', 'seluruh GA yang diaktivasi di site Inner Jakarta'], [2, [0], 'GA dari lokasi yang sama', 'outlet tagging di MC yang sama dengan site aktivasi'], [3, [1, 2], 'GA dari lokasi lain di Inner Jakarta', 'outlet tagging IJ di MC atau area IJ lain'], [4, [3, 4, 5], 'GA from non Inner Jakarta', 'outlet luar IJ, outlet ber-ID tanpa atribut wilayah dan tanpa ID outlet']];
@@ -6707,7 +6711,7 @@
     /* MC table */
     var mrow = mcRows.map(function (r) { return { r: r, a: gsB(r.v, brand) }; }).sort(function (x, y) { return key(y.a) - key(x.a); }).slice(0, 36).map(function (x) { var a = x.a, t = gsSum(a); return '<tr><td class="cur">' + esc(x.r.mc) + '</td><td>' + esc(x.r.area) + '</td><td>' + esc(x.r.dso) + '</td><td class="num">' + fmtCount(t) + '</td><td class="num">' + fmtCount(gsIn(a)) + '</td><td class="num">' + gsPct(gsIn(a), t) + '</td><td class="num"><b>' + fmtCount(gsExt(a)) + '</b></td><td class="num">' + gsPct(gsExt(a), t) + '</td></tr>'; }).join('');
     var mcT = card('MC · kemasukan GA per MC site (urut ' + ((state.gtSort || 'x') === 'i' ? 'semua kemasukan' : 'dari luar IJ') + ')', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('MC site') + th('Area') + th('DSO') + th('GA di MC', 1) + th('Kemasukan', 1) + th('% kemasukan', 1) + th('Dari luar IJ', 1) + th('% dari luar IJ', 1) + '</tr></thead><tbody>' + mrow + '</tbody></table></div>');
-    return gsBar() + banner + glRow + cards + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
+    return gsBar() + banner + glRow + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
   }
   function viewGaTrend() {
     var G = gaPrep(); if (!G) return card('Daily GA Trend', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');

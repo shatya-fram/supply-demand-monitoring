@@ -146,9 +146,6 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     const C2 = cards(VIEWS.mb_grossadd()), R = k => C2[Object.keys(C2).find(x => x.startsWith(k))];
     const rows = SF.mc.filter(r => !mc || r.mc === mc); let A = [0, 0, 0, 0, 0, 0]; rows.forEach(r => vb(r.v, brand).forEach((x, i) => A[i] += x));
     const tot = T0(A), ext = A[3] + A[4] + A[5];
-    let c = R('GA AKTIVASI DI INNER JAKARTA'); eq(tag, 'GA aktivasi di IJ', num(c.value), tot);
-    c = R('KEMASUKAN DI LUAR MC'); eq(tag, 'kemasukan di luar MC', num(c.value), tot - A[0]);
-    c = R('KEMASUKAN DARI LUAR IJ'); eq(tag, 'kemasukan dari luar IJ', num(c.value), ext);
     let tg = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tg[i] += v[i]; if (brand !== 'IM3') tg[i] += v[5 + i]; } });
     const N1 = R('GA SITE LOCATION · OVERALL'), N2 = R('GA DARI LOKASI YANG SAMA'), N3 = R('GA DARI LOKASI LAIN'), N4 = R('GA FROM NON INNER'), N5 = C2['GA TAGGING IJ DIAKTIVASI DI LUAR IJ'];
     eq(tag, 'kartu overall', num(N1.value), tot); eq(tag, 'kartu lokasi yang sama', num(N2.value), A[0]); eq(tag, 'kartu lokasi lain IJ', num(N3.value), A[1] + A[2]); eq(tag, 'kartu non IJ', num(N4.value), ext);
@@ -156,7 +153,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     { let tgp = [0, 0, 0, 0, 0]; SF.out_mc.forEach(([m, v]) => { if (mc && m !== mc) return; for (let i = 0; i < 5; i++) { if (brand !== '3ID') tgp[i] += v[i]; if (brand !== 'IM3') tgp[i] += v[5 + i]; } }); eq(tag, 'kartu tagging IJ aktivasi luar IJ', num(N5.value), tgp[3]); }
     // popups: top 20 rows add up to at most the card and are sorted by RGU GA; the popup of card 5 sums the outflow rows
     for (const [kk, card] of [[1, tot], [2, A[0]], [3, A[1] + A[2]], [4, ext]]) { const e = app.ovEntry('gl|' + kk); checks++; if (!e || e.rows.length > 20) { fails++; console.log('✗ [' + tag + '] popup gl|' + kk + ' tidak ada / lebih dari 20 baris'); continue; } const q = e.rows.map(r => num(r[5])); eq(tag, 'popup ' + kk + ' urut GA', q.every((x, i) => i === 0 || q[i - 1] >= x) ? 1 : 0, 1); eq(tag, 'popup ' + kk + ' <= kartu', q.reduce((x, y) => x + y, 0) <= card ? 1 : 0, 1); }
-    c = R('GA TAGGING IJ DIAKTIVASI DI LUAR IJ (PENGIRIMAN)'); eq(tag, 'pengiriman luar IJ', num(c.value), tg[3]); eq(tag, 'GA tagging IJ', num((c.delta.match(/GA tagging ([\d,]+)/) || [, 0])[1]), T0(tg));
+    // the duplicate lower scorecard row was removed (owner, 23 Oct 2026): the five clickable cards above carry these numbers
     // kecamatan and site lists add up to the MC total
     let kt = 0, st = 0; SF.kec.forEach(r => { if (!mc || r.mc[0] === mc) kt += T0(vb(r.v, brand)); }); SF.sites.forEach(r => { if (!mc || r.mc === mc) st += T0(vb(r.v, brand)); });
     if (!mc) { eq(tag, 'jumlah kecamatan = GA di IJ', kt, tot); eq(tag, 'jumlah site = GA di IJ', st, tot); }
@@ -165,6 +162,15 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   let mt = 0, ij = 0; Object.entries(SF.matrix).forEach(([k, v]) => { const n = v[0] + v[1]; mt += n; if (k.split('|')[1] === 'IJ') ij += n; });
   eq('site-sec', 'matriks = baris file', mt, SF.metadata.rows); eq('site-sec', 'kolom IJ matriks = GA di site', ij, SF.sites.reduce((s, r) => s + T0(vb(r.v, 'all')), 0));
   Object.assign(state, { gaBasis: 'outlet', gaBrand: 'all', branch: '', kec: '' }); }
+// card "GA outlet tagging Non Inner Jakarta" (Gross Add ringkasan) = raw pivot sums of metadata.tag, whatever the basis
+for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID']) {
+  Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaBasis: basis, gaBrand: brand, gaSg: 'all', gaCover: 'all', branch: '', hoa: '', kec: '', dse: '' });
+  const C = cards(VIEWS.mb_grossadd()), k = Object.keys(C).find(x => x.startsWith('GA OUTLET TAGGING NON')), tag = 'non-IJ/' + basis + '/' + brand; checks++;
+  if (!k) { fails++; console.log('✗ [' + tag + '] kartu GA outlet tagging Non Inner Jakarta hilang'); continue; }
+  let q = 0, p = 0; for (const b of ['IM3', '3ID']) if (brand === 'all' || brand === b) for (let d = 1; d <= cut; d++) { q += (M.tag.oct_outside_ij[b] || {})[d] || 0; p += (M.tag.sep_outside_ij[b] || {})[d] || 0; }
+  const sc = v => { const t = String(v); return /M pcs/.test(t) ? parseFloat(t) * 1e6 : num(t); }, tol = /M pcs/.test(C[k].value) ? 6000 : 0.51;
+  eq(tag, 'GA non-IJ MTD', sc(C[k].value), q, tol); eq(tag, 'GA non-IJ LMTD', sc((C[k].delta.match(/LMTD ([\d.,]+ ?M?)/) || [, '0'])[1] + (/LMTD [\d.,]+ M/.test(C[k].delta) ? ' M pcs' : '')), p, tol);
+}
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);
   checks++; if (dup.length) { fails++; console.log('✗ [loc_keys] kecamatan tanpa kabupaten sementara ada label lengkapnya (dihitung dua kali sebagai site): ' + dup.join(', ')); } }
