@@ -58,6 +58,7 @@ function model(basis, brand, sg, onlyM, inScope) {
 }
 const probes = [['region', {}], ['branch', { branch: Object.values(mi)[0].br }]]; { const mc = Object.keys(mi)[0]; probes.push(['mc', { branch: mi[mc].br, kec: mc }]); }
 for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID']) for (const [pn, f] of probes) for (const [sg, onlyM] of [['all', false], ['PJP', false], ['all', true]]) {
+  if (basis === 'site') continue;   // the site basis summary is now the activation-site analysis (checked in the section Site location GA below)
   const tag = basis + '/' + brand + '/' + pn + '/' + sg + (onlyM ? '/master' : '');
   state.view = 'mb_grossadd'; state.gaTab = 'ringkasan'; state.gaBasis = basis; state.gaBrand = brand; state.gaSg = sg; state.gaCover = onlyM ? 'master' : 'all'; state.branch = f.branch || ''; state.hoa = ''; state.kec = f.kec || ''; state.dse = '';
   const html = VIEWS.mb_grossadd(), C = cards(html);
@@ -137,12 +138,12 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
 }
 // the shared link of the trend page carries basis, brand, sumber, cakupan (and day)
 { for (const k of ['gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay']) { checks++; if (!new RegExp("mb_gatrend: \\[[^\\]]*'" + k + "'").test(require('fs').readFileSync(path.join(root, 'website', 'app.js'), 'utf8'))) { fails++; console.log('✗ [link] RT_VIEW_TABS mb_gatrend tanpa ' + k); } } }
-// Daily GA Trend · section Site (GA_SITE_FEED): cards, area tables and the matrix recomputed from the feed arrays per brand and per MC
+// Gross Add > Site location GA (basis site, GA_SITE_FEED): cards, area tables and the matrix recomputed from the feed arrays per brand and per MC
 { const SF = global.GA_SITE_FEED, vb = (v, b) => { const a = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < 6; i++) { if (b !== '3ID') a[i] += v[i]; if (b !== 'IM3') a[i] += v[6 + i]; } return a; };
   const T0 = a => a.reduce((x, y) => x + y, 0);
   for (const brand of ['all', 'IM3', '3ID']) for (const mc of ['', SF.mc[0].mc]) {
-    const tag = 'site-sec/' + brand + '/' + (mc || 'region'); Object.assign(state, { view: 'mb_gatrend', gtSec: 'site', gaBrand: brand, branch: mc ? SF.mc[0].area : '', hoa: '', kec: mc, dse: '', gtSort: 'x', gtUse: 'all' });
-    const C2 = cards(VIEWS.mb_gatrend()), R = k => C2[Object.keys(C2).find(x => x.startsWith(k))];
+    const tag = 'site-sec/' + brand + '/' + (mc || 'region'); Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaBasis: 'site', gaSg: 'all', gaCover: 'all', gaBrand: brand, branch: mc ? SF.mc[0].area : '', hoa: '', kec: mc, dse: '', gtSort: 'x', gtUse: 'all' });
+    const C2 = cards(VIEWS.mb_grossadd()), R = k => C2[Object.keys(C2).find(x => x.startsWith(k))];
     const rows = SF.mc.filter(r => !mc || r.mc === mc); let A = [0, 0, 0, 0, 0, 0]; rows.forEach(r => vb(r.v, brand).forEach((x, i) => A[i] += x));
     const tot = T0(A), ext = A[3] + A[4] + A[5];
     let c = R('GA AKTIVASI DI INNER JAKARTA'); eq(tag, 'GA aktivasi di IJ', num(c.value), tot);
@@ -157,7 +158,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   // the matrix of the feed sums to the rows of the file, and the IJ column equals the sites
   let mt = 0, ij = 0; Object.entries(SF.matrix).forEach(([k, v]) => { const n = v[0] + v[1]; mt += n; if (k.split('|')[1] === 'IJ') ij += n; });
   eq('site-sec', 'matriks = baris file', mt, SF.metadata.rows); eq('site-sec', 'kolom IJ matriks = GA di site', ij, SF.sites.reduce((s, r) => s + T0(vb(r.v, 'all')), 0));
-  Object.assign(state, { gtSec: 'trend', gaBrand: 'all', branch: '', kec: '' }); }
+  Object.assign(state, { gaBasis: 'outlet', gaBrand: 'all', branch: '', kec: '' }); }
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);
   checks++; if (dup.length) { fails++; console.log('✗ [loc_keys] kecamatan tanpa kabupaten sementara ada label lengkapnya (dihitung dua kali sebagai site): ' + dup.join(', ')); } }

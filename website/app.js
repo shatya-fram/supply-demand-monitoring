@@ -338,9 +338,8 @@
     gaSg: 'all',             // segmen outlet: all | PJP | NON | KAM
     gaCover: 'all',          // all (termasuk outlet di luar master) | master
     gtDay: 0,                // Daily GA Trend: selected day D1-D31 (0 = last day with data)
-    gtSec: 'trend',          // Daily GA Trend section: trend | site (activation site vs tagging outlet)
-    gtSort: 'x',             // site section ranking: x = GA from outside Inner Jakarta | i = all inflow (outside the MC)
-    gtUse: 'all',            // site section matrix: all rows | gt = usage > 25 MB
+    gtSort: 'x',             // Gross Add > Site location GA ranking: x = GA from outside Inner Jakarta | i = all inflow (outside the MC)
+    gtUse: 'all',            // Gross Add > Site location GA matrix: all rows | gt = usage > 25 MB
     kroTab: 'ringkasan',     // Outlet & KRO Management: ringkasan | katalog | tracking | aksi
     kroProd: 'sp',           // product: sp | vc | sl | ga
     kroMeas: 'si',           // Voucher / Saldo: si (sell in, MOBII) | so (sell out, MOBO)
@@ -6181,12 +6180,12 @@
   function gaGrow(a, b) { return b > 0 ? (a / b - 1) * 100 : null; }
   function gaSlabIdx(v) { var i; for (i = GA_SLABS.length - 1; i >= 0; i--) { if (v >= GA_SLABS[i][0]) return i; } return 0; }
   function gaBar(tab) {
-    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Site / lokasi (data RGUGA) · kinerja HoA / Region / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
+    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Site location GA (site aktivasi) · kinerja HoA / Region / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
       sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all') +
       sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet PJP']], state.gaCover || 'all') + '</div>';
   }
   function gaTabNav() {
-    return gaBar(state.gaTab || 'ringkasan') + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    return gaBar(state.gaTab || 'ringkasan') + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + (x[0] === 'ringkasan' && gaBasis() === 'site' && gsFeed() ? '📍 Site location GA · kemasukan dan pengiriman' : x[1]) + '</button>'; }).join('') + '</div>';
   }
   function gaSg(n) { return (n >= 0 ? '+' : '−') + fmtCount(Math.abs(n)); }
   function gaGapTd(n, cls) { return '<td class="num ' + (cls || '') + '"><b style="color:' + (n >= 0 ? '#166534' : '#991b1b') + ';">' + gaSg(n) + '</b></td>'; }
@@ -6519,7 +6518,7 @@
     if (tab === 'sga') body = viewSlabSga('ga');
     else if (tab === 'target') body = gaTarget(brand);
     else if (gaBasis() === 'site' && (tab === 'dse' || tab === 'outlet')) body = gaSiteNote(tab);
-    else if (gaBasis() === 'site' && tab === 'ringkasan') body = gaSiteView(list, brand);
+    else if (gaBasis() === 'site' && tab === 'ringkasan') body = gsFeed() ? gtSiteView() : gaSiteView(list, brand);
     else body = tab === 'dse' ? gaDse(list, brand) : (tab === 'outlet' ? gaOutlet(list, brand) : (tab === 'harian' ? gaHarian(list, brand) : (tab === 'slab' ? gaSlab(list, brand, gaBasis() === 'site') : gaRingkasan(list, brand))));
     return gaTabNav() + body;
   }
@@ -6599,9 +6598,6 @@
 
   /* ---- Daily GA Trend · section "Site": GA by ACTIVATION SITE vs TAGGING OUTLET (MSISDN-level RGU GA, feed GA_SITE_FEED from scripts/build_ga_site_feed.py; contract docs/assessments/ga_site_rguga_assessment.md) ---- */
   function gsFeed() { return (typeof window !== 'undefined' && window.GA_SITE_FEED) ? window.GA_SITE_FEED : null; }
-  function gtSecNav() {
-    return '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + [['trend', '📈 Tren harian D1–D31'], ['site', '📍 Site aktivasi: kemasukan dan pengiriman']].map(function (x) { var a = (state.gtSec || 'trend') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-gt-sec="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
-  }
   function gsB(v, brand) { var a = [0, 0, 0, 0, 0, 0], i; for (i = 0; i < 6; i++) { if (brand !== '3ID') a[i] += v[i]; if (brand !== 'IM3') a[i] += v[6 + i]; } return a; }   // 12-vector -> 6 origin classes for the brand
   function gsB5(v, brand) { var a = [0, 0, 0, 0, 0], i; for (i = 0; i < 5; i++) { if (brand !== '3ID') a[i] += v[i]; if (brand !== 'IM3') a[i] += v[5 + i]; } return a; }
   function gsP(v, brand) { return (brand === 'IM3' ? v[0] : (brand === '3ID' ? v[1] : v[0] + v[1])); }   // [IM3, 3ID] pair
@@ -6612,13 +6608,13 @@
   function gsKecLabel(k) { var p = k.split('|'); return esc(p[0]) + (p[1] ? ' <span class="note">· ' + esc(p[1]) + '</span>' : ''); }
   function gsPct(a, b) { return b > 0 ? (a / b * 100).toFixed(1) + '%' : '—'; }
   function gsBar() {
-    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
+    return '<div class="map-toolbar" style="margin-top:8px;">' +
       sellinBtnGroup('Urutkan top kecamatan dan site', 'gt-sort', [['x', 'GA dari luar IJ'], ['i', 'Semua kemasukan (di luar MC site)']], state.gtSort || 'x') +
       sellinBtnGroup('Matriks tagging × aktivasi', 'gt-use', [['all', 'Semua baris'], ['gt', 'Usage > 25 MB']], state.gtUse || 'all') + '</div>';
   }
   function gtSiteView() {
     var F = gsFeed(), G = gaPrep(), brand = gaBrand();
-    if (!F) return gtSecNav() + card('Daily GA Trend · Site aktivasi', '<p class="note">Feed site belum dibangun. Taruh <code>Site_rguga_daily_outlet_*.csv</code> di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_site_feed.py</code>.</p>');
+    if (!F) return card('Gross Add · Site location GA', '<p class="note">Feed site belum dibangun. Taruh <code>Site_rguga_daily_outlet_*.csv</code> di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_site_feed.py</code>.</p>');
     var M = F.metadata, mcOk = {}, mcRows = F.mc.filter(function (r) { var ok = gsMcOk(r); mcOk[r.mc] = ok; return ok; }), i;
     var T = [0, 0, 0, 0, 0, 0], byArea = {}, areaOrder = [];
     mcRows.forEach(function (r) { var a = gsB(r.v, brand), x = byArea[r.area] || (byArea[r.area] = [0, 0, 0, 0, 0, 0]); if (areaOrder.indexOf(r.area) < 0) areaOrder.push(r.area); for (i = 0; i < 6; i++) { x[i] += a[i]; T[i] += a[i]; } });
@@ -6626,7 +6622,7 @@
     F.out_mc.forEach(function (x) { var r = F.mc.filter(function (m) { return m.mc === x[0]; })[0] || (state.branch || state.hoa || state.kec ? null : { area: '(MC tidak dikenal)', mc: x[0] }); if (!r || (r.hoa != null && !gsMcOk(r))) return; var a = gsB5(x[1], brand), t = tagArea[r.area] || (tagArea[r.area] = [0, 0, 0, 0, 0]); if (tagOrder.indexOf(r.area) < 0) tagOrder.push(r.area); for (i = 0; i < 5; i++) { t[i] += a[i]; tagged[i] += a[i]; } });
     var tg = gsSum(tagged), inIJ = tagged[0] + tagged[1] + tagged[2];
     var scoped = !!(state.branch || state.hoa || state.kec), note = scoped ? ' · wilayah: ' + esc(scopeText()) : ' · seluruh Inner Jakarta';
-    var banner = '<p class="note" style="margin:8px 0 0;"><b>Basis site aktivasi (RGU GA per MSISDN):</b> GA Inner Jakarta = aktivasi di 121 kecamatan IJ (termasuk Kepulauan Seribu), kinerja DSO dan HoA. Asalnya dilacak ke <b>outlet tagging</b> (sell-in, KPI DSE). Sumber ' + esc(M.source) + ', ' + M.date_from.slice(8) + '–' + M.date_to.slice(8) + ' Okt 2026 (' + fmtCount(M.rows) + ' MSISDN nasional). Mengikuti Brand dan Branch / HoA / MC (MC = MC site aktivasi untuk kemasukan, MC tagging untuk pengiriman); <b>tidak mengikuti</b> Basis GA, Sumber outlet, Cakupan dan DSE.' + note + '.</p>';
+    var banner = '<p class="note" style="margin:8px 0 0;"><b>Site location GA (RGU GA per MSISDN, basis site aktivasi):</b> GA Inner Jakarta = aktivasi di 121 kecamatan IJ (termasuk Kepulauan Seribu), kinerja DSO dan HoA. Asalnya dilacak ke <b>outlet tagging</b> (sell-in, KPI DSE). Sumber ' + esc(M.source) + ', ' + M.date_from.slice(8) + '–' + M.date_to.slice(8) + ' Okt 2026 (' + fmtCount(M.rows) + ' MSISDN nasional). Mengikuti Brand dan Branch / HoA / MC (MC = MC site aktivasi untuk kemasukan, MC tagging untuk pengiriman); <b>tidak mengikuti</b> Basis GA, Sumber outlet, Cakupan dan DSE.' + note + '.</p>';
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('GA aktivasi di Inner Jakarta · basis site', fmtCount(tot) + ' pcs', fmtCount(mcRows.length) + ' MC · semua baris (tanpa syarat usage)', 'up', 'kecamatan aktivasi di dalam 121 kecamatan IJ' + (scoped ? ' · wilayah terpilih' : '')) +
       kpi('Kemasukan di luar MC site', fmtCount(inf) + ' pcs', gsPct(inf, tot) + ' dari GA di site · dari MC IJ lain ' + fmtCount(inf - ext), inf / (tot || 1) >= 0.5 ? 'down' : 'up', 'dijual outlet yang bukan tagging MC site: MC lain, area lain atau luar IJ') +
@@ -6687,10 +6683,9 @@
     /* MC table */
     var mrow = mcRows.map(function (r) { return { r: r, a: gsB(r.v, brand) }; }).sort(function (x, y) { return key(y.a) - key(x.a); }).slice(0, 36).map(function (x) { var a = x.a, t = gsSum(a); return '<tr><td class="cur">' + esc(x.r.mc) + '</td><td>' + esc(x.r.area) + '</td><td>' + esc(x.r.dso) + '</td><td class="num">' + fmtCount(t) + '</td><td class="num">' + fmtCount(gsIn(a)) + '</td><td class="num">' + gsPct(gsIn(a), t) + '</td><td class="num"><b>' + fmtCount(gsExt(a)) + '</b></td><td class="num">' + gsPct(gsExt(a), t) + '</td></tr>'; }).join('');
     var mcT = card('MC · kemasukan GA per MC site (urut ' + ((state.gtSort || 'x') === 'i' ? 'semua kemasukan' : 'dari luar IJ') + ')', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('MC site') + th('Area') + th('DSO') + th('GA di MC', 1) + th('Kemasukan', 1) + th('% kemasukan', 1) + th('Dari luar IJ', 1) + th('% dari luar IJ', 1) + '</tr></thead><tbody>' + mrow + '</tbody></table></div>');
-    return gtSecNav() + gsBar() + banner + cards + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
+    return gsBar() + banner + cards + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
   }
   function viewGaTrend() {
-    if ((state.gtSec || 'trend') === 'site') return gtSiteView();
     var G = gaPrep(); if (!G) return card('Daily GA Trend', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
     var brand = gaBrand(), list = gaScopeList(), ser = gtSeries(list, brand), site = gaBasis() === 'site', loc = false, TS = (site && gaTgtIdx().rows.length) ? gaTgtSummary(brand) : null, att = TS ? gtAttrSeries(brand) : null;
     var bt = site ? ' · basis site' : ' · basis outlet', last = ser.last, n = gtDay(G), ne = Math.min(n, last), proj = n > last, i, d, cum = gtCumSvg(ser, n, TS ? TS.s.t : null, TS ? TS.days : 31), cut = G.cut;
@@ -6766,7 +6761,7 @@
       terr = card('GA per hari per teritori · D1–D' + ne + bt + ' · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th(T.mode === 'dse' ? (site ? 'Kecamatan (site)' : 'DSE') : 'Region / Area / MC') + th('DSO / ket.') + th('MTD', 1) + th('LMTD', 1) + th('Growth', 1) + (TS ? gaTgtHead() : '') + dh + '</tr></thead><tbody>' + T.rows.join('') + '</tbody></table></div><p class="note">Setiap sel = GA ' + (site ? 'di site / kecamatan (data RGUGA)' : 'tagging outlet') + ' pada hari itu; warna lebih pekat = hari terkuat di baris itu. MTD dan LMTD memakai D1–D' + ne + '. Pilih Branch / HoA / MC di header untuk turun ke MC dan ' + (site ? 'kecamatan' : 'DSE') + '.</p>');
     }
     var banner = '<p class="note" style="margin:8px 0 0;"><b>Semua angka di halaman ini:</b> ' + (site ? 'basis <b>Site / lokasi</b> (kecamatan, micro cluster dan area tertulis di file RGUGA; kinerja HoA / Region / DSO)' : 'basis <b>Outlet sell-in (tagging)</b> (outlet → DSE → MC → Area; dasar insentif DSE)') + ' · ' + (brand === 'all' ? 'IOH (IM3 + 3ID)' : brand) + ' · sumber ' + (state.gaSg && state.gaSg !== 'all' ? state.gaSg : 'semua') + ' · ' + (state.gaCover === 'master' ? 'hanya outlet PJP' : 'semua outlet GA') + ' · ' + esc(scopeText()) + (site && state.dse ? ' · <b>filter DSE tidak berlaku di basis site</b> (lokasi tidak punya DSE; angka memakai Branch / HoA / MC saja)' : '') + '.</p>';
-    return gtSecNav() + gtBar(G, last) + banner +
+    return gtBar(G, last) + banner +
       card('GA harian · bar Oktober vs garis September' + bt, gtDailySvg(ser, n) + legend) +
       c1 + c2 + c3 +
       card('GA kumulatif · MTD vs LMTD dan proyeksi akhir bulan' + bt, cum.svg + cumNote) +
@@ -10651,7 +10646,6 @@
     else if (t.getAttribute('data-act') === 'kro-export') { kroExportCsv(); return; }
     else if (t.hasAttribute('data-ga-tab')) { state.gaTab = t.getAttribute('data-ga-tab'); state.gaPage = 1; }
     else if (t.hasAttribute('data-ga-seg')) { state.gaSeg = t.getAttribute('data-ga-seg'); state.gaPage = 1; }
-    else if (t.hasAttribute('data-gt-sec')) { state.gtSec = t.getAttribute('data-gt-sec'); }
     else if (t.hasAttribute('data-gt-sort')) { state.gtSort = t.getAttribute('data-gt-sort'); }
     else if (t.hasAttribute('data-gt-use')) { state.gtUse = t.getAttribute('data-gt-use'); }
     else if (t.hasAttribute('data-ga-basis')) { state.gaBasis = t.getAttribute('data-ga-basis'); state.gaPage = 1; }
@@ -11228,7 +11222,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay', 'gtSec', 'gtSort', 'gtUse'],
+    territory: ['terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gtUse'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
