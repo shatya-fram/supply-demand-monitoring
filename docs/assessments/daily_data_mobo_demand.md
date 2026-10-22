@@ -111,3 +111,7 @@ Resolusi id memakai `resolve()` yang sama dengan Oktober (master, adhoc, tidak d
 
 Pemakaian: builder `build_demand_feed.py` membaca file ini (env `MOBO_SALMO_LM_SRC`, diisi `daily_update.py` bila file bulan lalu ada) dan mengisi `outlets[].l.SAL = [0, LMTD Rp, 0, Last FM Rp]` (konvensi `l[cat]` kategori lain; SAL tetap di luar total demand), `metadata.lm.totals.SAL`, `metadata.lm.daily.SAL` dan `metadata.lm.salmo` (rekonsiliasi). Outlet yang hanya bertransaksi saldo di September mendapat baris sendiri seperti kategori lain. Menu Demand Customer (baris Saldo Mobo) dan Outlet & KRO Management (Saldo sell-out) kini punya FM, LMTD, growth, gap dan perpindahan kelas.
 
+
+
+## 11. Ids outside the master are kept as non-PJP (22 Oct 2026)
+Owner decision: an id that resolves to neither a master outlet nor an adhoc outlet is kept as a non-PJP outlet (`resolve()` in `build_demand_feed.py`: key `A:UNK:<id>`, no brand, branch `OUTSIDE MASTER TERRITORY`, field `um = 1`) instead of being counted only in the region totals. Effect on 22 Oct: SALMO October Rp 90.42 → 100.75 B (file total), September FM Rp 128.97 → 143.39 B and LMTD 80.08 → 90.35 B; the other categories move by less than Rp 0.05 B. 116 ids; 43 of the 60 October SALMO unknown ids start with `D` (for example `D202402224`, Rp 1.93 B), which looks like distributor / partner accounts rather than retail outlets: open question for the data owner.

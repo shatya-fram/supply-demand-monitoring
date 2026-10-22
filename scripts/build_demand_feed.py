@@ -228,6 +228,9 @@ unknown_ids = defaultdict(float)
 last_day = 0
 
 
+unmapped_ids = set()
+
+
 def resolve(oid):
     """-> (key, brand, tier, class) ; brand dari id."""
     if oid in by_im3:
@@ -242,7 +245,13 @@ def resolve(oid):
             a = adhoc[(pick, oid)]
             outlets[key] = {"k": key, "n": "", "tier": "A", "mc": a["mc"], "kec": a["kec"], "site": a["site"], "dse": "UNASSIGNED (adhoc)", "br": a["br"]}
         return key, pick, "A", "adhoc"
-    return None, "", "", "unknown"
+    # 22 Oct 2026 (owner): ids that are in neither the master nor the adhoc list are NOT dropped: they are kept as non-PJP outlets
+    # (key A:UNK:<id>, no brand, outside the master territory); the master outlets stay PJP. `unmapped_ids` lists them for the metadata.
+    key = f"A:UNK:{oid}"
+    unmapped_ids.add(oid)
+    if key not in outlets:
+        outlets[key] = {"k": key, "n": "", "tier": "A", "mc": "", "kec": "—", "site": "", "dse": "UNASSIGNED (adhoc)", "br": OUTSIDE, "unmapped": True}
+    return key, "", "A", "non_pjp_unmapped"
 
 
 SHEET_ALIASES = {   # file 14 Okt 18:12 mengganti nama sheet; terima nama lama dan baru (file September: "SP INJECTION")
@@ -500,6 +509,8 @@ for key in list(facts) + [k for k in lm if k not in facts]:
         row["l"] = {code: [int(e[0]), int(e[1]), int(e[2]), int(e[3])] for code, e in lm[key].items()}   # September: [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp]
     if key in sal_brand:
         row["sb"] = [int(sal_brand[key][0]), int(sal_brand[key][1])]          # SALMO Rp per brand id [IM3, 3ID]
+    if dim.get("unmapped"):
+        row["um"] = 1                                                          # id in neither the master nor the adhoc list: kept as non-PJP
     row["p"] = {str(pidx[k]): [int(v[0]), int(v[1])] for k, v in op[key].items() if k in pidx and (v[0] or v[1])}
     outlet_rows.append(row)
 outlet_rows.sort(key=lambda r: -sum(c[1] for k, c in r["c"].items() if k != "SAL"))
@@ -521,6 +532,7 @@ feed = {
         "master_counts": {"br": {k[1]: v for k, v in master_count.items() if k[0] == "br"}, "mc": {k[1]: v for k, v in master_count.items() if k[0] == "mc"}, "dse": {k[1]: v for k, v in master_count.items() if k[0] == "dse"}},
         "mc_info": mc_info,
         "unknown": {"ids": len(unknown_ids), "value": int(sum(unknown_ids.values()))},
+        "unmapped": {"ids": len(unmapped_ids), "rule": "ids in neither the master nor the adhoc list are kept as non-PJP outlets (key A:UNK:<id>, row field um = 1), not dropped"},
     },
     "tiers": [{"cat": k[0], "cls": k[1], "rows": v["rows"], "ids": len(v["ids"]), "q": int(v["q"]), "v": int(v["v"])} for k, v in sorted(tiers.items())],
     "products": products, "outlets": outlet_rows,

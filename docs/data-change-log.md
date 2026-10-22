@@ -2,6 +2,11 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 22 Oct 2026 (ids outside the master kept as non-PJP)
+| Scope | Source | Change |
+|---|---|---|
+| MOBO demand, SALMO (Oct and Sep) | `build_demand_feed.py` `resolve()` | Owner decision: ids that are neither a master outlet nor in the adhoc list are **no longer dropped**; they are kept as **non-PJP outlets** (key `A:UNK:<id>`, outside the master territory, row field `um = 1`; master outlets stay PJP). 116 ids (October and September). All categories now reconcile to the file totals: Saldo Mobo October **Rp 100.75 B** (was 90.42 B attributed; Rp 10.33 B sits in 60 non-PJP ids), September LMTD (1–21) **Rp 90.35 B** (was 80.08 B) and full month **Rp 143.39 B** (was 128.97 B; Rp 14.42 B in 58 ids). RLD, VCI, CVM and SP Injection have no material unmapped value; Paket Data Rp 0.03 B. Largest SALMO ids: `D202402224` Rp 1.93 B, `SH254705` Rp 1.16 B, `D320240403` Rp 0.86 B (most ids start with `D` and look like distributor / partner accounts, not retail outlets: to be confirmed by the data owner). `metadata.unmapped` lists the count. KRO feed unchanged (6,804 rows, none of these ids). `render_check`, `audit_scorecard`, `audit_ga`, `audit_kro` pass. |
+
 ## 22 Oct 2026 (PJP visits to 21 Oct)
 | Scope | Source | Change |
 |---|---|---|
