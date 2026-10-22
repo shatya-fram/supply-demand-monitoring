@@ -2,6 +2,20 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 23 Oct 2026 (refresh to 22 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__22_22.zip` (22 Oct 22:30) | Cut 21 → **22 Oct**: 22 days, 19 business days, no missing day. 22 Oct: planned 8,709, executed 8,068, productive 4,641. MTD coverage of PJP outlets 93.4% → **96.3%** (not visited 992 → 552), target hit 73.3% → 74.7%. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (22 Oct 22:30) | Cut 21 → **22 Oct**. MTD Rp B: SP 0.73 → 0.89, voucher isi 2.03 → 2.52, voucher blank 0.30 → 0.35, saldo transfer 10.58 → 12.03, SP Injection 0.68 → 0.70. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (22 Oct 22:30) | Cut 21 → **22 Oct**. Total demand MTD Rp 80.38 → **83.38 B** (22 Oct Rp 3.01 B); LMTD 1–22 Sep Rp 71.83 B, growth **+16.1%**. RLD 12.28, VCI 12.20, CVM 2.50, PKT 56.40 B. CVM sheet again carried RECARGE copies (57,632 rows, Rp 36.0 B removed). |
+| SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` | Saldo Mobo demand Rp 100.75 → **106.25 B** (22 Oct Rp 5.50 B); LMTD 1–22 Sep Rp 94.37 B (+12.6%); September full month 143.39 B. Non-PJP ids included (rule of 22 Oct). |
+| ENDBAL | `endbal_20261022.zip` (23 Oct 05:31; report 23 Oct 04:38) | Snapshot 21 → **22 Oct**: 128,951 rows, 18,196 outlets (master 16,025, adhoc 2,171). The same zip was also dropped into `raw/MOBI VISIT DSE/` (identical copy, ignored by the visit discovery). |
+| GA | `Daily_RGUGA_OUTLET_202610.xlsb` unchanged (21 Oct 16:33) | GA stays at **20 Oct**, now two days behind the other feeds. `Site_rguga_daily_outlet_202610.csv` (22 Oct 15:57) was consumed by `build_ga_site_feed.py` (Gross Add › Site location GA). |
+| KPI / KRO / PJP mapping | derived | DSE KPI cut 22 (visits cut 22); KRO feed rebuilt; weekly PJP mapping unchanged (Smartbeat file of 21 Oct). |
+| **Not consumed** | `MOBI TRansfer Balance/inner_tf_balance_202610____22_22.csv` (23 Oct 05:34) | **New layout**: "Transfer Balance Report", comma CSV, header `DateTime, Transaction ID, …, Organization Type, Organization ID, Credit Party ID, Account Type, Amount, …` (8,713 rows, 22 Oct only, 8,599 Completed = Rp 5.50 B; Organization Type Outlet 6,114 / Dealer 2,551 / SDP 48; 3,994 credit-party outlets). `build_sellin_feed.py` reads `MOBI TRansfer Balance/*.csv` but expects the pipe-delimited MOBI report (`TRANSACTION DATETIME` header), so this file is **skipped silently** (Sell-In feed still 1–10 Oct). It carries the Dealer / SDP → outlet saldo flows (Phase 1 item 1, distributor fill-in): owner to decide whether to build a reader; the daily dashboard saldo already comes from MOBII SALMO. |
+| Not consumed (listed) | `GA by Fav Locs/Daily_RGUGA_Kecamatan_202610.xlsb`, `adhoc_rguga_daily_kec_202610.xlsb` (22 Oct), `IOH SELL IN … 21 OCT UPDATE 2026.csv` (national, incl. West Java), `MOBO TRANSACTION DETAILS/trx_details_20261022__01..03.csv`, `Catalogue/CATALAGUE_INNER_JAKARTA_202610.xlsb` re-saved 22 Oct 19:28 (catalogue overlay not re-run) | No builder reads them in the daily refresh. |
+| Checks | | `render_check`, `audit_scorecard` (152), `audit_ga` (3,902), `audit_kro` pass. |
+
 ## 22 Oct 2026 (ids outside the master kept as non-PJP)
 | Scope | Source | Change |
 |---|---|---|
