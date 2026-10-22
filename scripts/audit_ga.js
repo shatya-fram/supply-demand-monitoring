@@ -162,15 +162,6 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   let mt = 0, ij = 0; Object.entries(SF.matrix).forEach(([k, v]) => { const n = v[0] + v[1]; mt += n; if (k.split('|')[1] === 'IJ') ij += n; });
   eq('site-sec', 'matriks = baris file', mt, SF.metadata.rows); eq('site-sec', 'kolom IJ matriks = GA di site', ij, SF.sites.reduce((s, r) => s + T0(vb(r.v, 'all')), 0));
   Object.assign(state, { gaBasis: 'outlet', gaBrand: 'all', branch: '', kec: '' }); }
-// card "GA outlet tagging Non Inner Jakarta" (Gross Add ringkasan) = raw pivot sums of metadata.tag, whatever the basis
-for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID']) {
-  Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaBasis: basis, gaBrand: brand, gaSg: 'all', gaCover: 'all', branch: '', hoa: '', kec: '', dse: '' });
-  const C = cards(VIEWS.mb_grossadd()), k = Object.keys(C).find(x => x.startsWith('GA OUTLET TAGGING NON')), tag = 'non-IJ/' + basis + '/' + brand; checks++;
-  if (!k) { fails++; console.log('✗ [' + tag + '] kartu GA outlet tagging Non Inner Jakarta hilang'); continue; }
-  let q = 0, p = 0; for (const b of ['IM3', '3ID']) if (brand === 'all' || brand === b) for (let d = 1; d <= cut; d++) { q += (M.tag.oct_outside_ij[b] || {})[d] || 0; p += (M.tag.sep_outside_ij[b] || {})[d] || 0; }
-  const sc = v => { const t = String(v); return /M pcs/.test(t) ? parseFloat(t) * 1e6 : num(t); }, tol = /M pcs/.test(C[k].value) ? 6000 : 0.51;
-  eq(tag, 'GA non-IJ MTD', sc(C[k].value), q, tol); eq(tag, 'GA non-IJ LMTD', sc((C[k].delta.match(/LMTD ([\d.,]+ ?M?)/) || [, '0'])[1] + (/LMTD [\d.,]+ M/.test(C[k].delta) ? ' M pcs' : '')), p, tol);
-}
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);
   checks++; if (dup.length) { fails++; console.log('✗ [loc_keys] kecamatan tanpa kabupaten sementara ada label lengkapnya (dihitung dua kali sebagai site): ' + dup.join(', ')); } }
