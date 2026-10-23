@@ -2016,7 +2016,29 @@
     return '<div class="progress-bar-cell"><div class="progress-bar-fill' + (rate >= 60 ? ' good' : '') + '" style="width:' + Math.min(100, rate) + '%;"></div><span class="progress-bar-label">' + rate + '%</span></div>';
   }
   function brandLabel() { var b = state.visitsBrandFilter || 'all'; return b === 'im3' ? 'IM3 only' : (b === '3id' ? '3ID only' : (b === 'hybrid' ? 'dual-brand rows' : 'all brands')); }
+  /* Ad-hoc visits (no BEATPLANID) of the scope for the brand filter; P (PJP on beat plan) = total minus ad-hoc, T = total (owner, 23 Okt 2026) */
+  function bah(r) { var b = state.visitsBrandFilter || 'all'; return b === 'im3' ? (r.adhoc_im3 || 0) : (b === '3id' ? (r.adhoc_3id || 0) : (r.adhoc_visits || 0)); }
+  function visitsAdhoc(feed) {
+    var dseRow = visitsDseRow(feed); if (dseRow) return bah(dseRow);
+    var scoped = !!(state.branch || state.hoa || state.kec), brand = state.visitsBrandFilter || 'all';
+    if (!scoped && brand === 'all') return (feed.regional_summary || {}).adhoc_visits_no_beatplan || 0;
+    var hoaMap = hoaOfBranch(feed), n = 0;
+    (feed.micro_clusters || []).forEach(function (mc) {
+      if (state.branch && mc.branch !== state.branch) return;
+      if (state.hoa && hoaMap[mc.branch] !== state.hoa) return;
+      if (state.kec && mc.micro_cluster !== state.kec) return;
+      if (scoped && mc.outside) return;
+      if (!brandRowOk(mc)) return;
+      n += bah(mc);
+    });
+    return n;
+  }
   function visitsScope(feed) {
+    var o = visitsScope0(feed);
+    o.ah = visitsAdhoc(feed); o.planP = Math.max(0, o.planned - o.ah); o.actP = Math.max(0, o.actual - o.ah); o.hitP = hitPct({ planned: o.planP, actual: o.actP });
+    return o;
+  }
+  function visitsScope0(feed) {
     var S = feed.regional_summary;
     var scoped = !!(state.branch || state.hoa || state.kec);
     var brand = state.visitsBrandFilter || 'all';
@@ -2698,16 +2720,25 @@
     var bestDay = null, worstDay = null;
     daily.forEach(function (c, i) { if (!c[0]) return; var h = c[1] / c[0]; if (bestDay == null || h > bestDay.h) bestDay = { d: days[i], h: h }; if (worstDay == null || h < worstDay.h) worstDay = { d: days[i], h: h }; });
     var row = '<tr>' +
-      '<td class="num cur"><b>' + fmtCount(sc.planned) + '</b></td><td class="num cur"><b>' + fmtCount(sc.actual) + '</b></td>' +
-      '<td class="num"><span class="' + (sc.hit >= 60 ? 'good-tag' : 'alert-tag') + '">' + sc.hit + '%</span></td>' +
+      scPjpCells(sc) +
       '<td class="num">' + fmtCount(Math.round(sc.planned / activeDays)) + '</td><td class="num">' + fmtCount(Math.round(sc.actual / activeDays)) + '</td><td class="num">' + activeDays + ' / ' + n + '</td>' +
       '<td class="num">' + (sc.prodRate == null ? '—' : sc.prodRate + '%') + '</td>' +
       '<td class="num">' + fmtCount(sc.outlets) + '</td><td class="num">' + fmtCount(sc.visited) + ' (' + pctOf(sc.visited, sc.outlets) + '%)</td><td class="num"><span class="alert-tag">' + fmtCount(sc.nvm) + '</span></td>' +
       '<td class="num">' + (sc.sites ? fmtCount(sc.szm) + ' / ' + fmtCount(sc.sites) : '—') + '</td>' +
       '<td>' + (bestDay ? esc(bestDay.d.slice(0, 6)) + ' ' + Math.round(bestDay.h * 100) + '%' : '—') + '</td><td>' + (worstDay ? esc(worstDay.d.slice(0, 6)) + ' ' + Math.round(worstDay.h * 100) + '%' : '—') + '</td></tr>';
     return card('Scorecard · PJP execution · ' + esc(sc.label) + ' · ' + pjpPeriod('mtd') + ' 2026',
-      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Planned stops (target)', 1) + th('Executed', 1) + th('Target hit %', 1) + th('Planned / active day', 1) + th('Executed / active day', 1) + th('Active days', 1) + th('Productive %', 1) + th('PJP outlets', 1) + th('Visited MTD', 1) + th('Never visited', 1) + th('Dark sites MTD', 1) + th('Best day') + th('Worst day') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + scPjpHead(true) + th('Planned / active day', 1) + th('Executed / active day', 1) + th('Active days', 1) + th('Productive %', 1) + th('PJP outlets', 1) + th('Visited MTD', 1) + th('Never visited', 1) + th('Dark sites MTD', 1) + th('Best day') + th('Worst day') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
       '<p class="note">Overall before the daily detail: executed ÷ planned over the whole period, and the daily averages over days that had any planned stop in this scope. Productive = SP/VC qty > 0 or saldo > Rp 50,000.</p>');
+  }
+  /* Scorecard cells: % PJP visit against plan (P) kept apart from the ad-hoc visits (A); T = P + A is the total (owner, 23 Okt 2026) */
+  function scPjpCells(sc) {
+    var tag = function (v) { return '<span class="' + (v >= 60 ? 'good-tag' : 'alert-tag') + '">' + v + '%</span>'; };
+    return '<td class="num cur"><b>' + fmtCount(sc.planP) + '</b></td><td class="num cur"><b>' + fmtCount(sc.actP) + '</b></td><td class="num">' + tag(sc.hitP) + '</td>' +
+      '<td class="num" style="background:#eff6ff; color:#1e3a8a;"><b>' + fmtCount(sc.ah) + '</b></td><td class="num cur"><b>' + fmtCount(sc.actual) + '</b></td><td class="num">' + tag(sc.hit) + '</td>';
+  }
+  function scPjpHead(en) {
+    return en ? th('Target Permanent (P)', 1) + th('Actual Visit PJP (P)', 1) + th('% PJP vs target (P)', 1) + th('Actual Adhoc (A)', 1) + th('Actual Total (T = P + A)', 1) + th('% T vs plan + ad-hoc', 1)
+      : th('Target Permanent (P)', 1) + th('Actual Visit PJP (P)', 1) + th('% PJP vs target (P)', 1) + th('Actual Adhoc (A)', 1) + th('Actual Total (T = P + A)', 1) + th('% T vs rencana + adhoc', 1);
   }
   function visitsScoped() { return !!(state.branch || state.hoa || state.kec || state.visitsDse); }
 
@@ -2736,13 +2767,21 @@
   function pjP(c) { var a = c[3] || 0; return [Math.max(0, (c[0] || 0) - a), Math.max(0, (c[1] || 0) - a)]; }
   function heatCellAh(a, binary) {
     if (!a) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
-    return binary ? '<td title="Visit adhoc: check-in tanpa rencana (BEATPLANID kosong)" style="background:#dbeafe; color:#1e3a8a; text-align:center; font-weight:800;">A</td>'
+    return binary ? '<td title="Actual Adhoc: check-in tanpa rencana (BEATPLANID kosong)" style="background:#dbeafe; color:#1e3a8a; text-align:center; font-weight:800;">A</td>'
       : '<td class="num" title="' + a + ' visit adhoc (check-in tanpa rencana)" style="background:#dbeafe; color:#1e3a8a; text-align:center; font-weight:700;">' + fmtCount(a) + '</td>';
   }
   function pjCell(c, view, binary) {
-    if (view === 'adhoc') return heatCellAh(c[3] || 0, binary);
-    if (view === 'total') return heatCell(c[0], c[1], binary);
-    var q = pjP(c); return heatCell(q[0], q[1], binary);
+    var a = c[3] || 0, q = pjP(c), t = q[1] + a;   // q = [Target Permanent (planned PJP), actual PJP]; a = actual ad-hoc; t = actual total
+    if (view === 'adhoc') return heatCellAh(a, binary);
+    if (view === 'total') {
+      if (binary || !c[0]) return heatCell(c[0], c[1], binary);
+      var pt = Math.round(c[1] / c[0] * 100), bt = heatBand(pt);
+      return '<td class="num" title="Actual total ' + c[1] + ' (PJP ' + q[1] + ' + adhoc ' + a + ') dari target ' + c[0] + ' (Target Permanent ' + q[0] + ' + adhoc ' + a + ')" style="background:' + bt.bg + '; color:' + bt.fg + '; text-align:center; font-weight:700;">' + pt + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + c[1] + '/' + c[0] + '</span></td>';
+    }
+    if (!q[0]) return a ? heatCellAh(a, binary) : heatCell(0, 0, binary);   // no Target Permanent that day: ad-hoc only
+    if (binary) return q[1] ? '<td title="Actual PJP terlaksana' + (a ? ' · adhoc ' + a : '') + '" style="background:#16a34a; color:#fff; text-align:center; font-weight:800;">✓</td>' : '<td title="Target Permanent, tidak dikunjungi' + (a ? ' · adhoc ' + a : '') + '" style="background:#fee2e2; color:#991b1b; text-align:center; font-weight:800;">○</td>';
+    var pct = Math.round(q[1] / q[0] * 100), band = heatBand(pct);
+    return '<td class="num" title="Actual PJP ' + q[1] + ' dari Target Permanent ' + q[0] + ' · Actual Adhoc ' + a + ' · Total ' + t + '" style="background:' + band.bg + '; color:' + band.fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + q[1] + '/' + q[0] + '</span>' + (a ? '<br><span style="font-size:10px; font-weight:700; color:#1e3a8a; background:#dbeafe; padding:0 3px;">+' + a + ' A</span>' : '') + '</td>';
   }
   function pjViewBar(extra) {
     var v = pjView(), cur = extra || v;
@@ -2753,8 +2792,8 @@
     return '<td class="num">' + o + fmtCount(pp) + c + '</td><td class="num cur">' + o + fmtCount(pa) + c + '</td><td class="num">' + o + hitPct({ planned: pp, actual: pa }) + '%' + c + '</td>' +
       '<td class="num" style="background:#eff6ff; color:#1e3a8a;">' + o + fmtCount(ah) + c + '</td><td class="num cur">' + o + fmtCount(ac) + c + '</td><td class="num">' + o + hitPct({ planned: pl, actual: ac }) + '%' + c + '</td>';
   }
-  function pjOverallHead() { return th('Rencana PJP (P)', 1) + th('Terlaksana PJP (P)', 1) + th('% P', 1) + th('Adhoc (A)', 1) + th('Total visit (T = P + A)', 1) + th('% T', 1); }
-  var PJ_VIEW_NOTE = ' P = visit PJP dalam beat plan ÷ rencana beat plan; A = visit adhoc (check-in tanpa beat plan, selalu terlaksana, tidak masuk rencana); T = total visit (P + A) ÷ (rencana + adhoc), yaitu angka yang sebelumnya ditampilkan. Kolom total di kiri selalu menampilkan P, A dan T.';
+  function pjOverallHead() { return th('Target Permanent (P)', 1) + th('Actual Visit PJP (P)', 1) + th('% P', 1) + th('Actual Adhoc (A)', 1) + th('Actual Total (T = P + A)', 1) + th('% T', 1); }
+  var PJ_VIEW_NOTE = ' P = Actual Visit PJP ÷ Target Permanent (beat plan tetap); A = Actual Adhoc (check-in tanpa beat plan, selalu terlaksana, tidak masuk target); T = Actual Total (P + A) ÷ (Target Permanent + adhoc). Sel P menampilkan % dan actual/target, dengan label biru +n A untuk adhoc hari itu; kolom di kiri selalu menampilkan P, A dan T.';
   function heatCell(p, x, binary) {
     if (!p) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
     if (binary) {
@@ -3300,7 +3339,8 @@
     var gw = summary.growth_wow || {};
     var prodRule = summary.productive_rule || 'SP/VC qty > 0 or saldo > Rp 50K';
     var kpisHtml = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Target Hit Rate', sc.hit + '%', fmtCount(sc.actual) + ' of ' + fmtCount(sc.planned) + ' planned stops', sc.hit >= 60 ? 'up' : 'down', sc.scoped ? 'Scope: ' + esc(sc.label) : 'W2 ' + gw.w2_compliance + '% vs W1 ' + gw.w1_compliance + '%') +
+      kpi('Target Hit Rate · PJP (P)', sc.hitP + '%', fmtCount(sc.actP) + ' of ' + fmtCount(sc.planP) + ' PJP stops on a beat plan', sc.hitP >= 60 ? 'up' : 'down', sc.scoped ? 'Scope: ' + esc(sc.label) : 'W2 ' + gw.w2_compliance + '% vs W1 ' + gw.w1_compliance + '% (total, P + A)') +
+      kpi('Ad-hoc Visits (A)', fmtCount(sc.ah), pctOf(sc.ah, sc.actual) + '% of ' + fmtCount(sc.actual) + ' visits · total (P + A) hit ' + sc.hit + '%', 'up', 'Check-in without a beat plan (BEATPLANID empty), never in the plan') +
       kpi('Productive Stops', sc.prodRate == null ? '—' : sc.prodRate + '%', sc.prodRate == null ? 'Not split by brand' : fmtCount(sc.productive) + ' stops · ' + fmtCount(sc.prodPhys) + ' physical SP/VC · ' + fmtCount(sc.prodSaldo) + ' saldo', sc.prodRate != null && sc.prodRate >= 30 ? 'up' : 'down', esc(prodRule) + (sc.flowRate != null ? ' · flow completed ' + sc.flowRate + '%' : '')) +
       kpi('Active Visited Stores', fmtCount(sc.visited), pctOf(sc.visited, sc.outlets) + '% of ' + fmtCount(sc.outlets) + ' master stores', 'up', fmtCount(sc.hybrid) + ' dual-brand hybrid stores') +
       kpi('Run-Rate Velocity', (gw.run_rate_growth_pct >= 0 ? '+' : '') + gw.run_rate_growth_pct + '% WoW', 'W2 ' + fmtCount(gw.w2_per_day || 0) + '/day vs W1 ' + fmtCount(gw.w1_per_day || 0) + '/day', 'up', 'Regional, all brands, baseline month Oct 2026') +
@@ -5621,7 +5661,8 @@
   function mbPjpSection(vf) {
     var sc = visitsScope(vf);
     var cards = '<div class="kpis">' +
-      kpi('% Sukses Visit', sc.hit + '%', fmtCount(sc.actual) + ' dari ' + fmtCount(sc.planned) + ' rencana kunjungan', sc.hit >= 60 ? 'up' : 'down', 'Check-in terlaksana ÷ PJP terjadwal · ' + pjpPeriod('mtd',{id:1}) + ' 2026') +
+      kpi('% Sukses Visit PJP (P)', sc.hitP + '%', fmtCount(sc.actP) + ' dari ' + fmtCount(sc.planP) + ' rencana PJP', sc.hitP >= 60 ? 'up' : 'down', 'Check-in PJP terlaksana ÷ PJP dalam beat plan · ' + pjpPeriod('mtd',{id:1}) + ' 2026') +
+      kpi('Total Visit Adhoc (A)', fmtCount(sc.ah), 'Total visit (P + A) ' + fmtCount(sc.actual) + ' · ' + sc.hit + '% dari rencana + adhoc', 'up', 'Check-in tanpa beat plan, tidak masuk rencana') +
       kpi('% Outlet Belum Divisit · MTD', mbPct(sc.nvm, sc.outlets), fmtCount(sc.nvm) + ' dari ' + fmtCount(sc.outlets) + ' outlet PJP', 'down', 'Tanpa check-in ' + pjpPeriod('mtd',{id:1}) + '') +
       kpi('% Outlet Belum Divisit · 7 Hari', mbPct(sc.nv7, sc.outlets), fmtCount(sc.nv7) + ' outlet', 'down', 'Tanpa check-in ' + pjpPeriod('l7',{id:1}) + '') +
       kpi('% Site dengan Outlet Belum Divisit · MTD', mbPct(sc.szm, sc.sites), fmtCount(sc.szm) + ' dari ' + fmtCount(sc.sites) + ' site DSO', 'down', '0 outlet divisit di bawah site tersebut') +
@@ -9224,18 +9265,17 @@
     var activeDays = daily.filter(function (c) { return c[0] > 0; }).length || 1, best = null, worst = null;
     daily.forEach(function (c, i) { if (!c[0]) return; var h = c[1] / c[0]; if (!best || h > best.h) best = { d: days[i], h: h }; if (!worst || h < worst.h) worst = { d: days[i], h: h }; });
     var row = '<tr>' +
-      '<td class="num cur"><b>' + fmtCount(sc.planned) + '</b></td><td class="num cur"><b>' + fmtCount(sc.actual) + '</b></td>' +
-      '<td class="num"><span class="' + (sc.hit >= 60 ? 'good-tag' : 'alert-tag') + '">' + sc.hit + '%</span></td>' +
+      scPjpCells(sc) +
       '<td class="num">' + fmtCount(Math.round(sc.planned / activeDays)) + '</td><td class="num">' + fmtCount(Math.round(sc.actual / activeDays)) + '</td><td class="num">' + activeDays + ' / ' + n + '</td>' +
       '<td class="num">' + (sc.prodRate == null ? '—' : sc.prodRate + '%') + '</td>' +
       '<td class="num">' + fmtCount(sc.outlets) + '</td><td class="num">' + fmtCount(sc.visited) + ' (' + pctOf(sc.visited, sc.outlets) + '%)</td><td class="num"><span class="alert-tag">' + fmtCount(sc.nvm) + ' (' + pctOf(sc.nvm, sc.outlets) + '%)</span></td>' +
       '<td class="num">' + (sc.sites ? fmtCount(sc.szm) + ' / ' + fmtCount(sc.sites) : '—') + '</td>' +
       '<td>' + (best ? esc(best.d.slice(0, 6)) + ' · ' + Math.round(best.h * 100) + '%' : '—') + '</td><td>' + (worst ? esc(worst.d.slice(0, 6)) + ' · ' + Math.round(worst.h * 100) + '%' : '—') + '</td></tr>';
     return card('Scorecard PJP · ' + esc(sc.label) + ' · ' + pjpPeriod('mtd',{id:1}) + ' 2026',
-      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Rencana (target)', 1) + th('Terlaksana', 1) + th('% Sukses', 1) + th('Rencana / hari aktif', 1) + th('Terlaksana / hari aktif', 1) + th('Hari aktif', 1) + th('% Produktif', 1) + th('Outlet PJP', 1) + th('Divisit MTD', 1) + th('Belum pernah divisit', 1) + th('Site gelap MTD', 1) + th('Hari terbaik') + th('Hari terburuk') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + scPjpHead(false) + th('Rencana / hari aktif', 1) + th('Terlaksana / hari aktif', 1) + th('Hari aktif', 1) + th('% Produktif', 1) + th('Outlet PJP', 1) + th('Divisit MTD', 1) + th('Belum pernah divisit', 1) + th('Site gelap MTD', 1) + th('Hari terbaik') + th('Hari terburuk') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
       '<p class="note">Rata-rata harian dihitung atas hari yang punya rencana kunjungan dalam cakupan ini. Produktif = SP/VC qty &gt; 0 atau saldo &gt; Rp 50 rb. Site gelap = site DSO tanpa satu pun outlet divisit.</p>');
   }
-  function mbDayAttr(cell, i) { return cell.replace('<td', '<td data-pjp-day="' + i + '" title="Klik: performa hari ini"'); }
+  function mbDayAttr(cell, i) { return cell.replace('<td', '<td data-pjp-day="' + i + '"' + (/^<td[^>]* title="/.test(cell) ? '' : ' title="Klik: performa hari ini"')); }
   function mbHeat(vf) {
     var level = visitsLevel(), rows = visitsRowsAt(vf, level), days = (vf.metadata || {}).days || [], binary = level === 'outlet';
     var page = state.visitsPage || 1, pageSize = 50, paged = level === 'dse' || level === 'outlet';
@@ -9503,7 +9543,8 @@
   function mbPjpCards(vf) {
     var sc = visitsScope(vf);
     return '<div class="kpis" style="margin-top:8px;">' +
-      kpi('% Sukses Visit', sc.hit + '%', fmtCount(sc.actual) + ' dari ' + fmtCount(sc.planned) + ' rencana', sc.hit >= 60 ? 'up' : 'down', 'Check-in terlaksana ÷ PJP terjadwal · ' + pjpPeriod('mtd',{id:1}) + '') +
+      kpi('% Sukses Visit PJP (P)', sc.hitP + '%', fmtCount(sc.actP) + ' dari ' + fmtCount(sc.planP) + ' rencana PJP', sc.hitP >= 60 ? 'up' : 'down', 'Check-in PJP terlaksana ÷ PJP dalam beat plan · ' + pjpPeriod('mtd',{id:1}) + '') +
+      kpi('Total Visit Adhoc (A)', fmtCount(sc.ah), 'Total visit (P + A) ' + fmtCount(sc.actual) + ' · ' + sc.hit + '% dari rencana + adhoc', 'up', 'Check-in tanpa beat plan, tidak masuk rencana') +
       kpi('Kunjungan Produktif', sc.prodRate == null ? '—' : sc.prodRate + '%', sc.prodRate == null ? 'Tidak dipisah per brand' : fmtCount(sc.productive) + ' kunjungan dengan sell-in', sc.prodRate != null && sc.prodRate >= 30 ? 'up' : 'down', 'SP/VC qty > 0 atau saldo > Rp 50 rb') +
       kpi('Outlet Belum Divisit · MTD', fmtCount(sc.nvm), mbPct(sc.nvm, sc.outlets) + ' dari ' + fmtCount(sc.outlets) + ' outlet', 'down', 'Tanpa check-in ' + pjpPeriod('mtd',{id:1}) + '') +
       kpi('Site Tanpa Visit · MTD', fmtCount(sc.szm), mbPct(sc.szm, sc.sites) + ' dari ' + fmtCount(sc.sites) + ' site DSO', 'down', '0 outlet divisit') +
@@ -9616,13 +9657,13 @@
     /* DSE identity = person id (KPI feed pid = visits feed person_id). Names alone are not unique (two DSEs are called SUSANTO) and 69 DSEs carry their login code as name in the territory, KPI, sell-in and GA feeds but their person name in the PJP feed. */
     var kByName = {}; if (K) (K.dses || []).forEach(function (d) { (kByName[dseNorm(d.n)] = kByName[dseNorm(d.n)] || []).push(d); });
     var pidOf = function (name, mc) { var L = kByName[dseNorm(name)]; if (!L) return null; if (L.length === 1) return L[0].pid; for (var i = 0; i < L.length; i++) if (L[i].mc === mc) return L[i].pid; return L[0].pid; };
-    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, osa: 0, osaT: 0, spT: 0, asg: 0, spi: 0, sp3: 0, kL: 0, kF: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
+    var T = {}, get = function (name, key) { var k = key || dseNorm(name); return T[k] || (T[k] = { name: String(name), inM: false, code: '', mc: '', pl: 0, ac: 0, pr: 0, dpl: 0, dac: 0, dpr: 0, ah: 0, dah: 0, osa: 0, osaT: 0, spT: 0, asg: 0, spi: 0, sp3: 0, kL: 0, kF: 0, sp: 0, spF: 0, spL: 0, spD: 0, spP: 0, spU: 0, spUD: 0, sa: 0, saF: 0, saL: 0, saD: 0, saP: 0, saU: 0, saUD: 0, osaD: 0, ga: 0, gaL: 0, gaF: 0, gaD: 0, sso: 0, ssoL: 0, ssoD: 0, hasV: false }); };
     var li = V ? ovVisitDay(V) : 0;
     if (V) (V.dses || []).forEach(function (d) {
       if (d.is_promotor || !ovIn(d.branch, d.micro_cluster, d.hoa_leader)) return;
       var r = get(d.dse_name, d.person_id), x = (d.daily || [])[li] || [0, 0, 0, 0, 0, 0, 0];
       r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true; r.inM = !!d.in_master;
-      r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0;
+      r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0; r.ah += d.adhoc_visits || 0; r.dah += x[7] || 0;
     });
     if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; r.spi += dkSpiOn() ? (d.spi_pcs || 0) : 0; r.sp3 += dkSp3(d); r.kL += (d.sp3_lpcs || 0) + (dkSpiOn() ? (d.spi_lpcs || 0) : 0); r.kF += (d.sp3_sep || 0) + (dkSpiOn() ? (d.spi_sep || 0) : 0); });   // kL / kF = September baseline (LMTD, full month) on the same basis as the October actual: SP 3GB (MOBII) + SP Injection (MOBO)
     if (F && LD) pjOutlets(F).forEach(function (o) {
@@ -9649,19 +9690,20 @@
     // ---------------- PJP and Effective Call
     if (V) {
       var li = ovVisitDay(V), dlabel = ((V.metadata.days || [])[li] || '').slice(0, 6).replace('-', ' ');
-      var ds = T.filter(function (r) { return r.hasV; }), pl = 0, ac = 0, pr = 0, dpl = 0, dac = 0, dpr = 0, nD = 0, n100m = 0, n100d = 0, nDd = 0, nEc = 0, nEcD = 0, nU = 0, plU = 0, acU = 0;
+      var ds = T.filter(function (r) { return r.hasV; }), pl = 0, ac = 0, pr = 0, dpl = 0, dac = 0, dpr = 0, nD = 0, n100m = 0, n100d = 0, nDd = 0, nEc = 0, nEcD = 0, nU = 0, plU = 0, acU = 0, ah = 0, dah = 0;
       ds.forEach(function (r) {
-        pl += r.pl; ac += r.ac; pr += r.pr; dpl += r.dpl; dac += r.dac; dpr += r.dpr;   // totals: every field operator except promotors (same as Ringkasan PJP)
+        pl += r.pl; ac += r.ac; pr += r.pr; dpl += r.dpl; dac += r.dac; dpr += r.dpr; ah += r.ah; dah += r.dah;   // totals: every field operator except promotors (same as Ringkasan PJP)
         if (!r.inM) { if (r.pl > 0) { nU++; plU += r.pl; acU += r.ac; } return; }   // DSE counts: only operators mapped to the master; unmapped logins are reported separately
         if (r.pl > 0) { nD++; if (r.ac >= r.pl) n100m++; if (r.pr / r.pl > 0.8) nEc++; }
         if (r.dpl > 0) { nDd++; if (r.dac >= r.dpl) n100d++; if (r.dpr / r.dpl > 0.8) nEcD++; }
       });
-      var pjpM = ovPct(ac, pl), pjpD = ovPct(dac, dpl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);
-      var cPJP = ['DSE', 'ID', 'MC', 'Rencana', 'Terlaksana', 'Gap', '%'], dsP = ds.filter(function (r) { return r.pl > 0 && r.inM; });
-      ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsP.slice().sort(function (a, b) { return a.ac / a.pl - b.ac / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.ac), ovSN(r.ac - r.pl), ovP(r.ac / r.pl * 100)]; }), ['Total: ' + ovN(ac) + ' terlaksana dari ' + ovN(pl) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl), n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD'].concat(nU ? ['Tidak termasuk daftar: ' + ovN(nU) + ' login belum terpetakan ke master (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + '); angka rencana dan terlaksana di atas sudah memuatnya'] : []));
+      var pP = pl - ah, aP = ac - ah, dpP = dpl - dah, daP = dac - dah;   // P = PJP on a beat plan (total minus ad-hoc), A = ad-hoc visits, T = P + A (owner, 23 Okt 2026); Effective Call counts P + A (productive ÷ plan + ad-hoc)
+      var pjpM = ovPct(aP, pP), pjpD = ovPct(daP, dpP), pjpT = ovPct(ac, pl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);
+      var cPJP = ['DSE', 'ID', 'MC', 'Rencana PJP (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], dsP = ds.filter(function (r) { return r.pl > 0 && r.inM; }), dsPP = dsP.filter(function (r) { return r.pl - r.ah > 0; });
+      ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsPP.slice().sort(function (a, b) { return (a.ac - a.ah) / (a.pl - a.ah) - (b.ac - b.ah) / (b.pl - b.ah); }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl - r.ah), ovN(r.ac - r.ah), ovSN(r.ac - r.pl), ovP((r.ac - r.ah) / (r.pl - r.ah) * 100), ovN(r.ah), ovN(r.ac)]; }), ['Total PJP (P): ' + ovN(aP) + ' terlaksana dari ' + ovN(pP) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl) + ' · Adhoc (A) ' + ovN(ah) + ' · Total visit (T = P + A) ' + ovN(ac) + ' dari ' + ovN(pl) + ' (' + ovP(pjpT) + ')', n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD'].concat(nU ? ['Tidak termasuk daftar: ' + ovN(nU) + ' login belum terpetakan ke master (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + '); angka rencana dan terlaksana di atas sudah memuatnya'] : []));
       var dD = ds.filter(function (r) { return r.inM && r.dpl > 0 && r.dac < r.dpl; }).sort(byGap(function (r) { return r.dpl - r.dac; }));
-      var cD1 = ['DSE', 'ID', 'MC', 'Rencana D-1', 'Terlaksana', 'Gap', '%'], rD1 = function (r) { return [r.name, r.code, r.mc, ovN(r.dpl), ovN(r.dac), ovSN(r.dac - r.dpl), ovP(r.dac / r.dpl * 100)]; };
-      ovAdd('pjp_d1', 'PJP D-1 ' + dlabel + ' · DSE yang belum 100%', cD1, ovRows(dD, rD1), ['Total D-1: ' + ovN(dac) + ' dari ' + ovN(dpl) + ' rencana (' + ovP(pjpD) + '), gap ' + ovSN(dac - dpl), dD.length + ' DSE belum 100% dari ' + nDd + ' DSE terjadwal']);
+      var cD1 = ['DSE', 'ID', 'MC', 'Rencana PJP D-1 (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], rD1 = function (r) { var pp = r.dpl - r.dah, pa = r.dac - r.dah; return [r.name, r.code, r.mc, ovN(pp), ovN(pa), ovSN(r.dac - r.dpl), pp > 0 ? ovP(pa / pp * 100) : 'n/a', ovN(r.dah), ovN(r.dac)]; };
+      ovAdd('pjp_d1', 'PJP D-1 ' + dlabel + ' · DSE yang belum 100%', cD1, ovRows(dD, rD1), ['Total D-1 PJP (P): ' + ovN(daP) + ' dari ' + ovN(dpP) + ' rencana (' + ovP(pjpD) + '), gap ' + ovSN(dac - dpl) + ' · Adhoc (A) ' + ovN(dah) + ' · Total (T) ' + ovN(dac) + ' dari ' + ovN(dpl), dD.length + ' DSE belum 100% dari ' + nDd + ' DSE terjadwal']);
       ovAdd('dse100', 'DSE yang belum 100% PJP · D-1 ' + dlabel, cD1, ovRows(dD, rD1), [dD.length + ' dari ' + nDd + ' DSE belum 100% pada D-1', 'MTD: ' + n100m + ' dari ' + nD + ' DSE terlaksana ≥ rencana']);
       var cEC = ['DSE', 'ID', 'MC', 'Rencana', 'Produktif', 'EC %', 'Gap ke 50%'];
       ovAdd('ec_mtd', 'Effective Call MTD · DSE terendah dulu', cEC, ovRows(dsP.slice().sort(function (a, b) { return a.pr / a.pl - b.pr / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.5) + ' visit']; }), ['Total: ' + ovN(pr) + ' produktif dari ' + ovN(pl) + ' (' + ovP(ecM) + '), target 50% butuh ' + ovN(pl * 0.5) + ' (gap ' + ovSN(pr - pl * 0.5) + ')']);
@@ -9670,10 +9712,12 @@
       var topEc = dsP.slice().sort(function (a, b) { return b.pr / b.pl - a.pr / a.pl; });
       ovAdd('ec80', 'DSE dengan Effective Call > 80% (MTD)', cEC, ovRows(topEc, function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.8) + ' vs 80%']; }, 60), [nEc + ' dari ' + nD + ' DSE di atas 80% (MTD) · D-1: ' + nEcD + ' dari ' + nDd, 'Daftar urut dari EC tertinggi']);
       out.push(ovKpiGroup('PJP dan Effective Call · ' + scope, [
-        ovK('pjp_mtd', '% PJP MTD', ovP(pjpM), ovN(ac) + ' / ' + ovN(pl) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE terpetakan · ' + (nU ? ovN(nU) + ' login belum terpetakan (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + ') · ' : '') + 'tanpa promotor'),
-        ovK('pjp_d1', 'D-1 PJP % · ' + dlabel, ovP(pjpD), ovN(dac) + ' / ' + ovN(dpl) + ' · gap ' + ovSN(dac - dpl), ovCls(pjpD, 80), 'Hari kerja terakhir di feed PJP'),
+        ovK('pjp_mtd', '% PJP MTD (P)', ovP(pjpM), ovN(aP) + ' / ' + ovN(pP) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE terpetakan · ' + (nU ? ovN(nU) + ' login belum terpetakan (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + ') · ' : '') + 'tanpa promotor'),
+        ovK('pjp_mtd', 'Visit Adhoc MTD (A)', ovN(ah), ovP(ovPct(ah, ac)) + ' dari ' + ovN(ac) + ' visit · D-1 ' + ovN(dah), 'up', 'Check-in tanpa beat plan, tidak masuk rencana'),
+        ovK('pjp_mtd', 'Total Visit MTD (T = P + A)', ovP(pjpT), ovN(ac) + ' / ' + ovN(pl) + ' (rencana + adhoc) · gap ' + ovSN(ac - pl), ovCls(pjpT, 80), 'P + A terhadap rencana + adhoc'),
+        ovK('pjp_d1', 'D-1 PJP % (P) · ' + dlabel, ovP(pjpD), ovN(daP) + ' / ' + ovN(dpP) + ' · gap ' + ovSN(dac - dpl), ovCls(pjpD, 80), 'Hari kerja terakhir di feed PJP'),
         ovK('dse100', '% DSE dengan PJP 100%', ovP(ovPct(n100d, nDd)), n100d + ' / ' + nDd + ' DSE · ' + (nDd - n100d) + ' belum 100%', ovCls(ovPct(n100d, nDd), 50), 'D-1 · MTD: ' + n100m + ' / ' + nD + ' DSE'),
-        ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(pl) + ' · vs 50%: ' + ovSN(pr - pl * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · produktif = SP/VC > 0 atau saldo > Rp 50 Rb'),
+        ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(pl) + ' · vs 50%: ' + ovSN(pr - pl * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · dihitung total P + A: produktif (SP/VC > 0 atau saldo > Rp 50 Rb) ÷ (rencana + adhoc)'),
         ovK('ec_d1', 'D-1 Effective Call · ' + dlabel, ovP(ecD), ovN(dpr) + ' / ' + ovN(dpl) + ' · vs 50%: ' + ovSN(dpr - dpl * 0.5), ovCls(ecD, 50), 'Target KPI DSE 50%'),
         ovK('ec80', '% DSE dengan Eff Call > 80%', ovP(ovPct(nEc, nD)), nEc + ' / ' + nD + ' DSE (MTD)', ovCls(ovPct(nEc, nD), 50), 'D-1: ' + nEcD + ' / ' + nDd + ' DSE')]));
       afterPjp = out.length;
