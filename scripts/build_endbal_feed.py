@@ -16,7 +16,7 @@ Outputs
   website/data/endbal_feed.js   window.ENDBAL_FEED
   data/processed/endbal_feed.json
 """
-import csv, glob, json, os, re
+import csv, glob, json, os, re, sys
 from collections import defaultdict, Counter
 from datetime import datetime
 
@@ -84,6 +84,8 @@ def main():
     for o in pj['outlets']:
         if o.get('tier') == 'A':
             adhoc.setdefault(norm(o['id']), o)
+            if o.get('id2'):                      # merged catalogue pair (key C:<im3>_<3id>): both ids reach the same entity
+                adhoc.setdefault(norm(o['id2']), o)
 
     # ---- per organization
     org = defaultdict(lambda: {'st': 0.0, 'ot': 0.0, 'cm': 0.0, 'av': 0.0, 'avo': 0.0, 'type': '', 'cl': '', 'name': '', 'sa': ''})

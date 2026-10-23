@@ -46,6 +46,9 @@ LMTD_FULL_DAYS = 30
 BLANK_PRICE = {"IM3": 500, "3ID": 300}
 CATS = {"SP": "Starter Pack", "VCF": "Voucher isi", "VCB": "Voucher blank", "SALMO": "Saldo Mobo"}
 OUTSIDE = "OUTSIDE MASTER TERRITORY"
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import entity_map          # a Hybrid outlet outside the master is ONE entity (catalogue pair, key C:<im3>_<3id>; owner, 23 Oct 2026)
 
 
 def norm_id(v):
@@ -248,11 +251,12 @@ for sname, rows in sheets.items():
         elif brand == "3ID" and oid in by_3id:
             key, tier = by_3id[oid], "OUTLET"
         elif (brand, oid) in adhoc:
-            key, tier = f"A:{brand}:{oid}", "OUTLET"
+            key, tier = entity_map.merge_key(brand, oid, f"A:{brand}:{oid}"), "OUTLET"
             if key not in outlets:
                 a = adhoc[(brand, oid)]
+                pi = entity_map.pair_ids(key) if key.startswith("C:") else None
                 outlets[key] = {"k": key, "n": "", "tier": "A", "br": a["br"], "hoa": a["hoa"], "mc": a["mc"], "dso": a["dso"], "kec": a["kec"],
-                                "site": a["site"], "dse": "UNASSIGNED (adhoc)", "id_im3": oid if brand == "IM3" else "", "id_3id": oid if brand == "3ID" else ""}
+                                "site": a["site"], "dse": "UNASSIGNED (adhoc)", "id_im3": pi["IM3"] if pi else (oid if brand == "IM3" else ""), "id_3id": pi["3ID"] if pi else (oid if brand == "3ID" else "")}
         else:
             key = f"N:{brand}:{oid}"
             tier, nname, nmc = node_tier(oid)
@@ -272,7 +276,7 @@ for sname, rows in sheets.items():
                 continue
             tgt = outlet_facts[key][cat] if tier == "OUTLET" else alloc_facts[key][cat]
             bf_ = brand_facts[key][brand][cat] if (tier == "OUTLET" and cat in ("SP", "SALMO")) else None
-            t_key = (period, brand, cat, tier if tier != "OUTLET" else ("OUTLET_M" if not key.startswith("A:") else "OUTLET_A"))
+            t_key = (period, brand, cat, tier if tier != "OUTLET" else ("OUTLET_M" if not key.startswith(("A:", "C:")) else "OUTLET_A"))
             if period == "MTD" and d <= CUT_DAY:
                 if cat == "SALMO" and v > 0:
                     tgt["tq"] += 1
@@ -306,7 +310,7 @@ for sname, rows in sheets.items():
                         pf = prod_facts[(brand, cat, pname)]; pf["lq"] += q; pf["lv"] += v; pf["lo"].add(key)
                         op = outlet_prod[key][(brand, cat, pname)]; op[2] += q; op[3] += v
         if period == "MTD" or True:
-            tk = (period, brand, cat, tier if tier != "OUTLET" else ("OUTLET_M" if not key.startswith("A:") else "OUTLET_A"))
+            tk = (period, brand, cat, tier if tier != "OUTLET" else ("OUTLET_M" if not key.startswith(("A:", "C:")) else "OUTLET_A"))
             tier_tot[tk][2] += 1
             if key not in seen_ids[tk]:
                 seen_ids[tk].add(key); tier_tot[tk][3] += 1
@@ -340,6 +344,8 @@ for key, cats in outlet_facts.items():
         row["br"] = dim["br"]
     row["b"] = outlet_brand.get(key, "")
     row["id"] = dim["id_im3"] if row["b"] == "IM3" else dim["id_3id"]
+    if key.startswith("C:"):
+        row["id2"] = dim["id_3id"] if row["b"] == "IM3" else dim["id_im3"]      # merged catalogue pair: the other brand's id
     row["c"] = {cat: pack(f) for cat, f in cats.items()}
     bs = {}
     for br_, cs_ in brand_facts.get(key, {}).items():

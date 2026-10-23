@@ -24,6 +24,8 @@ import re
 import sys
 from collections import defaultdict
 from datetime import date, datetime
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import entity_map          # a Hybrid outlet outside the master is ONE entity (catalogue pair, key C:<im3>_<3id>; owner, 23 Oct 2026)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -165,7 +167,7 @@ pj_adhoc_keys = set()
 if os.path.exists(PENJUALAN_JSON):
     with open(PENJUALAN_JSON, encoding="utf-8") as f:
         for o in json.load(f)["outlets"]:
-            if o["k"].startswith("A:"):
+            if o["k"].startswith(("A:", "C:")):
                 pj_adhoc_keys.add(o["k"])
 print(f"   {len(master):,} outlet master, {len(adhoc):,} id adhoc, {len(pj_adhoc_keys):,} outlet adhoc di feed Penjualan")
 
@@ -239,11 +241,14 @@ def resolve(oid):
         return by_3id[oid], "3ID", "M", "master_3id"
     cands = [b for b in ("IM3", "3ID") if (b, oid) in adhoc]
     if cands:
-        pick = next((b for b in cands if f"A:{b}:{oid}" in pj_adhoc_keys), cands[0])
-        key = f"A:{pick}:{oid}"
+        pick = next((b for b in cands if entity_map.merge_key(b, oid, f"A:{b}:{oid}") in pj_adhoc_keys), cands[0])
+        key = entity_map.merge_key(pick, oid, f"A:{pick}:{oid}")
         if key not in outlets:
             a = adhoc[(pick, oid)]
             outlets[key] = {"k": key, "n": "", "tier": "A", "mc": a["mc"], "kec": a["kec"], "site": a["site"], "dse": "UNASSIGNED (adhoc)", "br": a["br"]}
+            if key.startswith("C:"):
+                pi = entity_map.pair_ids(key)
+                outlets[key]["id_im3"], outlets[key]["id_3id"] = pi["IM3"], pi["3ID"]
         return key, pick, "A", "adhoc"
     # 22 Oct 2026 (owner): ids that are in neither the master nor the adhoc list are NOT dropped: they are kept as non-PJP outlets
     # (key A:UNK:<id>, no brand, outside the master territory); the master outlets stay PJP. `unmapped_ids` lists them for the metadata.
@@ -500,6 +505,8 @@ for key in list(facts) + [k for k in lm if k not in facts]:
         row["br"] = dim["br"]
     row["b"] = outlet_brand.get(key, "")
     row["id"] = dim.get("id_im3") if row["b"] == "IM3" and dim.get("id_im3") else (dim.get("id_3id") if row["b"] == "3ID" and dim.get("id_3id") else key.split(":")[-1])
+    if key.startswith("C:"):
+        row["id2"] = dim.get("id_3id") if row["b"] == "IM3" else dim.get("id_im3")        # merged catalogue pair: the other brand's id
     row["bv"] = [int(brand_val[key]["IM3"]), int(brand_val[key]["3ID"])] if key in brand_val else [0, 0]
     row["c"] = {}
     for code, F in cats.items():

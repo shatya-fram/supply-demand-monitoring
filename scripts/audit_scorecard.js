@@ -31,8 +31,12 @@ function audit(scope) {
   const ops = V.dses.filter(d => !d.is_promotor && inS(d.branch, d.micro_cluster, d.hoa_leader)), li = (() => { const days = V.metadata.days, miss = V.metadata.missing_days || []; for (let i = days.length - 1; i >= 0; i--) { const [dd, mm, yy] = days[i].split('-'); const dt = new Date(Date.UTC(+yy, ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(mm), +dd)); if (dt.getUTCDay() !== 0 && miss.indexOf(days[i]) < 0) return i; } return days.length - 1; })();
   const pl = ops.reduce((a, d) => a + d.planned_visits, 0), ac = ops.reduce((a, d) => a + d.actual_visits, 0), pr = ops.reduce((a, d) => a + d.productive_visits, 0);
   const dpl = ops.reduce((a, d) => a + d.daily[li][0], 0), dac = ops.reduce((a, d) => a + d.daily[li][1], 0);
-  let s = D.pjp_mtd.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_mtd', 'terlaksana', num(s[1]), ac); eq(scope, 'pjp_mtd', 'rencana', num(s[2]), pl);
-  s = D.pjp_d1.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_d1', 'terlaksana D-1', num(s[1]), dac); eq(scope, 'pjp_d1', 'rencana D-1', num(s[2]), dpl);
+  // P / A / T (owner, 23 Okt 2026): the % PJP cards show P = total minus ad-hoc visits (stops without BEATPLANID); the Adhoc card shows A and the Total card T = P + A
+  const ah = ops.reduce((a, d) => a + (d.adhoc_visits || 0), 0), dah = ops.reduce((a, d) => a + (d.daily[li][7] || 0), 0);
+  let s = D.pjp_mtd.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_mtd', 'terlaksana PJP (P)', num(s[1]), ac - ah); eq(scope, 'pjp_mtd', 'rencana PJP (P)', num(s[2]), pl - ah);
+  s = D.pjp_mtd_t.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_mtd_t', 'total terlaksana (T)', num(s[1]), ac); eq(scope, 'pjp_mtd_t', 'rencana + adhoc (T)', num(s[2]), pl);
+  eq(scope, 'pjp_mtd_a', 'visit adhoc (A)', num(D.pjp_mtd_a.value), ah);
+  s = D.pjp_d1.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_d1', 'terlaksana D-1 (P)', num(s[1]), dac - dah); eq(scope, 'pjp_d1', 'rencana D-1 (P)', num(s[2]), dpl - dah);
   s = D.ec_mtd.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'ec_mtd', 'produktif', num(s[1]), pr);
   const withD = ops.filter(d => d.in_master && d.daily[li][0] > 0), n100 = withD.filter(d => d.daily[li][1] >= d.daily[li][0]).length;
   s = D.dse100.delta.match(/(\d+) \/ (\d+) DSE/); eq(scope, 'dse100', 'DSE 100% D-1', num(s[1]), n100); eq(scope, 'dse100', 'DSE dengan rencana D-1', num(s[2]), withD.length);

@@ -244,6 +244,7 @@
     terrSubView: 'auto',
     terrSearch: '',
     iohStatus: '', iohMaster: '', iohPage: 1,   // Katalog Outlet IOH (sheet OUTLET IOH): filters and page
+    terrBrand: '',           // Territory Management: brand flag filter (HYBRID | IM3_ONLY | 3ID_ONLY), derived from the ids (owner, 23 Okt 2026)
     terrFlag: '',            // Territory Management: show only outlets with this catalogue flag ('' = all)
     terrStatus: 'all',
     terrPage: 1,
@@ -713,6 +714,7 @@
       if (state.site && (o.site_nbs !== state.site && o.site_name !== state.site)) return false;
       if (state.dse && (o.dse_code_im3 !== state.dse && o.dse_name !== state.dse)) return false;
       if (state.terrFlag && ('|' + (o.flags || '') + '|').indexOf('|' + state.terrFlag + '|') < 0) return false;
+      if (state.terrBrand && brandFlagOf(o) !== state.terrBrand) return false;
       if (q) {
         var match = String(o.outlet_name || '').toLowerCase().indexOf(q) !== -1 ||
                     String(o.outlet_id_im3 || '').toLowerCase().indexOf(q) !== -1 ||
@@ -737,7 +739,7 @@
 
   function exportTerritoryCsv(filtered) {
     if (typeof window === 'undefined') return;
-    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long', 'Flags', 'Outlet ID IOH', 'Tipe Outlet IM3', 'Tipe Outlet 3ID', 'Status Pairing'];
+    var headers = ['Outlet ID IM3', 'Outlet ID 3ID', 'Outlet Name', 'Partner Name', 'Site NBS ID', 'Dist Km to BTS', 'DSE Code IM3', 'DSE Code 3ID', 'DSE Name', 'DSO Leader', 'Micro Cluster', 'HoA Leader', 'Branch', 'Kabupaten', 'Kecamatan', 'Desa', 'Lat', 'Long', 'Flags', 'Outlet ID IOH', 'Tipe Outlet IM3', 'Tipe Outlet 3ID', 'Status Pairing', 'Jenis Brand', 'Entity ID', 'Konflik Status Pairing'];
     var lines = [headers.join(',')];
     filtered.forEach(function (o) {
       var row = [
@@ -763,7 +765,10 @@
         '"' + (o.outlet_id_ioh || '') + '"',
         '"' + (o.outlet_type_im3 || '') + '"',
         '"' + (o.outlet_type_3id || '') + '"',
-        '"' + (o.pairing_status || '') + '"'
+        '"' + (o.pairing_status || '') + '"',
+        '"' + brandFlagOf(o) + '"',
+        '"' + (o.entity_id || o.outlet_key || '') + '"',
+        o.flag_status_conflict ? '1' : ''
       ];
       lines.push(row.join(','));
     });
@@ -777,13 +782,29 @@
     document.body.removeChild(a);
   }
 
+  /* Brand flag (owner, 23 Okt 2026): derived from the ids, never from the catalogue label. A Hybrid outlet (IM3 id + 3ID id) is ONE entity and is counted once. */
+  var BRAND_FLAGS = [['HYBRID', 'Hybrid', 'badge-ioh'], ['IM3_ONLY', 'IM3 only', 'badge-im3'], ['3ID_ONLY', '3ID only', 'badge-3id']];
+  function brandFlagOf(o) {
+    if (o.brand_flag) return o.brand_flag;
+    var a = o.outlet_id_im3 && String(o.outlet_id_im3).replace(/^0+/, '') && o.outlet_id_im3 !== '0', b = o.outlet_id_3id && String(o.outlet_id_3id).replace(/^0+/, '') && o.outlet_id_3id !== '0';
+    return a && b ? 'HYBRID' : (a ? 'IM3_ONLY' : (b ? '3ID_ONLY' : 'TANPA_ID'));
+  }
+  function brandBadge(o) { var f = brandFlagOf(o), x = BRAND_FLAGS.filter(function (y) { return y[0] === f; })[0]; return x ? '<span class="' + x[2] + '">' + x[1] + '</span>' : ''; }
+  function terrBrandPanel(all) {
+    var keep = state.terrBrand; state.terrBrand = ''; var base = filterTerritoryOutlets(all); state.terrBrand = keep;
+    var cnt = { HYBRID: 0, IM3_ONLY: 0, '3ID_ONLY': 0 }; base.forEach(function (o) { var f = brandFlagOf(o); if (cnt[f] != null) cnt[f]++; });
+    var btn = function (f, label, n) { return '<button type="button" class="map-btn' + ((state.terrBrand || '') === f ? ' active' : '') + '" data-terr-brand="' + f + '">' + label + ' (' + fmtCount(n) + ')</button>'; };
+    var conflict = base.filter(function (o) { return o.flag_status_conflict; }).length;
+    return card('Jenis brand outlet · satu outlet = satu entity', '<p class="note" style="margin:0 0 6px;">' + fmtCount(base.length) + ' outlet di lingkup ini, termasuk ' + fmtCount(cnt.HYBRID) + ' Hybrid yang dihitung sekali (punya id IM3 dan id 3ID). Flag diturunkan dari id; label Status Pairing katalog bertentangan dengan id pada ' + fmtCount(conflict) + ' outlet.</p>' +
+      '<div class="map-toolbar"><div class="map-toolbar-group">' + btn('', 'Semua', base.length) + BRAND_FLAGS.map(function (x) { return btn(x[0], '<span class="' + x[2] + '">' + x[1] + '</span>', cnt[x[0]]); }).join('') + '</div></div>');
+  }
   function terrOutletRow(o) {
       var isSelected = state.terrSelectedKey === o.outlet_key;
       var siteLabel = o.site_nbs || o.site_name || '—';
       var distLabel = (o.dist_km !== null && o.dist_km !== undefined) ? '<br><small style="color:var(--ij-muted); font-size:14px;">Dist: ' + Number(o.dist_km).toFixed(2) + ' km to BTS</small>' : '';
       var gpsLink = (o.lat && o.long) ? '<a href="https://maps.google.com/?q=' + o.lat + ',' + o.long + '" target="_blank" rel="noopener noreferrer" style="color:var(--ij-accent); font-weight:700; text-decoration:none;">🧭 ' + o.lat.toFixed(4) + ', ' + o.long.toFixed(4) + ' ↗</a>' : '<span style="color:var(--ij-muted);">GPS Pending</span>';
       return '<tr data-terr-outlet="' + esc(o.outlet_key) + '" class="' + (isSelected ? 'sel' : '') + '" style="cursor:pointer;" tabindex="0">' +
-        '<td class="cur">' + esc(o.outlet_name) + '<br><small style="color:var(--ij-muted); font-size:14px;">IM3: ' + esc(o.outlet_id_im3) + ' | 3ID: ' + esc(o.outlet_id_3id) + (o.partner_name_im3 ? ' &middot; ' + esc(o.partner_name_im3) : '') + '</small></td>' +
+        '<td class="cur">' + esc(o.outlet_name) + ' ' + brandBadge(o) + '<br><small style="color:var(--ij-muted); font-size:14px;">IM3: ' + esc(o.outlet_id_im3) + ' | 3ID: ' + esc(o.outlet_id_3id) + (o.partner_name_im3 ? ' &middot; ' + esc(o.partner_name_im3) : '') + '</small></td>' +
         '<td><code>' + esc(siteLabel) + '</code>' + distLabel + '</td>' +
         '<td><b>' + esc(o.dse_name || o.dse_code_im3 || '—') + '</b><br><small style="color:var(--ij-muted);">' + esc(o.dse_code_im3 || '') + '</small>' + (o.flags ? '<br>' + flagChips(o.flags) : '') + '</td>' +
         '<td>' + esc(o.micro_cluster || '—') + '<br><small style="color:var(--ij-muted);">' + esc(o.dso_leader || '') + '</small></td>' +
@@ -1466,7 +1487,7 @@
       subContent = renderSubHoa(filtered);
     }
 
-    return chainRibbon + subNavHtml + (effSub === 'ioh' ? '' : terrFlagPanel(allOutlets) + kpis) + drawerHtml + subContent;
+    return chainRibbon + subNavHtml + (effSub === 'ioh' ? '' : terrBrandPanel(allOutlets) + terrFlagPanel(allOutlets) + kpis) + drawerHtml + subContent;
   }
 
   /* ==========================================================================
@@ -2033,6 +2054,29 @@
     });
     return n;
   }
+  /* Entity-day view (owner, 23 Okt 2026): one physical outlet per day is ONE planned / executed / productive visit; a Hybrid (IM3 + 3ID) is counted once and credited to the IM3 login's DSE.
+     Not split by brand (a Hybrid has both), so with a brand filter it is n/a. Fields entity_* of the visits feed. */
+  function visitsEntity(feed) {
+    var brand = state.visitsBrandFilter || 'all'; if (brand !== 'all') return null;
+    var dseRow = visitsDseRow(feed), E = null, add = function (r) { E = E || { pl: 0, ac: 0, prod: 0, ppl: 0, pac: 0, ah: 0, dual: 0, dualAc: 0 }; E.pl += r.entity_planned || 0; E.ac += r.entity_actual || 0; E.prod += r.entity_productive || 0; E.ppl += r.entity_p_planned || 0; E.pac += r.entity_p_actual || 0; E.ah += r.entity_adhoc || 0; E.dual += r.entity_dual || 0; E.dualAc += r.entity_dual_visited || 0; };
+    var scoped = !!(state.branch || state.hoa || state.kec);
+    if (dseRow) { add(dseRow); return E; }
+    if (!scoped) { var R = (feed.regional_summary || {}).entity; if (R) add(R); return E; }
+    var hoaMap = hoaOfBranch(feed);
+    (feed.micro_clusters || []).forEach(function (mc) {
+      if (state.branch && mc.branch !== state.branch) return;
+      if (state.hoa && hoaMap[mc.branch] !== state.hoa) return;
+      if (state.kec && mc.micro_cluster !== state.kec) return;
+      if (mc.outside) return; add(mc);
+    });
+    return E;
+  }
+  function entityLine(feed, id) {
+    var E = visitsEntity(feed); if (!E) return '';
+    var h = function (a, b) { return b ? (Math.round(a / b * 1000) / 10) + '%' : '—'; };
+    return id ? 'Per entity-day (satu outlet fisik per hari; Hybrid IM3 + 3ID dihitung sekali, dikreditkan ke DSE login IM3): rencana ' + fmtCount(E.pl) + ' · terlaksana ' + fmtCount(E.ac) + ' (' + h(E.ac, E.pl) + ') · produktif ' + fmtCount(E.prod) + ' (' + h(E.prod, E.ac) + ' dari terlaksana) · PJP (P) ' + fmtCount(E.pac) + ' dari ' + fmtCount(E.ppl) + ' (' + h(E.pac, E.ppl) + ') · hanya adhoc (A) ' + fmtCount(E.ah) + ' · dua brand direncanakan ' + fmtCount(E.dual) + ', dikunjungi dua-duanya ' + fmtCount(E.dualAc) + '.'
+      : 'Per entity-day (one physical outlet per day; a Hybrid IM3 + 3ID counts once, credited to the IM3 login DSE): planned ' + fmtCount(E.pl) + ' · executed ' + fmtCount(E.ac) + ' (' + h(E.ac, E.pl) + ') · productive ' + fmtCount(E.prod) + ' (' + h(E.prod, E.ac) + ' of executed) · PJP (P) ' + fmtCount(E.pac) + ' of ' + fmtCount(E.ppl) + ' (' + h(E.pac, E.ppl) + ') · ad-hoc only (A) ' + fmtCount(E.ah) + ' · both brands planned ' + fmtCount(E.dual) + ', visited by both ' + fmtCount(E.dualAc) + '.';
+  }
   function visitsScope(feed) {
     var o = visitsScope0(feed);
     o.ah = visitsAdhoc(feed); o.planP = Math.max(0, o.planned - o.ah); o.actP = Math.max(0, o.actual - o.ah); o.hitP = hitPct({ planned: o.planP, actual: o.actP });
@@ -2494,8 +2538,10 @@
     var hoaMap = hoaOfBranch(feed);
     var q = (state.visitsSearch || '').toLowerCase();
     var ix = dailyIdx();
+    var ent = entBasis();
     var ahI = ix[0] === 0 ? 7 : (ix[0] === 2 ? 8 : 9);   // ad-hoc visits (stop without BEATPLANID) per brand filter; series cell = [total planned, total executed, productive, ad-hoc]
-    function series(r) { return (r.daily || []).map(function (c) { return [c[ix[0]] || 0, c[ix[1]] || 0, ix[0] === 0 ? (c[6] || 0) : 0, c[ahI] || 0]; }); }
+    function series(r) { return (r.daily || []).map(function (c) { return ent ? [c[11] || 0, c[12] || 0, 0, c[13] || 0] : [c[ix[0]] || 0, c[ix[1]] || 0, ix[0] === 0 ? (c[6] || 0) : 0, c[ahI] || 0]; }); }
+    function pv(r) { return ent ? { planned: r.entity_planned || 0, actual: r.entity_actual || 0 } : bval(r); }
     function okQ(hay) { return !q || hay.toLowerCase().indexOf(q) !== -1; }
     var out = [];
     if (level === 'area') {
@@ -2503,7 +2549,7 @@
         if (state.branch && b.branch !== state.branch) return;
         if (state.hoa && hoaMap[b.branch] !== state.hoa) return;
         if (!brandRowOk(b) || !okQ(b.branch + ' ' + (b.hoa_leader || ''))) return;
-        var v = bval(b);
+        var v = pv(b);
         out.push({ key: b.branch, label: b.branch, parent: b.hoa_leader || '—', planned: v.planned, actual: v.actual, prod: b.productive_rate, daily: series(b), outside: !!b.outside,
           drill: b.outside ? null : { lv: 'area', br: b.branch } });
       });
@@ -2513,28 +2559,39 @@
         if (state.hoa && hoaMap[m.branch] !== state.hoa) return;
         if (state.kec && m.micro_cluster !== state.kec) return;
         if (!brandRowOk(m) || !okQ(m.micro_cluster + ' ' + m.branch + ' ' + (m.dso_leader || ''))) return;
-        var v = bval(m);
+        var v = pv(m);
         out.push({ key: m.micro_cluster, label: m.micro_cluster, parent: m.branch + ' · ' + (m.dso_leader || '—'), planned: v.planned, actual: v.actual, prod: m.productive_rate, daily: series(m), outside: !!m.outside,
           drill: m.outside ? null : { lv: 'mc', br: m.branch, mc: m.micro_cluster } });
       });
     } else if (level === 'dse') {
       visitsDseInScope(feed).forEach(function (d) {
         if (!okQ(d.dse_name + ' ' + (d.logins || []).join(' ') + ' ' + d.micro_cluster + ' ' + d.branch + ' ' + (d.dso_leader || ''))) return;
-        var v = bval(d);
+        var v = pv(d);
         out.push({ key: d.person_id, label: d.dse_name + (d.in_master ? '' : ' (non-PJP)'), parent: d.micro_cluster + ' · ' + d.branch, planned: v.planned, actual: v.actual, prod: d.actual_visits ? d.productive_rate : null, daily: series(d), br: d.branch, mc: d.micro_cluster, dso: d.dso_leader, hoa: d.hoa_leader,
           drill: { lv: 'dse', dse: d.person_id } });
       });
     } else {
       var brand = state.visitsBrandFilter || 'all';
       visitsDseInScope(feed).forEach(function (d) {
+        var groups = {}, order = [];
         (d.outlets || []).forEach(function (o) {
           if (brand === 'im3' && o.b !== 'IM3') return;
           if (brand === '3id' && o.b !== '3ID') return;
           if (state.kec && o.mc !== state.kec) return;
-          if (!okQ(o.n + ' ' + o.id + ' ' + o.mc + ' ' + d.dse_name)) return;
-          var daily = [], pl = 0, ac = 0;
-          for (var i = 0; i < o.d.length; i++) { var p = o.d[i] !== '.' ? 1 : 0, x = o.d[i] === 'x' ? 1 : 0, a = o.a && o.a[i] === 'a' ? 1 : 0; pl += p; ac += x; daily.push([p, x, 0, a]); }
-          out.push({ key: d.person_id + '|' + o.id, label: o.n || o.id, sub: o.id, parent: o.mc + ' · ' + d.dse_name, planned: pl, actual: ac, prod: null, daily: daily, master: o.k, br: d.branch, mc: o.mc || d.micro_cluster, dse: d.dse_name, dso: d.dso_leader, hoa: d.hoa_leader, drill: null });
+          var gk = ent && o.k ? 'k:' + o.k : 'i:' + o.id;               // entity basis: the IM3 and 3ID rows of one physical outlet become one row
+          if (!groups[gk]) { groups[gk] = []; order.push(gk); }
+          groups[gk].push(o);
+        });
+        order.forEach(function (gk) {
+          var G = groups[gk], o = G[0], ids = G.map(function (x) { return x.id; }).join(' / ');
+          if (!okQ(G.map(function (x) { return x.n; }).join(' ') + ' ' + ids + ' ' + o.mc + ' ' + d.dse_name)) return;
+          var daily = [], pl = 0, ac = 0, n = o.d.length;
+          for (var i = 0; i < n; i++) {
+            var any = 0, ex = 0, allA = 1;
+            G.forEach(function (x) { var ch = x.d[i]; if (ch !== '.') { any = 1; if (!(x.a && x.a[i] === 'a')) allA = 0; } if (ch === 'x') ex = 1; });
+            var p = any, a = any && allA ? 1 : 0; pl += p; ac += ex; daily.push([p, ex, 0, a]);
+          }
+          out.push({ key: d.person_id + '|' + ids, label: G.reduce(function (m, x) { return m || x.n; }, '') || o.id, sub: ids, parent: o.mc + ' · ' + d.dse_name, planned: pl, actual: ac, prod: null, daily: daily, master: o.k, br: d.branch, mc: o.mc || d.micro_cluster, dse: d.dse_name, dso: d.dso_leader, hoa: d.hoa_leader, drill: null });
         });
       });
     }
@@ -2728,7 +2785,7 @@
       '<td>' + (bestDay ? esc(bestDay.d.slice(0, 6)) + ' ' + Math.round(bestDay.h * 100) + '%' : '—') + '</td><td>' + (worstDay ? esc(worstDay.d.slice(0, 6)) + ' ' + Math.round(worstDay.h * 100) + '%' : '—') + '</td></tr>';
     return card('Scorecard · PJP execution · ' + esc(sc.label) + ' · ' + pjpPeriod('mtd') + ' 2026',
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + scPjpHead(true) + th('Planned / active day', 1) + th('Executed / active day', 1) + th('Active days', 1) + th('Productive %', 1) + th('PJP outlets', 1) + th('Visited MTD', 1) + th('Never visited', 1) + th('Dark sites MTD', 1) + th('Best day') + th('Worst day') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
-      '<p class="note">Overall before the daily detail: executed ÷ planned over the whole period, and the daily averages over days that had any planned stop in this scope. Productive = SP/VC qty > 0 or saldo > Rp 50,000.</p>');
+      '<p class="note">Overall before the daily detail: executed ÷ planned over the whole period, and the daily averages over days that had any planned stop in this scope. Productive = SP/VC qty > 0 or saldo > Rp 50,000.</p><p class="note"><b>Entity view:</b> ' + (entityLine(feed, false) || 'not split by brand (a Hybrid has both brands); clear the brand filter.') + '</p>');
   }
   /* Scorecard cells: % PJP visit against plan (P) kept apart from the ad-hoc visits (A); T = P + A is the total (owner, 23 Okt 2026) */
   function scPjpCells(sc) {
@@ -2763,6 +2820,13 @@
   }
   /* PJP heatmap split (owner, 23 Okt 2026): P = PJP stops on a beat plan (executed vs planned); A = ad-hoc visits (stops without BEATPLANID, always executed, never planned); T = P + A: total visits vs plan + ad-hoc (the figures shown before). A series cell is [total planned, total executed, productive, ad-hoc]; P = total minus ad-hoc. */
   var PJ_VIEWS = [['pjp', 'P · PJP terlaksana ÷ rencana'], ['adhoc', 'A · Adhoc (visit di luar rencana)'], ['total', 'T · Total (P + Adhoc) ÷ (rencana + adhoc)']];
+  /* Entity-day basis (owner, 23 Okt 2026): one physical outlet per day is one visit; a Hybrid (IM3 + 3ID) counts once. Cells 11..13 of the daily series = entity planned, executed, ad-hoc.
+     Not split by brand, so a brand filter keeps the stop basis. */
+  function entBasis() { return state.pjpBasis === 'entity' && (state.visitsBrandFilter || 'all') === 'all'; }
+  function pjBasisBar() {
+    var on = entBasis(), cur = state.pjpBasis === 'entity' ? 'entity' : 'stop';
+    return '<div class="map-toolbar-group"><span class="map-label">Dasar hitung:</span>' + [['stop', 'Stop (per brand)'], ['entity', 'Entity-day (Hybrid = 1)']].map(function (m) { return '<button type="button" class="map-btn' + (cur === m[0] ? ' active' : '') + '" data-pjp-basis="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (cur === 'entity' && !on ? '<span class="note">Entity-day tidak dipisah per brand; kosongkan filter brand.</span>' : '') + '</div>';
+  }
   function pjView() { var m = state.pjpMetric; return m === 'adhoc' || m === 'total' ? m : 'pjp'; }
   function pjP(c) { var a = c[3] || 0; return [Math.max(0, (c[0] || 0) - a), Math.max(0, (c[1] || 0) - a)]; }
   function heatCellAh(a, binary) {
@@ -2852,7 +2916,7 @@
     var next = { area: 'its micro clusters', mc: 'its DSEs', dse: 'its outlets' }[level];
     return visitsSelectionBand(feed) + (visitsScoped() ? visitsScorecard(feed) : '') + visitsLevelBar(feed) +
       card('Daily PJP Heatmap · ' + VISIT_LEVEL_LABEL[level] + ' · ' + brandLabel(),
-      '<div class="map-toolbar" style="margin-bottom:8px;">' + pjViewBar() + (paged ? grpBar('visheat' + level) : '') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(paged ? 'Area › MC › ' + (level === 'outlet' ? 'DSE › ' : '') + entityHead : entityHead) + (showParent && !paged ? th(parentHead) : '') + pjOverallHead() + dayHead + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
+      '<div class="map-toolbar" style="margin-bottom:8px;">' + pjViewBar() + pjBasisBar() + (paged ? grpBar('visheat' + level) : '') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(paged ? 'Area › MC › ' + (level === 'outlet' ? 'DSE › ' : '') + entityHead : entityHead) + (showParent && !paged ? th(parentHead) : '') + pjOverallHead() + dayHead + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
       '<p class="note">Overall columns (P, A, T) come first, then the calendar days.' + PJ_VIEW_NOTE + ' ' + legend + (next ? ' "Detail" drills a row down to ' + next + '.' : '') + ' The selected territory is shown once in the Area selection band, not repeated per row.</p>') + renderNeverBlock(feed);
   }
 
@@ -9273,7 +9337,7 @@
       '<td>' + (best ? esc(best.d.slice(0, 6)) + ' · ' + Math.round(best.h * 100) + '%' : '—') + '</td><td>' + (worst ? esc(worst.d.slice(0, 6)) + ' · ' + Math.round(worst.h * 100) + '%' : '—') + '</td></tr>';
     return card('Scorecard PJP · ' + esc(sc.label) + ' · ' + pjpPeriod('mtd',{id:1}) + ' 2026',
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + scPjpHead(false) + th('Rencana / hari aktif', 1) + th('Terlaksana / hari aktif', 1) + th('Hari aktif', 1) + th('% Produktif', 1) + th('Outlet PJP', 1) + th('Divisit MTD', 1) + th('Belum pernah divisit', 1) + th('Site gelap MTD', 1) + th('Hari terbaik') + th('Hari terburuk') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
-      '<p class="note">Rata-rata harian dihitung atas hari yang punya rencana kunjungan dalam cakupan ini. Produktif = SP/VC qty &gt; 0 atau saldo &gt; Rp 50 rb. Site gelap = site DSO tanpa satu pun outlet divisit.</p>');
+      '<p class="note">Rata-rata harian dihitung atas hari yang punya rencana kunjungan dalam cakupan ini. Produktif = SP/VC qty &gt; 0 atau saldo &gt; Rp 50 rb. Site gelap = site DSO tanpa satu pun outlet divisit.</p><p class="note"><b>Entity:</b> ' + (entityLine(vf, true) || 'tidak dipisah per brand (Hybrid punya dua brand); kosongkan filter brand.') + '</p>');
   }
   function mbDayAttr(cell, i) { return cell.replace('<td', '<td data-pjp-day="' + i + '"' + (/^<td[^>]* title="/.test(cell) ? '' : ' title="Klik: performa hari ini"')); }
   function mbHeat(vf) {
@@ -9282,7 +9346,7 @@
     var totalPages = paged ? (Math.ceil(rows.length / pageSize) || 1) : 1;
     if (page > totalPages) { page = totalPages; state.visitsPage = page; }
     var start = paged ? (page - 1) * pageSize : 0, slice = paged ? rows.slice(start, start + pageSize) : rows;
-    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && !binary && ecBrandOk, view = pjView();
+    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && !binary && ecBrandOk && !entBasis(), view = pjView();
     rows.forEach(function (r) { r.pr = 0; r.daily.forEach(function (c) { r.pr += c[2] || 0; }); });
     var tot = days.map(function () { return [0, 0, 0, 0]; }), TP = 0, TA = 0, TR = 0, TH = 0;
     rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][2] += c[2] || 0; tot[i][3] += c[3] || 0; }); TP += r.planned; TA += r.actual; TR += r.pr; TH += r.ah || 0; });
@@ -9318,7 +9382,7 @@
     var pag = grouped ? '<p class="note">' + fmtCount(rows.length) + ' baris, dikelompokkan Area › Micro Cluster; klik panah untuk membuka.</p>' : paged ? mbPager('visits-page', page, totalPages, 'Menampilkan ' + (rows.length ? start + 1 : 0) + '–' + Math.min(start + pageSize, rows.length) + ' dari ' + fmtCount(rows.length) + ' baris') : '';
     var legend = ecOn ? 'Sel = Effective Call hari itu: kunjungan produktif (Sell-In SP/VC > 0 atau saldo > Rp 50 Rb) ÷ rencana kunjungan, yaitu % outlet PJP yang berhasil sell-in. Warna = EC ÷ target KPI ' + EC_TARGET + '% pada standar: ' + heatLegend(true) + '; · = tidak ada rencana.' : binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu. Warna: ' + heatLegend(true) + '; · = tidak ada rencana.';
     return card('Heatmap PJP Harian · per ' + entity + ' · ' + mbScopeLabel(vf),
-      '' + '<div class="map-toolbar" style="margin-bottom:8px;"><div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.concat([['ec', 'Eff Call of the day (produktif ÷ rencana)']]).map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : view) === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && (binary || !ecBrandOk) ? '<span class="note">' + (binary ? 'Eff Call per outlet tidak dihitung harian; tampilan outlet memakai ✓ / ○.' : 'Eff Call hanya untuk semua brand; kosongkan filter brand.') + '</span>' : '') + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + (ecOn ? th('Rencana', 1) + th('Produktif', 1) + th('% Eff Call', 1) : pjOverallHead()) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
+      '' + '<div class="map-toolbar" style="margin-bottom:8px;">' + pjBasisBar() + '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.concat([['ec', 'Eff Call of the day (produktif ÷ rencana)']]).map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : view) === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && (binary || !ecBrandOk) ? '<span class="note">' + (binary ? 'Eff Call per outlet tidak dihitung harian; tampilan outlet memakai ✓ / ○.' : 'Eff Call hanya untuk semua brand; kosongkan filter brand.') + '</span>' : '') + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + (ecOn ? th('Rencana', 1) + th('Produktif', 1) + th('% Eff Call', 1) : pjOverallHead()) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
       '<p class="note">' + (ecOn ? '' : PJ_VIEW_NOTE.trim() + ' ') + legend + ' Klik tanggal (kolom) atau sel mana pun untuk membuka performa hari itu per DSE dan per outlet. "Detail" memperkecil cakupan ke tingkat di bawahnya.</p>');
   }
   function mbDayDetail(vf) {
@@ -9701,6 +9765,7 @@
       var pjpM = ovPct(aP, pP), pjpD = ovPct(daP, dpP), pjpT = ovPct(ac, pl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);
       var cPJP = ['DSE', 'ID', 'MC', 'Rencana PJP (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], dsP = ds.filter(function (r) { return r.pl > 0 && r.inM; }), dsPP = dsP.filter(function (r) { return r.pl - r.ah > 0; });
       ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsPP.slice().sort(function (a, b) { return (a.ac - a.ah) / (a.pl - a.ah) - (b.ac - b.ah) / (b.pl - b.ah); }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl - r.ah), ovN(r.ac - r.ah), ovSN(r.ac - r.pl), ovP((r.ac - r.ah) / (r.pl - r.ah) * 100), ovN(r.ah), ovN(r.ac)]; }), ['Total PJP (P): ' + ovN(aP) + ' terlaksana dari ' + ovN(pP) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl) + ' · Adhoc (A) ' + ovN(ah) + ' · Total visit (T = P + A) ' + ovN(ac) + ' dari ' + ovN(pl) + ' (' + ovP(pjpT) + ')', n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD'].concat(nU ? ['Tidak termasuk daftar: ' + ovN(nU) + ' login belum terpetakan ke master (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + '); angka rencana dan terlaksana di atas sudah memuatnya'] : []));
+      _ovReg.pjp_mtd_a = _ovReg.pjp_mtd; _ovReg.pjp_mtd_t = _ovReg.pjp_mtd;   // the Adhoc (A) and Total (T) cards open the same DSE list (it shows P, A and T)
       var dD = ds.filter(function (r) { return r.inM && r.dpl > 0 && r.dac < r.dpl; }).sort(byGap(function (r) { return r.dpl - r.dac; }));
       var cD1 = ['DSE', 'ID', 'MC', 'Rencana PJP D-1 (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], rD1 = function (r) { var pp = r.dpl - r.dah, pa = r.dac - r.dah; return [r.name, r.code, r.mc, ovN(pp), ovN(pa), ovSN(r.dac - r.dpl), pp > 0 ? ovP(pa / pp * 100) : 'n/a', ovN(r.dah), ovN(r.dac)]; };
       ovAdd('pjp_d1', 'PJP D-1 ' + dlabel + ' · DSE yang belum 100%', cD1, ovRows(dD, rD1), ['Total D-1 PJP (P): ' + ovN(daP) + ' dari ' + ovN(dpP) + ' rencana (' + ovP(pjpD) + '), gap ' + ovSN(dac - dpl) + ' · Adhoc (A) ' + ovN(dah) + ' · Total (T) ' + ovN(dac) + ' dari ' + ovN(dpl), dD.length + ' DSE belum 100% dari ' + nDd + ' DSE terjadwal']);
@@ -9713,8 +9778,8 @@
       ovAdd('ec80', 'DSE dengan Effective Call > 80% (MTD)', cEC, ovRows(topEc, function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.8) + ' vs 80%']; }, 60), [nEc + ' dari ' + nD + ' DSE di atas 80% (MTD) · D-1: ' + nEcD + ' dari ' + nDd, 'Daftar urut dari EC tertinggi']);
       out.push(ovKpiGroup('PJP dan Effective Call · ' + scope, [
         ovK('pjp_mtd', '% PJP MTD (P)', ovP(pjpM), ovN(aP) + ' / ' + ovN(pP) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE terpetakan · ' + (nU ? ovN(nU) + ' login belum terpetakan (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + ') · ' : '') + 'tanpa promotor'),
-        ovK('pjp_mtd', 'Visit Adhoc MTD (A)', ovN(ah), ovP(ovPct(ah, ac)) + ' dari ' + ovN(ac) + ' visit · D-1 ' + ovN(dah), 'up', 'Check-in tanpa beat plan, tidak masuk rencana'),
-        ovK('pjp_mtd', 'Total Visit MTD (T = P + A)', ovP(pjpT), ovN(ac) + ' / ' + ovN(pl) + ' (rencana + adhoc) · gap ' + ovSN(ac - pl), ovCls(pjpT, 80), 'P + A terhadap rencana + adhoc'),
+        ovK('pjp_mtd_a', 'Visit Adhoc MTD (A)', ovN(ah), ovP(ovPct(ah, ac)) + ' dari ' + ovN(ac) + ' visit · D-1 ' + ovN(dah), 'up', 'Check-in tanpa beat plan, tidak masuk rencana'),
+        ovK('pjp_mtd_t', 'Total Visit MTD (T = P + A)', ovP(pjpT), ovN(ac) + ' / ' + ovN(pl) + ' (rencana + adhoc) · gap ' + ovSN(ac - pl), ovCls(pjpT, 80), 'P + A terhadap rencana + adhoc'),
         ovK('pjp_d1', 'D-1 PJP % (P) · ' + dlabel, ovP(pjpD), ovN(daP) + ' / ' + ovN(dpP) + ' · gap ' + ovSN(dac - dpl), ovCls(pjpD, 80), 'Hari kerja terakhir di feed PJP'),
         ovK('dse100', '% DSE dengan PJP 100%', ovP(ovPct(n100d, nDd)), n100d + ' / ' + nDd + ' DSE · ' + (nDd - n100d) + ' belum 100%', ovCls(ovPct(n100d, nDd), 50), 'D-1 · MTD: ' + n100m + ' / ' + nD + ' DSE'),
         ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(pl) + ' · vs 50%: ' + ovSN(pr - pl * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · dihitung total P + A: produktif (SP/VC > 0 atau saldo > Rp 50 Rb) ÷ (rencana + adhoc)'),
@@ -10705,6 +10770,7 @@
     else if (t.hasAttribute('data-pj-group')) { state.pjGroupBy = t.getAttribute('data-pj-group'); }
     else if (t.hasAttribute('data-pj-prodview')) { state.pjProdView = t.getAttribute('data-pj-prodview'); }
     else if (t.hasAttribute('data-pj-topby')) { state.pjTopBy = t.getAttribute('data-pj-topby'); }
+    else if (t.hasAttribute('data-pjp-basis')) { state.pjpBasis = t.getAttribute('data-pjp-basis'); state.visitsPage = 1; }
     else if (t.hasAttribute('data-pjp-metric')) { state.pjpMetric = t.getAttribute('data-pjp-metric'); }
     else if (t.hasAttribute('data-pj-heatmode')) { state.pjHeatMode = t.getAttribute('data-pj-heatmode'); }
     else if (t.hasAttribute('data-kro-tab')) { state.kroTab = t.getAttribute('data-kro-tab'); state.kroPage = 1; state.kroFlag = 'all'; }
@@ -10718,6 +10784,7 @@
     else if (t.hasAttribute('data-ioh-master')) { state.iohMaster = t.getAttribute('data-ioh-master'); state.iohPage = 1; }
     else if (t.hasAttribute('data-ioh-page')) { var ip = t.getAttribute('data-ioh-page'); if (ip === 'prev' && state.iohPage > 1) state.iohPage--; else if (ip === 'next') state.iohPage++; }
     else if (t.getAttribute('data-act') === 'export-ioh-csv') { exportIohCsv(iohRows()); return; }
+    else if (t.hasAttribute('data-terr-brand')) { state.terrBrand = t.getAttribute('data-terr-brand'); state.terrPage = 1; }
     else if (t.hasAttribute('data-terr-flag')) { state.terrFlag = t.getAttribute('data-terr-flag'); state.terrPage = 1; }
     else if (t.hasAttribute('data-prg-toggle')) { var pK = kroFeed(), pn = t.getAttribute('data-prg-toggle'), pc = prgSelected(pK), pi = pc.indexOf(pn); if (pi >= 0) pc.splice(pi, 1); else pc.push(pn); state.prg = pc.length === prgNames(pK).length ? '' : (pc.length ? pc.join('~') : '-'); state.kroPage = 1; }
     else if (t.hasAttribute('data-prg-mode')) { state.prgMode = t.getAttribute('data-prg-mode') === 'all' ? 'all' : 'any'; state.kroPage = 1; }
@@ -11312,8 +11379,8 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gtUse'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
-    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab'], mb_penjualan: ['pjTab', 'sgaTab'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gtUse'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
+    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];

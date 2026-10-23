@@ -353,6 +353,24 @@ def apply(base_outlets, cat_dir=None):
     # ---- result
     for o in outlets:
         o.pop('_del', None)
+    # ---- 4. Entity and brand flag (owner, 23 Oct 2026; docs/assessments/hybrid_entity_recommendation.md): one physical outlet = one entity.
+    # brand_flag is derived from the ids (never copied from the catalogue label Status Pairing); the label stays in pairing_status and a contradiction is flagged.
+    n3 = Counter(nid(o.get('outlet_id_3id')) for o in outlets if nid(o.get('outlet_id_3id')))
+    for o in outlets:                                         # a 3ID id on several outlet rows (also outlets added from FINAL) is an open pairing decision, flagged like the others
+        i3 = nid(o.get('outlet_id_3id'))
+        if i3 and n3[i3] > 1 and 'PAIR_3ID_GANDA' not in str(o.get('flags') or ''):
+            add_flag(o, 'PAIR_3ID_GANDA'); add_flag(o, 'ID_PERLU_VERIFIKASI')
+    flags_n = Counter()
+    for o in outlets:
+        a, b = bool(nid(o.get('outlet_id_im3'))), bool(nid(o.get('outlet_id_3id')))
+        o['brand_flag'] = 'HYBRID' if a and b else ('IM3_ONLY' if a else ('3ID_ONLY' if b else 'TANPA_ID'))
+        o['entity_id'] = o.get('outlet_id_ioh') or o['outlet_key']          # Outlet ID IOH when the catalogue has it, else the internal outlet_key
+        lab = str(o.get('pairing_status') or '').upper()
+        o['flag_status_conflict'] = '1' if lab and ((lab.startswith('DUAL') and o['brand_flag'] != 'HYBRID') or (lab.startswith('SINGLE') and o['brand_flag'] == 'HYBRID')) else ''
+        flags_n[o['brand_flag']] += 1
+        if o['flag_status_conflict']:
+            flags_n['conflict'] += 1
+    rep['brand_flag'] = dict(flags_n)
     rep['outlets_total'] = len(outlets)
     return outlets, rep, hold, flag_rows
 

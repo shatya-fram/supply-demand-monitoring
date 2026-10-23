@@ -42,6 +42,7 @@ import statistics
 import zipfile
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
+import entity_map            # shared outlet entity resolver: a Hybrid outlet (IM3 + 3ID ids) is one entity (owner, 23 Oct 2026)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -424,7 +425,7 @@ def stat_sets(s, sched, brand, brand_level=False):
             t.append(op_brand[s["pid"]][brand])
     return t
 
-# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive, adhoc, adhoc_im3, adhoc_3id, adhoc_productive]
+# Daily series per entity for the calendar heatmap: [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive, adhoc, adhoc_im3, adhoc_3id, adhoc_productive] (+ entity-day planned, executed, adhoc at 11..13, appended by daily_series)
 # (planned / executed / productive are totals incl. ad-hoc stops, i.e. the T view; P = total - ad-hoc)
 daily_by = {lvl: defaultdict(lambda: defaultdict(lambda: [0] * 11)) for lvl in ("br", "mc", "op")}
 op_outlet_days = defaultdict(dict)           # person -> (brand, org id) -> {n, mc, k, d: {date: 'p' planned | 'x' executed}}
@@ -590,6 +591,7 @@ for (brand, sched, _bp, _org), s in stops.items():
     phys = s["sp"] > 0 or s["vc"] > 0
     sal = s["saldo"] > SALDO_MIN_RP
     flow = s["si"] or s["bt"]
+    s["pf"] = bool(phys or sal)
     if not s["ci"]:
         if phys or sal:
             prod_without_ci += 1
@@ -608,6 +610,54 @@ for (brand, sched, _bp, _org), s in stops.items():
         if phys or sal: S["productive"] += 1
         if s["ah"] and (phys or sal): S["ah_prod"] += 1
         S["sp_qty"] += s["sp"]; S["vc_qty"] += s["vc"]; S["saldo_rp"] += s["saldo"]
+
+# Entity-day view (owner, 23 Oct 2026): one physical outlet per day is ONE planned / executed / productive visit, whatever the number of brands.
+# A Hybrid outlet planned under IM3 and 3ID is one entity-day; a Hybrid is credited to the DSE of its IM3 login. Counted on the same stops as the PJP measures (promotors and
+# ad-hoc visits at unassigned outlets are left out). T = every entity-day; P = entity-days with a beat-plan stop; A = entity-days with ad-hoc check-ins only (no beat-plan stop that day).
+EM = entity_map.get()
+ent_days = {}
+for (brand, sched, _bp, org), s in stops.items():
+    if s["x"]:
+        continue
+    ek = s["k"] or EM.entity_of(brand, org)
+    d = ent_days.setdefault((ek, sched), {"br": s["br"], "mc": s["mc"], "pid": {}, "brands": set(), "exb": set(), "pl": False, "ex": False, "prod": False})
+    d["brands"].add(brand)
+    d["pid"].setdefault(brand, s["pid"])
+    if not s["ah"]:
+        d["pl"] = True
+    if s["ci"]:
+        d["ex"] = True
+        d["exb"].add(brand)
+        if s["pf"]:
+            d["prod"] = True
+ent_stats = {lvl: defaultdict(Counter) for lvl in ("day", "br", "mc", "op")}
+ent_daily = {lvl: defaultdict(lambda: defaultdict(Counter)) for lvl in ("br", "mc", "op")}      # level -> key -> day -> counts, for the entity heatmap cells
+for (ek, sched), d in ent_days.items():
+    pid = d["pid"].get("IM3") or d["pid"].get("3ID")
+    for lvl, key in (("br", d["br"]), ("mc", d["mc"]), ("op", pid)):
+        cd = ent_daily[lvl][key][sched]
+        cd["pl"] += 1
+        cd["ac"] += d["ex"]
+        cd["ah"] += (not d["pl"]) and d["ex"]
+    for lvl, key in (("day", sched), ("br", d["br"]), ("mc", d["mc"]), ("op", pid)):
+        c = ent_stats[lvl][key]
+        c["pl"] += 1
+        c["ac"] += d["ex"]
+        c["prod"] += d["prod"]
+        c["p_pl"] += d["pl"]
+        c["p_ac"] += d["pl"] and d["ex"]
+        c["ah"] += (not d["pl"]) and d["ex"]
+        c["dual"] += len(d["brands"]) == 2
+        c["dual_ac"] += len(d["exb"]) == 2
+
+
+def ent_fields(c):
+    pl, ac = c["pl"], c["ac"]
+    return {"entity_planned": pl, "entity_actual": ac, "entity_hit_rate": round(ac / pl * 100, 1) if pl else 0.0, "entity_productive": c["prod"],
+            "entity_p_planned": c["p_pl"], "entity_p_actual": c["p_ac"], "entity_adhoc": c["ah"],
+            "entity_dual": c["dual"], "entity_dual_visited": c["dual_ac"]}
+
+
 pjp_stops = {k_: v_ for k_, v_ in stops.items() if not v_["x"]}      # promotor and ad-hoc visits are not PJP measures
 total_planned = len(pjp_stops)
 total_actual = sum(1 for s in pjp_stops.values() if s["ci"])
@@ -632,8 +682,10 @@ total_sites = len(site_outlets)
 
 
 def daily_series(lvl, key):
+    # cell = [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive, adhoc, adhoc_im3, adhoc_3id, adhoc_productive, entity planned, entity executed, entity adhoc]
     inner = daily_by[lvl].get(key, {})
-    return [list(inner[d]) if d in inner else [0] * 11 for d in DAYS]
+    ent = ent_daily[lvl].get(key, {})
+    return [(list(inner[d]) if d in inner else [0] * 11) + ([ent[d]["pl"], ent[d]["ac"], ent[d]["ah"]] if d in ent else [0, 0, 0]) for d in DAYS]
 
 
 def hybrid(keys):
@@ -680,6 +732,7 @@ for d in sorted(daily_stats, key=lambda x: parse_d(x)):
     row.update({"planned": sb["planned_visits"], "actual": sb["actual_visits"], "target_hit_rate": sb["target_hit_rate"],
                 "planned_im3": sb["planned_im3"], "planned_3id": sb["planned_3id"], "im3": sb["im3_visits"], "3id": sb["3id_visits"],
                 "productive": sb["productive_visits"], "productive_rate": sb["productive_rate"], "productive_phys": sb["productive_phys"], "productive_saldo": sb["productive_saldo"], "flow_rate": sb["flow_rate"],
+                **ent_fields(ent_stats["day"][d]),
                 "adhoc": sb["adhoc_visits"], "adhoc_im3": sb["adhoc_im3"], "adhoc_3id": sb["adhoc_3id"], "adhoc_productive": sb["adhoc_productive"],
                 "avg_duration": sb["avg_duration"], "median_deviation_m": sb["median_deviation_m"]})
     daily_timeline.append(row)
@@ -692,12 +745,14 @@ for br, outs in sorted(branch_outlets.items(), key=lambda x: len(x[1]), reverse=
     row = {"branch": br, "hoa_leader": hoa_map.get(br, "N/A"), "outside": False}
     row.update(coverage_block(outs))
     row.update(stat_block(branch_stats[br]))
+    row.update(ent_fields(ent_stats["br"][br]))
     row["daily"] = daily_series("br", br)
     branch_list.append(row)
 if branch_stats[OUTSIDE]["planned"]:
     row = {"branch": OUTSIDE, "hoa_leader": "—", "outside": True}
     row.update(coverage_block(set()))
     row.update(stat_block(branch_stats[OUTSIDE]))
+    row.update(ent_fields(ent_stats["br"][OUTSIDE]))
     row["daily"] = daily_series("br", OUTSIDE)
     branch_list.append(row)
 
@@ -706,12 +761,14 @@ for mc, outs in sorted(mc_outlets.items(), key=lambda x: len(x[1]), reverse=True
     row = {"micro_cluster": mc, "branch": mc_branch.get(mc, "N/A"), "dso_leader": dso_map.get(mc, "N/A"), "outside": False}
     row.update(coverage_block(outs, mc_for_site=mc))
     row.update(stat_block(mc_stats[mc]))
+    row.update(ent_fields(ent_stats["mc"][mc]))
     row["daily"] = daily_series("mc", mc)
     mc_list.append(row)
 if mc_stats[OUTSIDE]["planned"]:
     row = {"micro_cluster": OUTSIDE, "branch": OUTSIDE, "dso_leader": "—", "outside": True}
     row.update(coverage_block(set()))
     row.update(stat_block(mc_stats[OUTSIDE]))
+    row.update(ent_fields(ent_stats["mc"][OUTSIDE]))
     row["daily"] = daily_series("mc", OUTSIDE)
     mc_list.append(row)
 
@@ -757,6 +814,7 @@ for pid, S in op_stats.items():
                 row["flags"].append(_r["flag"])
             row["flag_notes"].append((_r["note"] + (" · dugaan pemilik: " + _r["dugaan_pemilik"] if _r.get("dugaan_pemilik") else "")).strip())
     row.update(stat_block(S))
+    row.update(ent_fields(ent_stats["op"][pid]))
     row["total_checkins"] = row["actual_visits"]
     row["daily"] = daily_series("op", pid)
     row["outlets"] = sorted(
@@ -868,6 +926,7 @@ w1_rate, w2_rate = w1_ac / max(len(W1_AVAIL), 1), w2_ac / max(len(W2_AVAIL), 1)
 
 regional_summary = {
     "total_planned_visits": total_planned, "total_actual_visits": total_actual, "adhoc_visits_no_beatplan": sum(1 for s_ in pjp_stops.values() if s_["ah"] and s_["ci"]),
+    "entity": {**ent_fields(sum(ent_stats["day"].values(), Counter())), "entities": len({ek for ek, _ in ent_days}), "rule": "entity-day = one physical outlet per day (Hybrid IM3 + 3ID counted once, credited to the IM3 login's DSE); T = all entity-days, P = days with a beat-plan stop, A = days with ad-hoc check-ins only"},
     "target_hit_rate": round(total_actual / total_planned * 100, 1) if total_planned else 0.0,
     "planned_im3": sum(d["planned_im3"] for d in daily_stats.values()), "planned_3id": sum(d["planned_3id"] for d in daily_stats.values()),
     "im3_visits": sum(d["im3"] for d in daily_stats.values()), "3id_visits": sum(d["3id"] for d in daily_stats.values()),

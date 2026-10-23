@@ -21,6 +21,8 @@ import re
 import struct
 import sys
 import zipfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import entity_map          # a Hybrid outlet outside the master is ONE entity (catalogue pair, key C:<im3>_<3id>; owner, 23 Oct 2026)
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -466,7 +468,7 @@ for (brand, oid), x in rows_by.items():
         if qs + qo <= 0:
             dropped[brand] += 1
             continue
-        key, tier = f"G:{brand}:{oid}", "G"
+        key, tier = entity_map.merge_key(brand, oid, f"G:{brand}:{oid}"), "G"
         mc = x["mc"]
         br = (mc_info.get(mc) or {}).get("br") or OUTSIDE
         if mc not in mc_info:

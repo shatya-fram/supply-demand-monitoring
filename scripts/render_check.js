@@ -416,6 +416,23 @@ state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringk
 { const eo = (global.ENDBAL_FEED && global.ENDBAL_FEED.outlets.find(o => o.m === fm.micro_cluster)); if (eo) { state.ebOpen = {}; state.ebOpen[eo.m + '||' + eo.d] = true; state.ebTab = 'detail'; check('endbal/detail/open-dse', VIEWS.mb_endbal); state.ebOpen = {}; } }
 state.ebTab = 'site'; { const so = global.ENDBAL_FEED.outlets.find(o => o.s && o.m === fm.micro_cluster); if (so) { state.ebSite = so.s + '::' + so.m; check('endbal/site/open', VIEWS.mb_endbal); state.ebSite = null; } }
 state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
+// Entity-day heatmap basis (23 Okt 2026): both heatmaps render at every level in every cell view on the entity basis, and the entity rows add up to the feed
+{ const F = global.dseVisitsFeed, EN = F.regional_summary.entity; state.pjpBasis = 'entity'; state.visitsBrandFilter = 'all'; state.branch = ''; state.kec = ''; state.visitsDse = null;
+  for (const mt of ['pjp', 'adhoc', 'total']) for (const lv of ['area', 'mc', 'dse', 'outlet']) {
+    state.pjpMetric = mt; state.visitsLevel = lv; state.view = 'visits'; state.visitsSubView = 'heat'; let h = ''; check('pjp-heat-entity/visits/' + mt + '/' + lv, () => (h = VIEWS.visits()));
+    if (!/Entity-day \(Hybrid = 1\)/.test(h)) { failures++; console.log('✗ entity basis button missing at ' + lv); }
+    state.view = 'mb_pjp'; check('pjp-heat-entity/mb_pjp/' + mt + '/' + lv, () => VIEWS.mb_pjp()); }
+  const sumA = F.branches.reduce((a, b) => a + b.daily.reduce((x, c) => x + (c[11] || 0), 0), 0), sumE = F.branches.reduce((a, b) => a + b.entity_planned, 0);
+  if (sumA !== EN.entity_planned || sumE !== EN.entity_planned) { failures++; console.log('✗ entity daily cells ' + sumA + ' / rows ' + sumE + ' ≠ regional ' + EN.entity_planned); } else console.log('✓ entity heatmap cells'.padEnd(32) + String(sumA).padStart(9) + ' entity-days = regional');
+  state.pjpBasis = 'stop'; state.pjpMetric = 'pjp'; state.visitsLevel = 'auto'; }
+// Entity / brand flag (23 Okt 2026): Data Outlet brand filter and panel, entity-day line in the PJP scorecards
+{ for (const bf of ['', 'HYBRID', 'IM3_ONLY', '3ID_ONLY']) { state.view = 'territory'; state.terrSubView = 'outlets'; state.terrBrand = bf; let h = ''; check('territory/brand=' + (bf || 'all'), () => (h = VIEWS.territory())); if (!/Jenis brand outlet/.test(h)) { failures++; console.log('✗ territory brand panel missing'); } }
+  state.terrBrand = '';
+  const mh = global.TERRITORY_FEED.outlets, cnt = { HYBRID: 0, IM3_ONLY: 0, '3ID_ONLY': 0 }; mh.forEach(o => { if (cnt[o.brand_flag] != null) cnt[o.brand_flag]++; });
+  if (!(cnt.HYBRID > 0 && cnt.HYBRID + cnt.IM3_ONLY + cnt['3ID_ONLY'] >= mh.length - 3)) { failures++; console.log('✗ territory feed brand_flag counts ' + JSON.stringify(cnt)); } else console.log('✓ brand flag counts'.padEnd(32) + JSON.stringify(cnt));
+  state.view = 'mb_pjp'; state.visitsBrandFilter = 'all'; state.branch = ''; state.kec = ''; state.visitsDse = null; state.pjpTab = 'heat'; state.visitsLevel = 'auto';
+  let hv = ''; state.branch = global.TERRITORY_FEED.outlets[0].branch; check('entity-line/visits', () => { state.view = 'visits'; state.visitsSubView = 'heat'; return (hv = VIEWS.visits()); }); state.view = 'mb_pjp'; state.branch = '';
+  if (!/Per entity-day/.test(hv)) { failures++; console.log('✗ visits scorecard lacks the entity-day line'); } }
 // PJP heatmap P / A / T split (23 Okt 2026): every cell view renders at every level in both heatmaps, and the feed adds up (T = P + ad-hoc: regional ad-hoc = sum of the daily timeline = sum of areas)
 { const F = global.dseVisitsFeed, rs = F.regional_summary.adhoc_visits_no_beatplan, tl = F.daily_timeline.reduce((a, d) => a + (d.adhoc || 0), 0), br = F.branches.reduce((a, b) => a + (b.adhoc_visits || 0), 0);
   if (!(rs > 0) || rs !== tl || rs !== br) { failures++; console.log('✗ pjp adhoc totals regional ' + rs + ' timeline ' + tl + ' areas ' + br); } else console.log('✓ pjp adhoc totals'.padEnd(32) + String(rs).padStart(9) + ' ad-hoc visits = timeline = areas');
