@@ -3606,9 +3606,9 @@
     var dt = new Date(iso + 'T00:00:00');
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()];
   }
-  function sellinBtnGroup(label, attr, items, current) {
-    return '<div class="map-toolbar-group"><span class="map-label">' + label + ':</span>' + items.map(function (i) {
-      return '<button type="button" class="map-btn' + (current === i[0] ? ' active' : '') + '" data-' + attr + '="' + i[0] + '">' + i[1] + '</button>';
+  function sellinBtnGroup(label, attr, items, current, disabledNote) {   // disabledNote: the filter does not apply on this page, the buttons are shown disabled with that note
+    return '<div class="map-toolbar-group" role="group" aria-label="' + esc(label) + '"' + (disabledNote ? ' title="' + esc(disabledNote) + '"' : '') + '><span class="map-label">' + label + ':</span>' + items.map(function (i) {
+      return '<button type="button" class="map-btn' + (current === i[0] ? ' active' : '') + '" data-' + attr + '="' + i[0] + '" aria-pressed="' + (current === i[0]) + '"' + (disabledNote ? ' disabled aria-disabled="true"' : '') + '>' + i[1] + '</button>';
     }).join('') + '</div>';
   }
   function sellinCompute(feed) {
@@ -6350,9 +6350,10 @@
   function gaGrow(a, b) { return b > 0 ? (a / b - 1) * 100 : null; }
   function gaSlabIdx(v) { var i; for (i = GA_SLABS.length - 1; i >= 0; i--) { if (v >= GA_SLABS[i][0]) return i; } return 0; }
   function gaBar(tab) {
+    var noSeg = gaBasis() === 'site' && tab === 'ringkasan' && gsFeed() ? 'Tidak berlaku di Site location GA: file RGU GA per MSISDN tidak memuat sumber outlet (PJP / NON / KAM) dan cakupan' : '';
     return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Site location GA (site aktivasi) · kinerja HoA / Region / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
-      sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all') +
-      sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet PJP']], state.gaCover || 'all') + '</div>';
+      sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all', noSeg) +
+      sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet PJP']], state.gaCover || 'all', noSeg) + '</div>';
   }
   function gaTabNav() {
     return gaBar(state.gaTab || 'ringkasan') + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + (x[0] === 'ringkasan' && gaBasis() === 'site' && gsFeed() ? '📍 Site location GA · kemasukan dan pengiriman' : x[1]) + '</button>'; }).join('') + '</div>';
@@ -9936,25 +9937,32 @@
   function ovRender(el) {
     var e = ovEntry(el._key), st = el._s, rows = st.col >= 0 ? ovSortRows(e.rows, st.col, st.dir) : e.rows, shown = rows.slice(0, 200), numFrom = e.cols.length > 6 ? 4 : 3;
     el._rows = rows;
-    el.innerHTML = '<div class="ov-box" role="dialog" aria-label="' + esc(e.title) + '"><div class="ov-head"><div><div class="ov-title">' + esc(e.title) + '</div><div class="ov-scope">' + esc(_ovScope) + ' · ' + fmtCount(e.rows.length) + ' baris · klik judul kolom untuk mengurutkan · gambar memuat 60 baris pertama</div></div><div class="ov-actions"><button type="button" class="btn" data-ov-copy="' + el._key + '" title="Salin tabel sebagai teks (tempel ke chat, email atau Excel)">📋 Salin tabel</button><button type="button" class="btn" data-ov-img="' + el._key + '" title="Salin laporan sebagai gambar (tempel ke chat atau dokumen)">🖼️ Salin gambar</button><button type="button" class="btn" data-ov-png="' + el._key + '" title="Unduh laporan sebagai PNG">⬇️ PNG</button><button type="button" class="btn" data-ov-close="1" aria-label="Tutup">✕</button></div></div>' +
+    el.innerHTML = '<div class="ov-box" role="dialog" aria-modal="true" aria-label="' + esc(e.title) + '"><div class="ov-head"><div><div class="ov-title">' + esc(e.title) + '</div><div class="ov-scope">' + esc(_ovScope) + ' · ' + fmtCount(e.rows.length) + ' baris · klik judul kolom untuk mengurutkan · gambar memuat 60 baris pertama</div></div><div class="ov-actions"><button type="button" class="btn" data-ov-copy="' + el._key + '" title="Salin tabel sebagai teks (tempel ke chat, email atau Excel)">📋 Salin tabel</button><button type="button" class="btn" data-ov-img="' + el._key + '" title="Salin laporan sebagai gambar (tempel ke chat atau dokumen)">🖼️ Salin gambar</button><button type="button" class="btn" data-ov-png="' + el._key + '" title="Unduh laporan sebagai PNG">⬇️ PNG</button><button type="button" class="btn" data-ov-close="1" aria-label="Tutup">✕</button></div></div>' +
       (e.lines.length ? '<ul class="ov-lines">' + e.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
-      '<div class="ov-body"><table class="tbl" data-nosort="1"><thead><tr><th class="num">#</th>' + e.cols.map(function (c, i) { return '<th data-col="' + i + '" style="cursor:pointer; white-space:nowrap;"' + (i >= numFrom ? ' class="num"' : '') + '>' + esc(c) + (st.col === i ? (st.dir > 0 ? ' ▲' : ' ▼') : ' <span style="opacity:.3;">⇅</span>') + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      '<div class="ov-body"><table class="tbl" data-nosort="1"><thead><tr><th class="num">#</th>' + e.cols.map(function (c, i) { return '<th data-col="' + i + '" tabindex="0" aria-sort="' + (st.col === i ? (st.dir > 0 ? 'ascending' : 'descending') : 'none') + '" style="cursor:pointer; white-space:nowrap;"' + (i >= numFrom ? ' class="num"' : '') + '>' + esc(c) + (st.col === i ? (st.dir > 0 ? ' ▲' : ' ▼') : ' <span style="opacity:.3;">⇅</span>') + '</th>'; }).join('') + '</tr></thead><tbody>' +
       (shown.map(function (r, i) { return '<tr><td class="num">' + (i + 1) + '</td>' + r.map(function (c, j) { return '<td' + (j >= numFrom ? ' class="num"' : '') + '>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="' + (e.cols.length + 1) + '" class="note">Tidak ada data pada teritori ini.</td></tr>') + '</tbody></table>' + (rows.length > shown.length ? '<p class="note">Menampilkan ' + shown.length + ' dari ' + fmtCount(rows.length) + ' baris; tombol Salin membawa semua baris dengan urutan yang sedang tampil.</p>' : '') + '</div></div>';
     el.innerHTML = brRelabelHtml(el.innerHTML); dseFlagEnhance(el); dseLoginEnhance(el);
+    if (el._fc != null) { var ft = el.querySelector('th[data-col="' + el._fc + '"]'); el._fc = null; if (ft && ft.focus) ft.focus(); }
   }
   function ovOpen(key) {
     var e = ovEntry(key); if (!e || typeof document === 'undefined') return;
     ovClose();
-    var el = document.createElement('div'); el.id = 'ovPop'; el._key = key; el._s = { col: -1, dir: 1 };
+    var el = document.createElement('div'); el.id = 'ovPop'; el._key = key; el._s = { col: -1, dir: 1 }; el._prev = document.activeElement;
     ovRender(el);
+    el.addEventListener('keydown', function (ev) {   // keyboard: sortable headers work with Enter / Space, Tab stays inside the dialog
+      var th = ev.target.closest ? ev.target.closest('th[data-col]') : null;
+      if (th && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); el._fc = th.getAttribute('data-col'); th.click(); return; }
+      if (ev.key === 'Tab') { var f = [].slice.call(el.querySelectorAll('button, th[data-col], [href], input, select, textarea')).filter(function (x) { return !x.disabled; }); if (!f.length) return; var i = f.indexOf(document.activeElement); if (ev.shiftKey && i <= 0) { ev.preventDefault(); f[f.length - 1].focus(); } else if (!ev.shiftKey && (i === f.length - 1 || i < 0)) { ev.preventDefault(); f[0].focus(); } }
+    });
     el.addEventListener('click', function (ev) {
       var th = ev.target.closest ? ev.target.closest('th[data-col]') : null;
       if (th) { var c = +th.getAttribute('data-col'), numeric = ovEntry(el._key).rows.some(function (r) { return ovNum(r[c]) != null; }); el._s = { col: c, dir: el._s.col === c ? -el._s.dir : (numeric ? -1 : 1) }; ovRender(el); return; }
       if (ev.target === el) ovClose();
     });
     document.body.appendChild(el);
+    var cb = el.querySelector('[data-ov-close]'); if (cb && cb.focus) cb.focus();
   }
-  function ovClose() { if (typeof document === 'undefined') return; var el = document.getElementById('ovPop'); if (el) el.parentNode.removeChild(el); }
+  function ovClose() { if (typeof document === 'undefined') return; var el = document.getElementById('ovPop'); if (el) { var prev = el._prev; el.parentNode.removeChild(el); if (prev && prev.focus && document.body.contains(prev)) prev.focus(); } }
   function ovCopy(key, btn) {
     var e = ovEntry(key); if (!e) return; var pop = typeof document !== 'undefined' ? document.getElementById('ovPop') : null, txt = ovText(e, pop && pop._key === key ? pop._rows : null), done = function () { if (btn) { var o = btn.textContent; btn.textContent = '✓ Tersalin'; setTimeout(function () { btn.textContent = o; }, 1500); } };
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { ovCopyFallback(txt); done(); });
