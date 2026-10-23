@@ -47,25 +47,27 @@ def main():
             continue
         types = d.get('operator_types') or [d.get('operator_type')]
         pt.append({'pid': d['person_id'], 'n': d['dse_name'], 'logins': d['logins'], 'type': '/'.join(t for t in types if t), 'br': d['branch'], 'mc': d['micro_cluster'],
-                   'planned': d['planned_visits'], 'actual': d['actual_visits'], 'kind': 'Promotor PRJAYAIN' if d['is_promotor'] else 'Login di luar master', 'role': 'PROMOTOR TOKO'})
+                   'planned': d['planned_visits'], 'actual': d['actual_visits'], 'kind': 'Promotor PRJAYAIN' if d['is_promotor'] else 'Login di luar master', 'role': 'PROMOTOR TOKO',
+                   'prod': d['productive_visits'], 'sp': d['sp_qty'], 'vc': d['vc_qty'], 'saldo': d['saldo_rp'],
+                   'tx': bool(d['productive_visits'] > 0 or d['sp_qty'] > 0 or d['vc_qty'] > 0 or d['saldo_rp'] > 0)})      # flag: a PROMOTOR TOKO that really transacted (sell-in during a visit)
     pt.sort(key=lambda x: (x['kind'], x['n']))
     with open(os.path.join(CAT, 'dse_catalogue.csv'), 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f); w.writerow(['dse_name', 'role', 'status', 'login_im3', 'login_3id', 'branch', 'micro_cluster', 'dso', 'hoa', 'outlets', 'person_id'])
         for x in dse:
             w.writerow([x['n'], x['role'], x['status'], x['im3'], x['id3'], x['br'], x['mc'], x['dso'], x['hoa'], x['outlets'], x['pid']])
     with open(os.path.join(CAT, 'promotor_toko.csv'), 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f); w.writerow(['name_or_login', 'role', 'kind', 'logins', 'operator_type', 'branch', 'micro_cluster', 'planned_stops', 'executed_stops', 'person_id'])
+        w = csv.writer(f); w.writerow(['name_or_login', 'role', 'flag', 'kind', 'logins', 'operator_type', 'branch', 'micro_cluster', 'planned_stops', 'executed_stops', 'productive_visits', 'sp_qty', 'vc_qty', 'saldo_rp', 'person_id'])
         for x in pt:
-            w.writerow([x['n'], x['role'], x['kind'], ' '.join(x['logins']), x['type'], x['br'], x['mc'], x['planned'], x['actual'], x['pid']])
+            w.writerow([x['n'], x['role'], 'PROMOTOR TOKO TRANSAKSI' if x['tx'] else 'PROMOTOR TOKO', x['kind'], ' '.join(x['logins']), x['type'], x['br'], x['mc'], x['planned'], x['actual'], x['prod'], x['sp'], x['vc'], x['saldo'], x['pid']])
     feed = {'metadata': {'generated_at': datetime.now().isoformat(timespec='seconds'), 'source': 'data/catalogues/dse_master_hierarchy.csv (MASTER DSE Hirarki)', 'dse': len(dse), 'promotor_toko': len(pt),
-                         'promotor_toko_kinds': dict(Counter(x['kind'] for x in pt)), 'duplicate_names': sorted({x['n'] for x in dse if x['dup']}),
+                         'promotor_toko_kinds': dict(Counter(x['kind'] for x in pt)), 'promotor_toko_transaksi': sum(1 for x in pt if x['tx']), 'duplicate_names': sorted({x['n'] for x in dse if x['dup']}),
                          'rule': 'the DSE of the MASTER file are DSE (AKTIF) with the master login ids; every operator outside the master is PROMOTOR TOKO'},
             'dse': dse, 'pt': pt}
     with open(os.path.join(WEB, 'dse_catalogue_feed.js'), 'w', encoding='utf-8') as f:
         f.write('/* DSE catalogue (scripts/build_dse_catalogue.py): 272 DSE of the master file (role DSE, status AKTIF, master login ids) + PROMOTOR TOKO */\nwindow.DSE_CAT = ')
         json.dump(feed, f, ensure_ascii=False, separators=(',', ':'))
         f.write(';\n')
-    print(f"DSE catalogue: {len(dse)} DSE (AKTIF), {sum(1 for x in dse if x['pid'])} matched to a person id, {sum(x['outlets'] for x in dse):,} outlets; PROMOTOR TOKO: {len(pt)} {dict(Counter(x['kind'] for x in pt))}; duplicate names {feed['metadata']['duplicate_names']}")
+    print(f"DSE catalogue: {len(dse)} DSE (AKTIF), {sum(1 for x in dse if x['pid'])} matched to a person id, {sum(x['outlets'] for x in dse):,} outlets; PROMOTOR TOKO: {len(pt)} {dict(Counter(x['kind'] for x in pt))}, with transactions {sum(1 for x in pt if x['tx'])}; duplicate names {feed['metadata']['duplicate_names']}")
 
 
 if __name__ == '__main__':

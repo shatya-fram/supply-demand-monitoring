@@ -6050,7 +6050,12 @@
   // outlets without a DSE are ad-hoc visits outside the PJP for now (owner, 15 Oct 2026)
   function dseIsNone(n) { n = String(n == null ? '' : n).replace(/\.0$/, '').trim().toUpperCase(); return !n || n === '0' || n.indexOf('UNASSIGNED') === 0 || n === 'ADHOC (NON-PJP)' || n === 'TANPA DSE'; }
   function dseHtml(n) { return dseIsNone(n) ? '<span class="badge-adhoc" title="Outlet tanpa DSE: kunjungan dicatat sebagai ADHOC (non-PJP) untuk sementara">ADHOC · non-PJP</span>' : esc(n); }
-  function promoTag(d) { return d && (d.is_promotor || d.role === 'PROMOTOR TOKO') ? '<span class="badge-promotor" title="PROMOTOR TOKO: operator di luar file MASTER DSE (promotor PRJAYAIN## dan login yang tidak ada di master). Promotor tidak diukur sebagai produktivitas PJP; login di luar master tetap masuk total tetapi bukan DSE.">🎤 PROMOTOR TOKO</span>' : ''; }
+  function ptTx(d) { return !!d && (d.tx || (d.productive_visits || 0) > 0 || (d.sp_qty || 0) > 0 || (d.vc_qty || 0) > 0 || (d.saldo_rp || 0) > 0); }   // a PROMOTOR TOKO that really transacted (sell-in during a visit)
+  function promoTag(d) {
+    if (!d || !(d.is_promotor || d.role === 'PROMOTOR TOKO')) return '';
+    var tx = ptTx(d), tip = 'PROMOTOR TOKO: operator di luar file MASTER DSE (promotor PRJAYAIN## dan login yang tidak ada di master). Promotor tidak diukur sebagai produktivitas PJP; login di luar master tetap masuk total tetapi bukan DSE.' + (tx ? ' TRANSAKSI: operator ini melakukan sell-in saat kunjungan' + (d.prod != null ? ' (' + d.prod + ' kunjungan produktif, SP ' + (d.sp || 0) + ', VC ' + (d.vc || 0) + ', saldo Rp ' + fmtCount(d.saldo || 0) + ')' : '') + '.' : '');
+    return '<span class="badge-promotor" title="' + esc(tip) + '">🎤 PROMOTOR TOKO' + (tx ? ' · TRANSAKSI' : '') + '</span>';
+  }
   /* DSE catalogue (owner, 23 Okt 2026): the 272 DSE of the MASTER file are DSE (AKTIF) and show their NAME with the master login ids below; every operator outside the master is PROMOTOR TOKO.
      Feed DSE_CAT (scripts/build_dse_catalogue.py). A name shared by two people (SUSANTO) is not looked up by name. */
   var _dcMap = null;
@@ -6076,7 +6081,7 @@
         var n = cands.filter(function (c) { return c && (M.byName[c] || M.pt[c]); })[0]; if (!n) return;
         var d = document.createElement('div');
         if (M.byName[n]) { d.className = 'dse-login'; d.innerHTML = dseLoginsHtml(M.byName[n]); d.title = 'DSE aktif (file MASTER DSE) · login ID format master'; }
-        else { d.className = 'dse-role'; d.innerHTML = promoTag({ role: 'PROMOTOR TOKO' }); }
+        else { d.className = 'dse-role'; d.innerHTML = promoTag(M.pt[n]); }
         td.appendChild(d);
       });
     });
