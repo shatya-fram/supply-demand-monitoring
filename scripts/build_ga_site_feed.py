@@ -59,9 +59,14 @@ def find_csv():
 def main():
     tmp = tempfile.mkdtemp()
     subprocess.run(['node', '-e', """global.window=global;require(process.argv[2]+'/website/data/ga_feed.js');const F=GA_FEED,fs=require('fs');
-fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk,k:r.k})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
+fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk,k:r.k,s:r.s||[]})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
     F = json.load(open(tmp + '/feed.json'))
     fo = {(r['b'], nid(r['i'])): r for r in F['outlets']}
+    sep_fm = C.defaultdict(int)   # September GA per physical outlet (IM3 + 3ID folded by key k): standard slab ladder, owner 18 Oct 2026: Retail <= 30, KRO 31-100, Wholesaler > 100
+    for r in F['outlets']:
+        a = r.get('s') or []
+        sep_fm[r['k']] += sum(a[i + 1] for i in range(0, len(a), 2))
+    seg_of = lambda k: 'R' if sep_fm.get(k, 0) <= 30 else ('K' if sep_fm[k] <= 100 else 'W')
     mapping = {r['micro_cluster']: r for r in csv.DictReader(open(os.path.join(ROOT, 'data/catalogues/gaplok_location_mapping.csv')))}
     mc_area = {m: r['master_branch'] for m, r in mapping.items()}
     mi = F['mc_info']
@@ -94,10 +99,16 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     oid_ix, loc_ix, dloc_ix = {}, {}, {}
     ix = lambda d, k: d.setdefault(k, len(d))
     inrows, outrows = C.defaultdict(lambda: [0, 0]), C.defaultdict(lambda: [0, 0])
+    cutd = 0
+    kd = C.defaultdict(lambda: [[0] * 32, [0] * 32])          # activation kecamatan -> daily GA per brand
+    skd = C.defaultdict(lambda: C.defaultdict(lambda: [[0] * 32, [0] * 32]))   # activation kecamatan -> tagging segment (R K W N U Z) -> daily GA per brand
+    sdo = C.defaultdict(lambda: [[0] * 32, [0] * 32])         # segment of an IJ tagging outlet -> daily GA activated OUTSIDE IJ
+    site_days = C.defaultdict(lambda: [set(), set()])
     with open(path, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
             n_rows += 1
             b = B[row['ga_brand']]
+            dd = int(row['ga_dt'][8:])
             d_lo, d_hi = min(d_lo, row['ga_dt']), max(d_hi, row['ga_dt'])
             oid, omc = nid(row['outlet_id']), row['outlet_micro_cluster']
             fr = fo.get((row['ga_brand'], oid))
@@ -112,7 +123,13 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
             seg = None
             if o_ij:
                 seg = ('master ' + (fr['sg'] or 'tanpa segmen')) if fr and fr['t'] == 'M' else ('non-master ' + ((fr['sg'] or 'tanpa segmen') if fr else 'tanpa segmen'))
+            segc = (seg_of(fr['k']) if fr is not None else 'R') if o_ij else ('N' if omc else ('U' if oid else 'Z'))
+            if act == 'OUT' and o_ij:
+                sdo[segc][b][dd] += 1
             if act == 'IJ':
+                kd[ak][b][dd] += 1
+                skd[ak][segc][b][dd] += 1
+                site_days[row['activation_site_id']][b].add(dd)
                 sid = row['activation_site_id']
                 sj = sid in site_mc
                 amc = site_mc[sid].most_common(1)[0][0] if sj else (kec_mc[ak].most_common(1)[0][0] if kec_mc[ak] else '?')
@@ -182,17 +199,21 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     for sid, v in site.items():
         s = sinfo[sid]
         d = [[a, c] for a, c in site_dse[sid].most_common(2)] if s[3] else []
-        site_rows.append({'id': sid, 'n': s[0], 'k': s[1], 'mc': s[2], 'm': 1 if s[3] else 0, 'dse': d, 'v': v})
+        site_rows.append({'id': sid, 'n': s[0], 'k': s[1], 'mc': s[2], 'm': 1 if s[3] else 0, 'dse': d, 'v': v, 'ad': [len(site_days[sid][0]), len(site_days[sid][1]), len(site_days[sid][0] | site_days[sid][1])]})
     site_rows.sort(key=lambda r: -sum(r['v']))
     top = lambda d, n: [[k, v] for k, v in sorted(d.items(), key=lambda x: -sum(x[1]))[:n]]
     feed = {'metadata': {
         'generated_at': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'), 'source': os.path.basename(path), 'contract': 'docs/assessments/ga_site_rguga_assessment.md',
         'rows': n_rows, 'date_from': d_lo, 'date_to': d_hi, 'cut_day': int(d_hi[8:]),
         'classes': {'S': 'MC yang sama', 'A': 'area sama, MC lain', 'X': 'area IJ lain', 'N': 'outlet luar IJ (atribut ada)', 'U': 'outlet ber-ID tanpa atribut wilayah', 'Z': 'tanpa ID outlet'},
+        'segments': {'R': 'Retail IJ (GA September <= 30)', 'K': 'KRO IJ (31-100)', 'W': 'Wholesaler IJ (> 100)', 'N': 'Outlet luar IJ (atribut ada)', 'U': 'Outlet ber-ID tanpa atribut wilayah', 'Z': 'Tanpa ID outlet'},
         'vector': 'v = [IM3 S,A,X,N,U,Z, 3ID S,A,X,N,U,Z]; out_* = [IM3 S,A,X,O,Z, 3ID S,A,X,O,Z] (S/A/X = aktivasi di IJ MC sama / area sama / area IJ lain, O = luar IJ, Z = site kosong)'},
         'matrix': {k: v for k, v in mat.items()}, 'mc': mc_rows, 'kec': kec_rows, 'sites': site_rows,
         'sup_area': top(sup_area, 60), 'sup_kab': top(sup_kab, 60), 'sup_prov': top(sup_prov, 40),
         'out_area': [[k, v] for k, v in out_area.items()], 'out_mc': [[k, v] for k, v in out_mc.items()], 'out_seg': [[k, v] for k, v in out_seg.items()],
+        'cut': int(d_hi[8:]), 'kd': {k: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for k, v in kd.items()},
+        'skd': {k: {sg: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for sg, v in d.items()} for k, d in skd.items()}, 'sdo': {k: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for k, v in sdo.items()},
+        'msites': {m: len({sid for sid, c in site_mc.items() if c.most_common(1)[0][0] == m}) for m in mapping},
         'ol': [list(k) for k in loc_ix], 'ir': [[o, l, m, c, v[0], v[1]] for (o, l, m, c), v in inrows.items()],
         'dl': [list(k) for k in dloc_ix], 'or': [[o, d, m, v[0], v[1]] for (o, d, m), v in outrows.items()],
         'dest_prov': top(dest_prov, 40), 'dest_kab': [[k, v, [[a, c] for a, c in dkab_src[k].most_common(2)]] for k, v in sorted(dest_kab.items(), key=lambda x: -sum(x[1]))[:60]],

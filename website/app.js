@@ -339,6 +339,8 @@
     gaSg: 'all',             // segmen outlet: all | PJP | NON | KAM
     gaCover: 'all',          // all (termasuk outlet di luar master) | master
     gtDay: 0,                // Daily GA Trend: selected day D1-D31 (0 = last day with data)
+    gaOutFmt: 'list',        // Gross Add > Outlet: list | kat (Retail / KRO / Wholesaler) | tag (program and flags)
+    gaGraf: 'total',         // Gross Add > Grafik harian: total | stack | pct
     gtSort: 'x',             // Gross Add > Site location GA ranking: x = GA from outside Inner Jakarta | i = all inflow (outside the MC)
     gtUse: 'all',            // Gross Add > Site location GA matrix: all rows | gt = usage > 25 MB
     kroTab: 'ringkasan',     // Outlet & KRO Management: ringkasan | katalog | tracking | aksi
@@ -6350,13 +6352,13 @@
   function gaGrow(a, b) { return b > 0 ? (a / b - 1) * 100 : null; }
   function gaSlabIdx(v) { var i; for (i = GA_SLABS.length - 1; i >= 0; i--) { if (v >= GA_SLABS[i][0]) return i; } return 0; }
   function gaBar(tab) {
-    var noSeg = gaBasis() === 'site' && tab === 'ringkasan' && gsFeed() ? 'Tidak berlaku di Site location GA: file RGU GA per MSISDN tidak memuat sumber outlet (PJP / NON / KAM) dan cakupan' : '';
+    var noSeg = gaSiteMode() ? 'Tidak berlaku di Site location GA: file RGU GA per MSISDN tidak memuat sumber outlet (PJP / NON / KAM) dan cakupan' : '';
     return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis GA', 'ga-basis', [['outlet', '🏪 Outlet sell-in (tagging) · insentif DSE'], ['site', '📍 Site location GA (site aktivasi) · kinerja HoA / Region / DSO']], gaBasis()) + '</div><div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Brand', 'ga-brand', [['all', 'IOH (IM3 + 3ID)'], ['IM3', 'IM3'], ['3ID', '3ID']], gaBrand()) +
       sellinBtnGroup('Sumber outlet', 'ga-sg', [['all', 'Semua'], ['PJP', 'PJP'], ['NON', 'NON'], ['KAM', 'KAM']], state.gaSg || 'all', noSeg) +
       sellinBtnGroup('Cakupan', 'ga-cover', [['all', 'Semua outlet GA'], ['master', 'Hanya outlet PJP']], state.gaCover || 'all', noSeg) + '</div>';
   }
   function gaTabNav() {
-    return gaBar(state.gaTab || 'ringkasan') + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + GA_TABS.map(function (x) { var a = (state.gaTab || 'ringkasan') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + (x[0] === 'ringkasan' && gaBasis() === 'site' && gsFeed() ? '📍 Site location GA · kemasukan dan pengiriman' : x[1]) + '</button>'; }).join('') + '</div>';
+    return gaBar(gaTabNow()) + '<div class="sub-nav" role="tablist" style="margin-top:10px;">' + gaTabs().map(function (x) { var a = gaTabNow() === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-ga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
   function gaSg(n) { return (n >= 0 ? '+' : '−') + fmtCount(Math.abs(n)); }
   function gaGapTd(n, cls) { return '<td class="num ' + (cls || '') + '"><b style="color:' + (n >= 0 ? '#166534' : '#991b1b') + ';">' + gaSg(n) + '</b></td>'; }
@@ -6643,10 +6645,15 @@
     return kpi('GA vs target Oktober (kecamatan)', fmtCount(T.s.q) + ' pcs', (T.ach == null ? '—' : T.ach.toFixed(1) + '% dari target ' + fmtCount(Math.round(T.s.t))) + ' · pro-rata ' + (T.achP == null ? '—' : T.achP.toFixed(0) + '%'), up ? 'up' : 'down', 'target pro-rata ' + fmtCount(Math.round(T.pro)) + ' (' + T.cut + '/' + T.days + ') · ' + fmtCount(T.s.k) + ' kecamatan · filter DSE tidak berlaku · GA tanpa kecamatan ' + fmtCount(T.un.q) + ' pcs di luar angka ini') +
       kpi('Proyeksi vs target · perlu per hari', (T.projP == null ? '—' : T.projP.toFixed(0) + '%') + ' dari target', 'proyeksi ' + fmtCount(Math.round(T.proj)) + ' · gap ' + gaSg(Math.round(T.proj - T.s.t)) + ' pcs', dp ? 'up' : 'down', 'perlu ' + fmtCount(Math.round(T.req)) + '/hari vs ' + fmtCount(Math.round(T.rr)) + '/hari kini' + (c == null ? '' : ' (' + (c >= 0 ? '+' : '') + c.toFixed(0) + '%)') + ' · sisa ' + T.rem + ' hari');
   }
+  function gaSiteAct(brand) {   // actual GA per target kecamatan from the activation-site feed (RGU GA per MSISDN): the site location basis
+    var F = gsFeed(), G = gaPrep(), cut = Math.min(G.cut, F.cut || G.cut), out = { by: {}, un: { q: 0, p: 0, f: 0, n: 0 } }, kk, d;
+    Object.keys(F.kd).forEach(function (k) { var a = gaKdArr(k, brand, cut), q = 0; for (d = 1; d <= cut; d++) q += a[d]; out.by[k] = { q: q, p: 0, f: 0, n: 0, u: 0 }; });
+    return out;
+  }
   function gaTarget(brand) {
-    var G = gaPrep(), X = gaTgtIdx(), M = G.src.metadata, cut = G.cut, days = M.cur_days || 31, rem = days - cut;
+    var G = gaPrep(), X = gaTgtIdx(), M = G.src.metadata, days = M.cur_days || 31, cut = G.cut, rem = days - cut;
     if (!X.rows.length) return card('Target GA per kecamatan', '<p class="note">Target belum ada di feed. Taruh <code>M2S KECAMATAN*.xlsb</code> (kolom TARGET RGUGA KEC di sheet IM3-Kec dan TARGET OCT di 3ID-Kec) di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
-    var act = gaTgtActual(brand), mi = G.mi;
+    var S = gaSiteMode(), act = S ? gaSiteAct(brand) : gaTgtActual(brand), mi = G.mi, cut = S ? Math.min(G.cut, gsFeed().cut || G.cut) : G.cut, rem = days - cut;
     var tv = function (r) { return brand === 'all' ? (r.IM3 || 0) + (r['3ID'] || 0) : (r[brand] || 0); };
     var items = X.rows.filter(function (r) { return (!state.branch || r.br === state.branch) && (!state.hoa || (mi[r.mc] || {}).hoa === state.hoa) && (!state.kec || r.mc === state.kec); }).map(function (r) {
       var a = act.by[r.kk] || { q: 0, p: 0, f: 0, n: 0, u: 0 }; return { mc: r.mc, br: r.br, dse: r.kec + ' · ' + r.kab, kk: r.kk, t: tv(r), a: a };
@@ -6661,7 +6668,7 @@
       var s = sum(l), c = calc(s), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff');
       return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(s.k) + '</td><td class="num cur"><b>' + fmtCount(Math.round(s.t)) + '</b></td><td class="num"><b>' + fmtCount(s.q) + '</b></td>' +
         (ink ? '<td class="num">' + (c.ach == null ? '·' : c.ach.toFixed(0) + '%') + '</td><td class="num">' + (c.achP == null ? '·' : c.achP.toFixed(0) + '%') + '</td>' : '<td class="num">' + (c.ach == null ? '·' : c.ach.toFixed(0) + '%') + '</td>' + band(c.achP)) +
-        gaGapTd(-c.gap) + '<td class="num">' + fmtCount(s.p) + '</td><td class="num">' + uarGTag(gaGrow(s.q, s.p)) + '</td><td class="num">' + fmtCount(s.f) + '</td><td class="num">' + (c.tf == null ? '·' : (c.tf >= 0 ? '+' : '') + c.tf.toFixed(0) + '%') + '</td>' +
+        gaGapTd(-c.gap) + (S ? '' : '<td class="num">' + fmtCount(s.p) + '</td><td class="num">' + uarGTag(gaGrow(s.q, s.p)) + '</td><td class="num">' + fmtCount(s.f) + '</td><td class="num">' + (c.tf == null ? '·' : (c.tf >= 0 ? '+' : '') + c.tf.toFixed(0) + '%') + '</td>') +
         '<td class="num">' + fmtCount(Math.round(c.rr)) + '</td><td class="num">' + fmtCount(Math.round(c.req)) + '</td><td class="num">' + fmtCount(Math.round(c.proj)) + '</td><td class="num">' + (c.projP == null ? '·' : c.projP.toFixed(0) + '%') + '</td></tr>';
     }
     var T = uarTerrRows({ list: items, mi: mi }, rowFn), all = sum(items), ca = calc(all), onTrack = 0, low = 0;
@@ -6674,19 +6681,227 @@
       kpi('Perlu per hari sampai akhir bulan', fmtCount(Math.round(ca.req)) + ' pcs/hari', 'vs run-rate kini ' + fmtCount(Math.round(ca.rr)) + '/hari (' + (ca.rr ? (ca.req / ca.rr * 100 - 100 >= 0 ? '+' : '') + (ca.req / ca.rr * 100 - 100).toFixed(0) + '%' : '—') + ')', ca.req <= ca.rr ? 'up' : 'down', 'sisa ' + rem + ' hari · gap ke target ' + fmtCount(Math.max(0, Math.round(ca.gap))) + ' pcs') + '</div>' +
       '<div class="kpis" style="margin-top:10px;">' +
       kpi('Kecamatan sesuai target pro-rata', fmtCount(onTrack) + ' / ' + fmtCount(items.length), pctOf(onTrack, items.length) + '% mencapai ≥ 100% pro-rata', onTrack * 2 >= items.length ? 'up' : 'down', fmtCount(low) + ' kecamatan di bawah 70% pro-rata') +
+      (S ? kpi('Kecamatan tanpa GA MTD', fmtCount(items.filter(function (x) { return !x.a.q; }).length), 'dari ' + fmtCount(items.length) + ' kecamatan target', items.some(function (x) { return !x.a.q; }) ? 'down' : 'up', 'site location: GA = aktivasi di kecamatan itu (RGU GA per MSISDN)') + kpi('Pencapaian terhadap target', ca.ach == null ? '—' : ca.ach.toFixed(1) + '%', 'GA MTD ' + fmtCount(all.q) + ' dari target bulan ' + fmtCount(Math.round(all.t)), ca.ach != null && ca.ach >= cut / days * 100 ? 'up' : 'down', 'GA September per kecamatan tidak ada di file site (n/a)') :
       kpi('Target Oktober ÷ GA September penuh', all.f ? (all.t / all.f * 100 - 100 >= 0 ? '+' : '') + (all.t / all.f * 100 - 100).toFixed(0) + '%' : '—', 'GA Sep penuh ' + fmtCount(all.f) + ' pcs di kecamatan yang sama', 'flat', 'seberapa tinggi target dibanding bulan lalu') +
-      kpi('GA di luar daftar kecamatan target', fmtCount(act.un.q) + ' pcs', pctOf(act.un.q, act.un.q + Object.keys(act.by).reduce(function (a, k) { return a + act.by[k].q; }, 0)) + '% dari GA MTD seluruh Inner Jakarta', act.un.q ? 'down' : 'up', 'outlet tanpa kecamatan tertulis di file RGUGA; tidak bisa dibandingkan dengan target kecamatan') + '</div>';
-    var head = '<tr>' + th(T.mode === 'dse' ? 'Kecamatan' : 'Region / Area / MC') + th('DSO / ket.') + th('Kecamatan', 1) + th('Target Okt', 1) + th('GA MTD', 1) + th('% target bulan', 1) + th('% vs pro-rata', 1) + th('Gap ke target', 1) + th('GA LMTD', 1) + th('Growth', 1) + th('GA Sep penuh', 1) + th('Target ÷ Sep', 1) + th('Run-rate / hari', 1) + th('Perlu / hari', 1) + th('Proyeksi Okt', 1) + th('Proyeksi % target', 1) + '</tr>';
+      kpi('GA di luar daftar kecamatan target', fmtCount(act.un.q) + ' pcs', pctOf(act.un.q, act.un.q + Object.keys(act.by).reduce(function (a, k) { return a + act.by[k].q; }, 0)) + '% dari GA MTD seluruh Inner Jakarta', act.un.q ? 'down' : 'up', 'outlet tanpa kecamatan tertulis di file RGUGA; tidak bisa dibandingkan dengan target kecamatan')) + '</div>';
+    var head = '<tr>' + th(T.mode === 'dse' ? 'Kecamatan' : 'Region / Area / MC') + th('DSO / ket.') + th('Kecamatan', 1) + th('Target Okt', 1) + th('GA MTD', 1) + th('% target bulan', 1) + th('% vs pro-rata', 1) + th('Gap ke target', 1) + (S ? '' : th('GA LMTD', 1) + th('Growth', 1) + th('GA Sep penuh', 1) + th('Target ÷ Sep', 1)) + th('Run-rate / hari', 1) + th('Perlu / hari', 1) + th('Proyeksi Okt', 1) + th('Proyeksi % target', 1) + '</tr>';
     var wrows = worst.map(function (x) { var c = calc({ t: x.t, q: x.a.q, p: 0, f: 0 }); return '<tr><td class="cur"><b>' + esc(x.dse) + '</b><br><span class="note">' + esc(x.mc) + ' · ' + esc(x.br) + '</span></td><td class="num">' + fmtCount(Math.round(x.t)) + '</td><td class="num">' + fmtCount(x.a.q) + '</td>' + band(c.achP) + '<td class="num">' + gaSg(-Math.round(c.pro - x.a.q)).replace('+', '+') + '</td><td class="num">' + fmtCount(Math.round(c.req)) + '</td></tr>'; }).join('');
     return cards + card('Target GA per kecamatan, MC dan Area · ' + (brand === 'all' ? 'IOH' : brand) + ' · ' + esc(scopeText()), uarAreaTools(T.mode) + '<div class="tbl-wrap"><table class="tbl wide"><thead>' + head + '</thead><tbody>' + T.rows.join('') + '</tbody></table></div>' +
-      '<p class="note">Target = kolom <b>' + esc(X.cols.IM3) + '</b> (IM3) dan <b>' + esc(X.cols['3ID']) + '</b> (3ID) per kecamatan di file ' + esc(X.src || '') + ', dijumlahkan ke MC dan Area memakai sheet DEMARKASI di file yang sama (121 kecamatan; "KOTA BEKASI" di file = Area BEKASI). Pencapaian = GA RGUGA (tagging outlet) yang kecamatannya tertulis di file Daily_RGUGA_OUTLET; GA di outlet tanpa kecamatan tidak ikut baris-baris ini (lihat kartu terakhir). % vs pro-rata = GA MTD ÷ (target × ' + cut + '/' + days + '); warna mengikuti standar heat map. Perlu / hari = (target − MTD) ÷ ' + rem + ' hari tersisa. Brand, sumber outlet dan cakupan mengikuti tombol di atas; filter DSE tidak berlaku.</p>') +
+      '<p class="note">Target = kolom <b>' + esc(X.cols.IM3) + '</b> (IM3) dan <b>' + esc(X.cols['3ID']) + '</b> (3ID) per kecamatan di file ' + esc(X.src || '') + ', dijumlahkan ke MC dan Area memakai sheet DEMARKASI di file yang sama (121 kecamatan; "KOTA BEKASI" di file = Area BEKASI). ' + (S ? 'Pencapaian = GA site location: MSISDN yang diaktivasi di kecamatan itu (file RGU GA per MSISDN, cut ' + cut + ' Okt), bukan lokasi outlet penjual. Tidak ada LMTD / GA September per kecamatan di file site (n/a). Sumber outlet dan cakupan tidak berlaku. ' : 'Pencapaian = GA RGUGA (tagging outlet) yang kecamatannya tertulis di file Daily_RGUGA_OUTLET; GA di outlet tanpa kecamatan tidak ikut baris-baris ini (lihat kartu terakhir). ') + '% vs pro-rata = GA MTD ÷ (target × ' + cut + '/' + days + '); warna mengikuti standar heat map. Perlu / hari = (target − MTD) ÷ ' + rem + ' hari tersisa. Brand, sumber outlet dan cakupan mengikuti tombol di atas; filter DSE tidak berlaku.</p>') +
       card('10 kecamatan terjauh dari target pro-rata', '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Kecamatan · MC · Area') + th('Target Okt', 1) + th('GA MTD', 1) + th('% vs pro-rata', 1) + th('Selisih vs pro-rata', 1) + th('Perlu / hari', 1) + '</tr></thead><tbody>' + wrows + '</tbody></table></div>');
+  }
+  /* ================= Gross Add redesign (owner, 24 Oct 2026; docs/assessments/ga_gross_add_basis_redesign.md) =================
+     Two bases, two data sources, no mixing:
+       Outlet sell-in (tagging)  = Daily_RGUGA per outlet (ga_feed): Ringkasan, Slab GA, Per DSE, Outlet, Harian heatmap (Area / MC, no target), Grafik harian, Slab SSO. No kecamatan target.
+       Site location GA          = RGU GA per MSISDN by activation site (ga_site_feed): Site location GA, Target Kecamatan (vs target), Slab GA per site, Harian heatmap (Area / MC / Kecamatan vs target), Grafik harian, Slab SSO per site. */
+  var GA_SEG = { R: 'Retail', K: 'KRO', W: 'Wholesaler', N: 'Outlet luar IJ', U: 'Outlet ber-ID tanpa atribut', Z: 'Tanpa ID outlet' };
+  var GA_SEG_COL = { R: '#1f6b3a', K: '#b45309', W: '#1d4ed8', N: '#6b7280', U: '#9ca3af', Z: '#d1d5db' };
+  function gaSiteMode() { return gaBasis() === 'site' && !!gsFeed(); }
+  function gaSegOf(o) { var f = gaStat(o, 'all').full; return f <= 30 ? 'R' : (f <= 100 ? 'K' : 'W'); }   // standard ladder on September GA per physical outlet
+  function gaSegOfN(n) { return n <= 30 ? 'R' : (n <= 100 ? 'K' : 'W'); }
+  function gaTabs() {
+    var t = [['ringkasan', gaSiteMode() ? '📍 Site location GA · kemasukan dan pengiriman' : '📊 Ringkasan per Teritori']];
+    if (gaBasis() === 'site') t.push(['target', '🎯 Target Kecamatan']);
+    t.push(['sga', '📶 Slab GA']);
+    if (!gaSiteMode()) { t.push(['dse', '👤 Per DSE']); t.push(['outlet', '🏪 Outlet']); }
+    t.push(['harian', '🗓️ Harian (heatmap)']); t.push(['graf', '📈 Grafik harian']); t.push(['slab', '📶 Slab SSO']);
+    return t;
+  }
+  function gaTabNow() { var t = state.gaTab || 'ringkasan'; return gaTabs().some(function (x) { return x[0] === t; }) ? t : 'ringkasan'; }
+  function gaSiteBrandSum(a, brand) { var o = [], i; for (i = 0; i < a[0].length; i++) o.push((brand === '3ID' ? 0 : a[0][i]) + (brand === 'IM3' ? 0 : a[1][i])); return o; }   // [im3 days, 3id days] -> days (0-based index = day - 1)
+  function gaKdArr(kk, brand, cut) {   // daily GA at an activation kecamatan, index = day of month (1..cut)
+    var F = gsFeed(), a = F.kd[kk], out = [], d; for (d = 0; d <= cut; d++) out.push(0);
+    if (a) { var s = gaSiteBrandSum(a, brand); for (d = 1; d <= cut; d++) out[d] = s[d - 1] || 0; }
+    return out;
+  }
+  /* heatmap tree: Area › MC (› Kecamatan on the site basis). items = [{area, mc, kec, kk, arr[0..cut], lm, t}] */
+  function gaHeatTree(items, cfg) {
+    var G = gaPrep(), cut = cfg.cut, days = cfg.days, mi = G.mi, closedA = state.ghClosedA || {}, openM = state.ghOpenM || {}, INK = 'background:var(--ink); color:#fff; font-weight:800;', WASH = 'background:var(--ij-wash); font-weight:800;';
+    function sumArr(l) { var a = [], d; for (d = 0; d <= cut; d++) a.push(0); l.forEach(function (x) { for (d = 1; d <= cut; d++) a[d] += x.arr[d] || 0; }); return a; }
+    function row(label, ket, l, style) {
+      var arr = sumArr(l), mt = 0, lm = 0, t = 0, mx = 1, d, ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff'), cells = '';
+      l.forEach(function (x) { lm += x.lm || 0; t += x.t || 0; });
+      for (d = 1; d <= cut; d++) { mt += arr[d]; mx = Math.max(mx, arr[d]); }
+      for (d = 1; d <= cut; d++) cells += '<td class="num" style="' + (ink ? 'color:#fff;' : 'background:rgba(31,107,58,' + (0.04 + 0.4 * arr[d] / mx).toFixed(2) + ');') + '">' + fmtCount(arr[d]) + '</td>';
+      var lead = '<td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td>', mid;
+      if (cfg.site) {
+        var pro = t * cut / days, v = pro ? mt / pro * 100 : null, b = v == null || ink ? null : heatBand(Math.round(v));
+        mid = '<td class="num">' + (t ? fmtCount(Math.round(t)) : '·') + '</td><td class="num cur"><b>' + fmtCount(mt) + '</b></td><td class="num"' + (b ? ' style="background:' + b.bg + '; color:' + b.fg + '; font-weight:700;"' : '') + '>' + (v == null ? '·' : v.toFixed(0) + '%') + '</td>';
+      } else mid = '<td class="num cur"><b>' + fmtCount(mt) + '</b></td><td class="num">' + fmtCount(lm) + '</td><td class="num">' + uarGTag(gaGrow(mt, lm)) + '</td>';
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '>' + lead + mid + cells + '</tr>';
+    }
+    function by(l, f) { var g = {}; l.forEach(function (o) { var k = f(o); (g[k] || (g[k] = [])).push(o); }); return g; }
+    function tot(l) { return sumArr(l).reduce(function (a, b) { return a + b; }, 0); }
+    var rows = [], A = by(items, function (x) { return x.area || '—'; }), tg = function (id, open) { return '<button type="button" class="btn" data-gh="' + esc(id) + '" aria-expanded="' + open + '" style="padding:2px 8px; font-size:13px; margin-right:6px;">' + (open ? '－' : '＋') + '</button>'; };
+    rows.push(row('<b>REGION INNER JAKARTA</b>', Object.keys(A).length + ' area', items, INK));
+    Object.keys(A).sort(function (a, b) { return tot(A[b]) - tot(A[a]); }).forEach(function (a) {
+      var M = by(A[a], function (x) { return x.mc || '—'; }), open = !closedA[a];
+      rows.push(row(tg('A:' + a, open) + '<b>' + esc(a) + '</b>', 'Area · ' + Object.keys(M).length + ' MC', A[a], WASH));
+      if (!open) return;
+      Object.keys(M).sort(function (x, y) { return tot(M[y]) - tot(M[x]); }).forEach(function (m) {
+        var mo = !!openM[m] && cfg.site;
+        rows.push(row((cfg.site ? tg('M:' + m, mo) : '<span style="padding-left:18px;"></span>') + '<span style="padding-left:' + (cfg.site ? 0 : 18) + 'px;">' + esc(m) + '</span>', 'DSO ' + esc((mi[m] || {}).dso || '—') + (cfg.site ? ' · ' + M[m].length + ' kec' : ''), M[m], ''));
+        if (mo) M[m].slice().sort(function (x, y) { return tot([y]) - tot([x]); }).forEach(function (x) { rows.push(row('<span style="padding-left:44px;">' + esc(x.kec) + '</span>', 'kecamatan', [x], '')); });
+      });
+    });
+    var dh = '', d; for (d = 1; d <= cut; d++) dh += th('D' + d, 1);
+    var head = '<tr>' + th(cfg.site ? 'Area › MC › Kecamatan' : 'Area › MC') + th('DSO / ket.') + (cfg.site ? th('Target Okt', 1) + th('GA MTD', 1) + th('% vs pro-rata', 1) : th('GA MTD', 1) + th('LMTD', 1) + th('Growth', 1)) + dh + '</tr>';
+    var tools = '<div class="map-toolbar" style="margin-bottom:8px;"><button type="button" class="btn" data-gh="ALL:1">＋ Buka semua</button><button type="button" class="btn" data-gh="ALL:0">－ Tutup semua</button></div>';
+    return tools + '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  }
+  function gaHeatView(list, brand) {
+    var G = gaPrep(), cut = G.cut, days = G.src.metadata.cur_days || 31, items = [], site = gaSiteMode(), note;
+    if (site) {
+      var X = gaTgtIdx(), F = gsFeed(), mi = G.mi, fc = F.cut || cut, tc = Math.min(cut, fc);
+      X.rows.forEach(function (r) { if (!gaTgtScopeDefault(r, mi)) return; items.push({ area: r.br, mc: r.mc, kec: r.kec + ' · ' + r.kab, kk: r.kk, arr: gaKdArr(r.kk, brand, tc), t: gaTgtVal(r, brand) }); });
+      note = 'Basis site location: GA per hari = MSISDN yang diaktivasi di kecamatan itu (file RGU GA per MSISDN), dibandingkan dengan target Oktober per kecamatan dan brand (M2S KECAMATAN). MC dan Area kecamatan mengikuti sheet DEMARKASI target. % vs pro-rata = GA MTD ÷ (target × ' + tc + '/' + days + '). Cut data site ' + tc + ' Okt. Warna sel = hari terkuat di baris itu; kolom % vs pro-rata memakai pita warna target. Sumber outlet, Cakupan dan filter DSE tidak berlaku.';
+      return card('Heatmap harian GA · site location · Area › MC › Kecamatan vs target · ' + (brand === 'all' ? 'IOH' : brand) + ' · ' + esc(scopeText()), gaHeatTree(items, { site: true, cut: tc, days: days }) + '<p class="note">' + note + '</p>');
+    }
+    var byMc = {};
+    list.forEach(function (o) { var x = byMc[o.mc] || (byMc[o.mc] = { area: o.br, mc: o.mc, kec: null, arr: [], lm: 0, t: 0 }), oo = gaArr(o, brand, 'o'), ss = gaArr(o, brand, 's'), d; for (d = 1; d <= cut; d++) { x.arr[d] = (x.arr[d] || 0) + oo[d]; x.lm += ss[d]; } });
+    Object.keys(byMc).forEach(function (m) { items.push(byMc[m]); });
+    return card('Heatmap harian GA · outlet sell-in (tagging) · Area › MC · ' + (brand === 'all' ? 'IOH' : brand) + ' · ' + esc(scopeText()), gaHeatTree(items, { site: false, cut: cut, days: days }) + '<p class="note">Basis outlet sell-in: GA per hari = MSISDN yang dijual outlet di MC itu (Daily_RGUGA, tagging), LMTD = September hari 1–' + cut + '. Tanpa target dan tanpa level kecamatan (target hanya untuk basis site location). Mengikuti Brand, Sumber outlet, Cakupan dan filter wilayah / DSE.</p>');
+  }
+  /* ---- Grafik harian: daily achievement and daily contribution of Retail / KRO / Wholesaler ---- */
+  function gaStackSvg(series, cut, mode, line, lineName) {
+    var W = 940, H = 280, ml = 54, mr = 12, mt = 14, mb = 30, pw = W - ml - mr, ph = H - mt - mb, bw = pw / Math.max(cut, 1), d, i, mx = 1, out = '', tot = [];
+    for (d = 1; d <= cut; d++) { var t = 0; series.forEach(function (s) { t += s.v[d] || 0; }); tot[d] = t; mx = Math.max(mx, mode === 'pct' ? 100 : t, line ? (line[d] || 0) : 0); }
+    if (mode !== 'pct') mx = Math.ceil(mx / 1000) * 1000;
+    function Y(v) { return mt + ph - v / mx * ph; }
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) { var y = Y(mx * f); out += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y + '" y2="' + y + '" style="stroke:var(--ij-hairline);"/><text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end" style="font:11px var(--ij-font); fill:var(--ij-muted);">' + (mode === 'pct' ? Math.round(mx * f) + '%' : fmtCount(Math.round(mx * f))) + '</text>'; });
+    for (d = 1; d <= cut; d++) {
+      var x = ml + (d - 1) * bw + bw * 0.15, w = bw * 0.7, base = 0;
+      if (mode === 'total') { out += '<rect x="' + x + '" y="' + Y(tot[d]) + '" width="' + w + '" height="' + (mt + ph - Y(tot[d])) + '" style="fill:var(--ij-ink);"><title>D' + d + ': ' + fmtCount(tot[d]) + ' GA</title></rect>'; }
+      else series.forEach(function (s) { var v = mode === 'pct' ? (tot[d] ? (s.v[d] || 0) / tot[d] * 100 : 0) : (s.v[d] || 0); out += '<rect x="' + x + '" y="' + Y(base + v) + '" width="' + w + '" height="' + (Y(base) - Y(base + v)) + '" style="fill:' + s.c + ';"><title>D' + d + ' ' + esc(s.n) + ': ' + fmtCount(s.v[d] || 0) + ' GA (' + (tot[d] ? ((s.v[d] || 0) / tot[d] * 100).toFixed(1) : '0') + '%)</title></rect>'; base += v; });
+      if (d % 2 === 1 || d === cut) out += '<text x="' + (x + w / 2) + '" y="' + (H - 10) + '" text-anchor="middle" style="font:11px var(--ij-font); fill:var(--ij-muted);">D' + d + '</text>';
+    }
+    if (line && mode !== 'pct') { var pts = []; for (d = 1; d <= cut; d++) if (line[d] != null) pts.push((ml + (d - 0.5) * bw).toFixed(1) + ',' + Y(line[d]).toFixed(1)); out += '<polyline points="' + pts.join(' ') + '" style="fill:none; stroke:var(--ij-accent); stroke-width:2.5;"/>'; }
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="GA harian" style="max-width:' + W + 'px; display:block;">' + out + '</svg>';
+  }
+  function gaCumSvg(act, ref, refName, cut, days) {   // cumulative actual vs reference line (target pro-rata or September LMTD); reference may be null
+    var W = 940, H = 260, ml = 58, mr = 12, mt = 14, mb = 30, pw = W - ml - mr, ph = H - mt - mb, bw = pw / days, d, mx = 1, ca = [0], cr = [0], out = '', rr = 0;
+    for (d = 1; d <= days; d++) { ca.push(ca[d - 1] + (d <= cut ? act[d] : 0)); cr.push(cr[d - 1] + (ref ? (ref[d] || 0) : 0)); }
+    rr = ca[cut] / cut; var proj = ca[cut] + rr * (days - cut); mx = Math.ceil(Math.max(proj, cr[days], 1) / 10000) * 10000;
+    function X(day) { return ml + (day - 0.5) * bw; } function Y(v) { return mt + ph - v / mx * ph; }
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) { var y = Y(mx * f); out += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y + '" y2="' + y + '" style="stroke:var(--ij-hairline);"/><text x="' + (ml - 6) + '" y="' + (y + 4) + '" text-anchor="end" style="font:11px var(--ij-font); fill:var(--ij-muted);">' + fmtCount(Math.round(mx * f)) + '</text>'; });
+    for (d = 1; d <= days; d += 2) out += '<text x="' + X(d) + '" y="' + (H - 10) + '" text-anchor="middle" style="font:11px var(--ij-font); fill:var(--ij-muted);">D' + d + '</text>';
+    function pl(f, a, b, st) { var p = [], i; for (i = a; i <= b; i++) p.push(X(i).toFixed(1) + ',' + Y(f(i)).toFixed(1)); return '<polyline points="' + p.join(' ') + '" style="fill:none; ' + st + '"/>'; }
+    if (ref) out += pl(function (i) { return cr[i]; }, 1, days, 'stroke:var(--ij-muted); stroke-width:2.5;');
+    out += pl(function (i) { return ca[cut] + rr * (i - cut); }, cut, days, 'stroke:var(--ij-accent); stroke-width:2; stroke-dasharray:6 4;') + pl(function (i) { return ca[i]; }, 1, cut, 'stroke:var(--ij-ink); stroke-width:3;');
+    return { svg: '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="GA kumulatif" style="max-width:' + W + 'px; display:block;">' + out + '</svg>', proj: proj, cum: ca, ref: cr, rr: rr };
+  }
+  function gaGrafView(list, brand) {
+    var G = gaPrep(), cut = G.cut, days = G.src.metadata.cur_days || 31, site = gaSiteMode(), mode = state.gaGraf || 'total', segs, d, ref = null, tgt = 0, refName, cutUse = cut, sept = null;
+    var order = site ? ['R', 'K', 'W', 'N', 'U', 'Z'] : ['R', 'K', 'W'], S = {};
+    order.forEach(function (k) { var a = [], i; for (i = 0; i <= 31; i++) a.push(0); S[k] = a; });
+    if (site) {
+      var F = gsFeed(), X = gaTgtIdx(), mi = G.mi; cutUse = Math.min(cut, F.cut || cut);
+      X.rows.forEach(function (r) { if (!gaTgtScopeDefault(r, mi)) return; tgt += gaTgtVal(r, brand); var sk = F.skd[r.kk]; if (!sk) return; order.forEach(function (k) { if (!sk[k]) return; var s = gaSiteBrandSum(sk[k], brand); for (d = 1; d <= cutUse; d++) S[k][d] += s[d - 1] || 0; }); });
+      ref = []; for (d = 0; d <= days; d++) ref.push(tgt / days); refName = 'target pro-rata (' + fmtCount(Math.round(tgt)) + ' ÷ ' + days + ')';
+    } else {
+      sept = []; for (d = 0; d <= 31; d++) sept.push(0);
+      list.forEach(function (o) { var k = gaSegOf(o), oo = gaArr(o, brand, 'o'), ss = gaArr(o, brand, 's'); for (d = 1; d <= 31; d++) { S[k][d] += d <= cut ? oo[d] : 0; sept[d] += ss[d]; } });
+      ref = sept; refName = 'September (hari sejajar)';
+    }
+    var tot = [0]; for (d = 1; d <= cutUse; d++) tot.push(order.reduce(function (a, k) { return a + S[k][d]; }, 0));
+    var series = order.map(function (k) { return { k: k, n: GA_SEG[k], c: GA_SEG_COL[k], v: S[k] }; });
+    var line = site ? ref : sept;
+    var bar = '<div class="map-toolbar" style="margin:10px 0 8px;">' + sellinBtnGroup('Tampilan', 'ga-graf', [['total', 'Total per hari'], ['stack', 'Kontribusi harian per segmen'], ['pct', 'Kontribusi harian %']], mode) + '</div>';
+    var legend = '<p class="note">' + (mode === 'total' ? '<b style="color:var(--ij-ink);">▮</b> GA per hari · ' : series.map(function (s) { return '<b style="color:' + s.c + ';">▮</b> ' + esc(s.n); }).join(' · ') + ' · ') + (mode === 'pct' || !line ? '' : '<b style="color:var(--ij-accent);">━</b> ' + (site ? 'target harian rata-rata' : 'GA September per hari') + ' · ') + 'D1–D' + cutUse + '.</p>';
+    var chart = gaStackSvg(series, cutUse, mode, line, refName), cum = gaCumSvg(tot, site ? ref : sept, refName, cutUse, days);
+    var mt = tot.reduce(function (a, b) { return a + b; }, 0), lastRef = cum.ref[cutUse];
+    var cards = '<div class="kpis" style="margin-top:10px;">' + kpi('GA MTD 1–' + cutUse + ' Okt · ' + (site ? 'site location' : 'outlet sell-in'), fmtCount(mt) + ' pcs', site ? (tgt ? (mt / (tgt * cutUse / days) * 100).toFixed(0) + '% dari target pro-rata ' + fmtCount(Math.round(tgt * cutUse / days)) : 'target n/a') : gsPct(mt, lastRef) + ' vs LMTD ' + fmtCount(lastRef), (site ? (tgt && mt >= tgt * cutUse / days) : mt >= lastRef) ? 'up' : 'down', site ? 'GA di kecamatan target, mengikuti Brand dan wilayah' : 'mengikuti Brand, Sumber, Cakupan, wilayah dan DSE') +
+      order.slice(0, 3).map(function (k) { var v = S[k].slice(1, cutUse + 1).reduce(function (a, b) { return a + b; }, 0); return kpi(GA_SEG[k] + ' · kontribusi MTD', fmtCount(v) + ' pcs', gsPct(v, mt) + ' dari GA', 'up', 'segmen dari GA September per outlet (Retail ≤ 30, KRO 31–100, Wholesaler > 100)'); }).join('') + '</div>';
+    var rows = '', wd = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    for (d = 1; d <= cutUse; d++) { rows += '<tr><td class="cur"><b>' + d + ' Okt</b> <span class="note">' + wd[new Date(Date.UTC(2026, 9, d)).getUTCDay()] + '</span></td><td class="num cur"><b>' + fmtCount(tot[d]) + '</b></td>' + order.map(function (k) { return '<td class="num">' + fmtCount(S[k][d]) + '<div class="note">' + (tot[d] ? (S[k][d] / tot[d] * 100).toFixed(0) + '%' : '·') + '</div></td>'; }).join('') + (site ? '<td class="num">' + fmtCount(Math.round(tgt / days)) + '</td>' : '<td class="num">' + fmtCount(sept[d]) + '</td>') + '</tr>'; }
+    var tr = '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td class="cur" style="background:var(--ink); color:#fff;">TOTAL 1–' + cutUse + '</td><td class="num">' + fmtCount(mt) + '</td>' + order.map(function (k) { return '<td class="num">' + fmtCount(S[k].slice(1, cutUse + 1).reduce(function (a, b) { return a + b; }, 0)) + '</td>'; }).join('') + '<td class="num">' + fmtCount(Math.round(lastRef)) + '</td></tr>';
+    var tbl = '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('Tanggal') + th('Total', 1) + order.map(function (k) { return th(GA_SEG[k], 1); }).join('') + th(site ? 'Target harian' : 'September', 1) + '</tr></thead><tbody>' + rows + tr + '</tbody></table></div>';
+    var cumNote = '<p class="note"><b style="color:var(--ij-ink);">━</b> kumulatif GA · <b style="color:var(--ij-accent);">╌</b> proyeksi run-rate (' + fmtCount(Math.round(cum.proj)) + ' pcs di D' + days + ')' + (ref ? ' · <b style="color:var(--ij-muted);">━</b> ' + esc(refName) : '') + '.</p>';
+    var info = site ? 'Basis site location (RGU GA per MSISDN): segmen = kelas September outlet penjual (Retail / KRO / Wholesaler IJ) atau asal luar IJ; wilayah mengikuti target kecamatan (DEMARKASI). Sumber outlet, Cakupan dan DSE tidak berlaku.' : 'Basis outlet sell-in (tagging): segmen dari GA September per outlet fisik; mengikuti semua filter.';
+    return cards + card('GA harian · ' + (mode === 'total' ? 'total' : (mode === 'stack' ? 'kontribusi per segmen' : 'kontribusi %')) + ' · ' + (site ? 'site location' : 'outlet sell-in') + ' · ' + esc(scopeText()), bar + chart + legend + '<p class="note">' + info + '</p>') +
+      card('GA kumulatif · ' + (site ? 'vs target pro-rata' : 'vs LMTD September') + ' dan proyeksi', cum.svg + cumNote) + card('Tabel harian dan kontribusi per segmen', tbl);
+  }
+  /* ---- Slab per site (site location basis): GA per site per month and active days per site ---- */
+  var GS_SLAB_GA = [[0, 0, '0 GA'], [1, 9, '1–9'], [10, 29, '10–29'], [30, 59, '30–59'], [60, 99, '60–99'], [100, 199, '100–199'], [200, 1e12, '≥ 200']];
+  var GS_SLAB_DAY = [[0, 0, '0 hari'], [1, 5, '1–5 hari'], [6, 10, '6–10 hari'], [11, 15, '11–15 hari'], [16, 31, '≥ 16 hari']];
+  function gsSlabIdx(S, v) { var i; for (i = S.length - 1; i >= 0; i--) if (v >= S[i][0]) return i; return 0; }
+  function gsSiteRows(brand) {   // sites in scope with brand GA and active days
+    var F = gsFeed(), ok = {}, out = [];
+    F.mc.forEach(function (m) { ok[m.mc] = gsMcOk(m); });
+    F.sites.forEach(function (r) { if (!ok[r.mc]) return; var a = gsB(r.v, brand), ga = gsSum(a); if (ga <= 0) return; out.push({ r: r, ga: ga, ad: brand === 'IM3' ? r.ad[0] : (brand === '3ID' ? r.ad[1] : r.ad[2]), inflow: gsIn(a) }); });
+    return out;
+  }
+  function gsSlabLazy(pk) {   // ss|<ga|sso>|<A:area|M:mc|ALL>|<slab idx>
+    var m = /^ss\|(ga|sso)\|([^|]*)\|(\d+)$/.exec(pk); if (!m) return null; var kind = m[1], sc = decodeURIComponent(m[2]), idx = +m[3], brand = gaBrand(), S = kind === 'ga' ? GS_SLAB_GA : GS_SLAB_DAY, F = gsFeed();
+    var rows = gsSiteRows(brand).filter(function (x) { var v = kind === 'ga' ? x.ga : x.ad; if (gsSlabIdx(S, v) !== idx) return false; if (sc === 'ALL') return true; var mm = F.mc.filter(function (z) { return z.mc === x.r.mc; })[0] || {}; return sc.indexOf('A:') === 0 ? mm.area === sc.slice(2) : x.r.mc === sc.slice(2); });
+    rows.sort(function (a, b) { return b.ga - a.ga; });
+    return { title: (kind === 'ga' ? 'Site slab ' + S[idx][2] + ' GA MTD' : 'Site aktif ' + S[idx][2]) + ' · ' + (sc === 'ALL' ? 'Inner Jakarta' : sc.slice(2)), cols: ['Site', 'Kecamatan · MC', 'Area', 'GA MTD', 'Hari aktif', 'Kemasukan'],
+      rows: rows.map(function (x) { var mm = F.mc.filter(function (z) { return z.mc === x.r.mc; })[0] || {}; return [x.r.n + ' (' + x.r.id + ')', x.r.k.split('|')[0] + ' · ' + x.r.mc, mm.area || '—', fmtCount(x.ga), String(x.ad), fmtCount(x.inflow)]; }), lines: ['Site = lokasi aktivasi (file RGU GA per MSISDN). GA MTD 1–' + F.cut + ' Okt, semua baris. Kemasukan = GA di site yang dijual outlet di luar MC site. GA September per site tidak tersedia (n/a).'] };
+  }
+  function gaSiteSlab(kind) {
+    var F = gsFeed(), brand = gaBrand(), S = kind === 'ga' ? GS_SLAB_GA : GS_SLAB_DAY, sites = gsSiteRows(brand), mcRows = F.mc.filter(gsMcOk), area = {}, order = [], i;
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('ss|') === 0) delete _ovReg[k]; }); ovLazy('ss', gsSlabLazy);
+    _ovScope = scopeText() + ' · ' + (brand === 'all' ? 'IOH' : brand) + ' · MTD 1–' + F.cut + ' Okt (site location)';
+    function blank() { var a = [], j; for (j = 0; j < S.length; j++) a.push(0); return a; }
+    var byMc = {}; mcRows.forEach(function (m) { byMc[m.mc] = { m: m, c: blank(), n: 0, zero: 0 }; });
+    sites.forEach(function (x) { var b = byMc[x.r.mc]; if (!b) return; var j = gsSlabIdx(S, kind === 'ga' ? x.ga : x.ad); b.c[j]++; b.n++; });
+    mcRows.forEach(function (m) { var b = byMc[m.mc], msn = (F.msites || {})[m.mc] || 0, act = sites.filter(function (x) { return x.r.mc === m.mc && x.r.m; }).length; b.zero = Math.max(0, msn - act); b.c[0] += b.zero; b.n += b.zero; });
+    mcRows.forEach(function (m) { if (!area[m.area]) { area[m.area] = { c: blank(), n: 0, mcs: [] }; order.push(m.area); } var a = area[m.area], b = byMc[m.mc]; b.c.forEach(function (v, j) { a.c[j] += v; }); a.n += b.n; a.mcs.push(m.mc); });
+    var all = blank(), alln = 0; order.forEach(function (a) { area[a].c.forEach(function (v, j) { all[j] += v; }); alln += area[a].n; });
+    function cell(sc, j, v, n, ink) { var inner = fmtCount(v) + '<div class="note" style="' + (ink ? 'color:#fff;' : '') + '">' + pctOf(v, n) + '%</div>'; return j === 0 || !v ? '<td class="num">' + inner + '</td>' : ovCell('ss|' + kind + '|' + encodeURIComponent(sc) + '|' + j, inner); }
+    function row(label, ket, sc, c, n, style) { var ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff'); return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(n) + '</td>' + c.map(function (v, j) { return cell(sc, j, v, n, ink); }).join('') + '</tr>'; }
+    var INK = 'background:var(--ink); color:#fff; font-weight:800;', WASH = 'background:var(--ij-wash); font-weight:800;', rows = row('<b>REGION INNER JAKARTA</b>', order.length + ' area', 'ALL', all, alln, INK);
+    order.sort(function (a, b) { return area[b].n - area[a].n; }).forEach(function (a) { rows += row('<b>' + esc(a) + '</b>', 'Area · ' + area[a].mcs.length + ' MC', 'A:' + a, area[a].c, area[a].n, WASH); area[a].mcs.sort(function (x, y) { return byMc[y].n - byMc[x].n; }).forEach(function (m) { rows += row('<span style="padding-left:18px;">' + esc(m) + '</span>', 'DSO ' + esc(byMc[m].m.dso), 'M:' + m, byMc[m].c, byMc[m].n, ''); }); });
+    var head = '<tr>' + th('Region / Area / MC') + th('DSO / ket.') + th('Site', 1) + S.map(function (s) { return th(s[2], 1); }).join('') + '</tr>';
+    var act = sites.length, ga = sites.reduce(function (a, x) { return a + x.ga; }, 0), top = sites.slice().sort(function (a, b) { return b.ga - a.ga; }).slice(0, Math.max(1, Math.round(act * 0.1))).reduce(function (a, x) { return a + x.ga; }, 0);
+    var cards = '<div class="kpis" style="margin-top:10px;">' + kpi('Site aktif (≥ 1 GA MTD)', fmtCount(act) + ' site', fmtCount(alln - act > 0 ? alln - act : 0) + ' site master tanpa GA', 'up', 'site = lokasi aktivasi; universe = site master (' + fmtCount(Object.keys(F.msites || {}).reduce(function (a, m) { return a + F.msites[m]; }, 0)) + ') + site di luar master yang punya GA') +
+      kpi('GA per site aktif', act ? (ga / act).toFixed(1) + ' pcs' : '—', fmtCount(ga) + ' GA ÷ ' + fmtCount(act) + ' site', 'up', 'rata-rata hari aktif ' + (act ? (sites.reduce(function (a, x) { return a + x.ad; }, 0) / act).toFixed(1) : '—') + ' dari ' + F.cut + ' hari') +
+      kpi('Konsentrasi 10% site teratas', ga ? pctOf(top, ga) + '%' : '—', fmtCount(top) + ' pcs dari ' + fmtCount(ga), 'up', 'makin tinggi = GA makin bergantung pada sedikit site') + '</div>';
+    return cards + card((kind === 'ga' ? 'Slab GA per site · GA MTD per site' : 'Slab SSO per site · hari aktif per site') + ' · ' + esc(scopeText()), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="note">' + (kind === 'ga' ? 'Setiap sel = jumlah site dengan GA MTD pada slab itu (angka tebal) dan % site; klik angka untuk daftar site. Slab 0 = site master tanpa GA (daftar tidak tersedia, angka tidak bisa diklik). Slab site: 0 · 1–9 · 10–29 · 30–59 · 60–99 · 100–199 · ≥ 200 GA per bulan.' : 'SSO per site = site yang punya ≥ 1 GA pada satu hari; setiap sel = jumlah site menurut jumlah hari aktif (0 · 1–5 · 6–10 · 11–15 · ≥ 16 hari; 0 hari = site master tanpa GA, tidak bisa diklik). Klik angka lain untuk daftar site.') + ' Data = file RGU GA per MSISDN (aktivasi di 121 kecamatan IJ); tidak ada LMTD September per site (n/a). Site dikelompokkan ke MC utama outlet master di site itu. Sumber outlet, Cakupan dan DSE tidak berlaku.</p>');
+  }
+  /* ---- Outlet tab: list, category (Retail / KRO / Wholesaler, historical performance) and outlet tags (program, source, flags) ---- */
+  function gaOutletView(list, brand) {
+    var fmt = state.gaOutFmt || 'list', bar = '<div class="map-toolbar" style="margin-top:10px;">' + sellinBtnGroup('Format outlet', 'ga-outfmt', [['list', 'Daftar outlet'], ['kat', 'Kategori: Retail · KRO · Wholesaler'], ['tag', 'Tag outlet: program dan flag']], fmt) + '</div>';
+    return bar + (fmt === 'kat' ? gaOutletKat(list, brand) : (fmt === 'tag' ? gaOutletTag(list, brand) : gaOutlet(list, brand)));
+  }
+  function gaOutletKat(list, brand) {
+    var G = gaPrep(), cut = G.cut, S = { R: null, K: null, W: null }, mat = { R: { R: 0, K: 0, W: 0 }, K: { R: 0, K: 0, W: 0 }, W: { R: 0, K: 0, W: 0 } };
+    ['R', 'K', 'W'].forEach(function (k) { S[k] = { n: 0, sso: 0, ssoP: 0, f: 0, p: 0, c: 0, ad: 0, items: [] }; });
+    list.forEach(function (o) { var k = gaSegOf(o), s = gaStat(o, brand), z = S[k], pr = gaSegOfN(s.cur / cut * 31); z.n++; z.f += s.full; z.p += s.prev; z.c += s.cur; z.ad += s.ad; if (s.cur > 0) z.sso++; if (s.prev > 0) z.ssoP++; z.items.push({ o: o, s: s }); mat[k][pr]++; });
+    var tot = S.R.c + S.K.c + S.W.c, tf = S.R.f + S.K.f + S.W.f, rows = ['R', 'K', 'W'].map(function (k) { var z = S[k]; return '<tr><td class="cur"><b style="color:' + GA_SEG_COL[k] + ';">■</b> <b>' + GA_SEG[k] + '</b><div class="note">' + (k === 'R' ? 'GA September ≤ 30' : (k === 'K' ? 'GA September 31–100' : 'GA September > 100')) + '</div></td><td class="num">' + fmtCount(z.n) + '</td><td class="num">' + fmtCount(z.f) + '</td><td class="num">' + fmtCount(z.p) + '</td><td class="num cur"><b>' + fmtCount(z.c) + '</b></td><td class="num">' + uarGTag(gaGrow(z.c, z.p)) + '</td><td class="num">' + gsPct(z.c, tot) + '</td><td class="num">' + fmtCount(z.sso) + '<div class="note">' + pctOf(z.sso, z.n) + '% outlet</div></td><td class="num">' + fmtCount(z.ssoP) + '</td><td class="num">' + (z.ad ? (z.c / z.ad).toFixed(2) : '—') + '</td></tr>'; }).join('');
+    var head = '<tr>' + th('Kategori (kelas GA September)') + th('Outlet', 1) + th('GA Sep penuh', 1) + th('GA LMTD', 1) + th('GA MTD', 1) + th('Growth', 1) + th('% GA MTD', 1) + th('SSO MTD', 1) + th('SSO LMTD', 1) + th('GA / SSO-hari', 1) + '</tr>';
+    var mrows = ['R', 'K', 'W'].map(function (k) { return '<tr><td class="cur"><b>' + GA_SEG[k] + ' (Sep)</b></td>' + ['R', 'K', 'W'].map(function (j) { var v = mat[k][j], c = j === k ? '' : (['R', 'K', 'W'].indexOf(j) > ['R', 'K', 'W'].indexOf(k) ? 'color:#166534;' : 'color:#991b1b;'); return '<td class="num" style="' + c + '"><b>' + fmtCount(v) + '</b></td>'; }).join('') + '</tr>'; }).join('');
+    var tops = ['W', 'K', 'R'].map(function (k) { var L = S[k].items.slice().sort(function (a, b) { return b.s.cur - a.s.cur; }).slice(0, 8); return '<h3 class="sect" style="margin:14px 0 6px;">Top 8 ' + GA_SEG[k] + ' · GA MTD</h3><div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Outlet') + th('MC') + th('DSE') + th('Sumber') + th('GA Sep penuh', 1) + th('GA LMTD', 1) + th('GA MTD', 1) + th('Growth', 1) + '</tr></thead><tbody>' + L.map(function (x) { return '<tr><td class="cur"><b>' + esc(x.o.n || '(tanpa nama)') + '</b><div class="note">' + esc(x.o.id) + (x.o.t === 'G' ? ' · di luar master' : '') + '</div></td><td>' + esc(x.o.mc) + '</td><td>' + esc(uarDse(x.o)) + '</td><td>' + esc(x.o.sg || '—') + '</td><td class="num">' + fmtCount(x.s.full) + '</td><td class="num">' + fmtCount(x.s.prev) + '</td><td class="num cur"><b>' + fmtCount(x.s.cur) + '</b></td><td class="num">' + uarGTag(gaGrow(x.s.cur, x.s.prev)) + '</td></tr>'; }).join('') + '</tbody></table></div>'; }).join('');
+    return card('Kategori outlet · riwayat performa GA (Retail, KRO, Wholesaler) · ' + (brand === 'all' ? 'IOH' : brand) + ' · ' + esc(scopeText()), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div><p class="note">Kategori = kelas outlet dari GA September penuh per outlet fisik (tangga standar: Retail ≤ 30, KRO 31–100, Wholesaler > 100; outlet tanpa GA September = Retail). Semua angka basis outlet sell-in (tagging, Daily_RGUGA) dan mengikuti Brand, Sumber, Cakupan, wilayah dan DSE.</p>') +
+      card('Perpindahan kelas · September → proyeksi Oktober (GA MTD ÷ ' + cut + ' × 31)', '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead><tr>' + th('Kelas September ↓ / proyeksi Oktober →') + th('Retail', 1) + th('KRO', 1) + th('Wholesaler', 1) + '</tr></thead><tbody>' + mrows + '</tbody></table></div><p class="note">Hijau = naik kelas, merah = turun kelas, diagonal = tetap.</p>') + card('Outlet teratas per kategori', tops);
+  }
+  function gaOutletTag(list, brand) {
+    var G = gaPrep(), cut = G.cut, K = (typeof window !== 'undefined' && window.KRO_FEED) ? window.KRO_FEED : null, prog = K ? K.metadata.programs || {} : {}, tags = [];
+    Object.keys(prog).forEach(function (p) { var ks = {}; (prog[p].keys || []).forEach(function (k) { ks[k] = 1; }); if ((prog[p].keys || []).length) tags.push({ g: 'Program', n: p, f: function (o) { return !!ks[o.k]; } }); });
+    tags.push({ g: 'Sumber outlet', n: 'PJP', f: function (o) { return o.sg === 'PJP'; } }, { g: 'Sumber outlet', n: 'NON', f: function (o) { return o.sg === 'NON'; } }, { g: 'Sumber outlet', n: 'KAM', f: function (o) { return o.sg === 'KAM'; } }, { g: 'Sumber outlet', n: 'Tanpa segmen', f: function (o) { return !o.sg; } },
+      { g: 'Master', n: 'Outlet master (PJP)', f: function (o) { return o.t === 'M'; } }, { g: 'Master', n: 'Di luar master (non-PJP)', f: function (o) { return o.t !== 'M'; } },
+      { g: 'DSE', n: 'Ber-DSE', f: function (o) { return !dseIsNone(o.dse); } }, { g: 'DSE', n: 'Tanpa DSE', f: function (o) { return dseIsNone(o.dse); } },
+      { g: 'Brand', n: 'Hybrid (IM3 + 3ID)', f: function (o) { return !!(o.ids.IM3 && o.ids['3ID']); } }, { g: 'Brand', n: 'IM3 saja', f: function (o) { return !!o.ids.IM3 && !o.ids['3ID']; } }, { g: 'Brand', n: '3ID saja', f: function (o) { return !o.ids.IM3 && !!o.ids['3ID']; } },
+      { g: 'Kategori', n: 'Retail', f: function (o) { return gaSegOf(o) === 'R'; } }, { g: 'Kategori', n: 'KRO', f: function (o) { return gaSegOf(o) === 'K'; } }, { g: 'Kategori', n: 'Wholesaler', f: function (o) { return gaSegOf(o) === 'W'; } });
+    var tot = 0; list.forEach(function (o) { tot += gaStat(o, brand).cur; });
+    var rows = tags.map(function (t) { var n = 0, sso = 0, f = 0, p = 0, c = 0, ad = 0; list.forEach(function (o) { if (!t.f(o)) return; var s = gaStat(o, brand); n++; f += s.full; p += s.prev; c += s.cur; ad += s.ad; if (s.cur > 0) sso++; }); return '<tr><td>' + esc(t.g) + '</td><td class="cur"><b>' + esc(t.n) + '</b></td><td class="num">' + fmtCount(n) + '</td><td class="num">' + fmtCount(sso) + '<div class="note">' + pctOf(sso, n) + '%</div></td><td class="num">' + fmtCount(f) + '</td><td class="num">' + fmtCount(p) + '</td><td class="num cur"><b>' + fmtCount(c) + '</b></td><td class="num">' + uarGTag(gaGrow(c, p)) + '</td><td class="num">' + gsPct(c, tot) + '</td><td class="num">' + (ad ? (c / ad).toFixed(2) : '—') + '</td></tr>'; }).join('');
+    var head = '<tr>' + th('Jenis tag') + th('Tag') + th('Outlet', 1) + th('SSO MTD', 1) + th('GA Sep penuh', 1) + th('GA LMTD', 1) + th('GA MTD', 1) + th('Growth', 1) + th('% GA MTD', 1) + th('GA / SSO-hari', 1) + '</tr>';
+    return card('Tag outlet · program dan flag · ' + (brand === 'all' ? 'IOH' : brand) + ' · ' + esc(scopeText()), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="note">Program (KRO, Wholesaler, Promotor, DTU, AVA) dari katalog tipe outlet (<code>kro_program_outlets.csv</code>; BOSS dan Tebus Murah belum ada anggota). Satu outlet bisa punya beberapa tag, jadi baris tidak dijumlahkan. Sumber outlet = segmen PJP / NON / KAM di file RGUGA; Master / non-master dan Ber-DSE dari master outlet; Brand dari ID IM3 dan 3ID yang terpasang. Basis outlet sell-in (tagging).</p>');
   }
   function viewGrossAdd() {
     var G = gaPrep(); if (!G) return card('Gross Add', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
-    var tab = state.gaTab || 'ringkasan', list = gaScopeList(), brand = gaBrand();
+    var tab = gaTabNow(), list = gaScopeList(), brand = gaBrand();
     var body;
-    if (tab === 'sga') body = viewSlabSga('ga');
+    if (gaSiteMode()) {   // site location basis: every tab reads the activation-site feed (GA_SITE_FEED)
+      body = tab === 'target' ? gaTarget(brand) : (tab === 'sga' ? gaSiteSlab('ga') : (tab === 'slab' ? gaSiteSlab('sso') : (tab === 'harian' ? gaHeatView(list, brand) : (tab === 'graf' ? gaGrafView(list, brand) : gtSiteView()))));
+      return gaTabNav() + body;
+    }
+    if (tab === 'graf') body = gaGrafView(list, brand);
+    else if (tab === 'harian') body = gaHeatView(list, brand);
+    else if (tab === 'outlet') body = gaOutletView(list, brand);
+    else if (tab === 'sga') body = viewSlabSga('ga');
     else if (tab === 'target') body = gaTarget(brand);
     else if (gaBasis() === 'site' && (tab === 'dse' || tab === 'outlet')) body = gaSiteNote(tab);
     else if (gaBasis() === 'site' && tab === 'ringkasan') body = gsFeed() ? gtSiteView() : gaSiteView(list, brand);
@@ -10851,6 +11066,15 @@
     else if (t.getAttribute('data-act') === 'kro-export') { kroExportCsv(); return; }
     else if (t.hasAttribute('data-ga-tab')) { state.gaTab = t.getAttribute('data-ga-tab'); state.gaPage = 1; }
     else if (t.hasAttribute('data-ga-seg')) { state.gaSeg = t.getAttribute('data-ga-seg'); state.gaPage = 1; }
+    else if (t.hasAttribute('data-ga-outfmt')) { state.gaOutFmt = t.getAttribute('data-ga-outfmt'); state.gaPage = 1; }
+    else if (t.hasAttribute('data-ga-graf')) { state.gaGraf = t.getAttribute('data-ga-graf'); }
+    else if (t.hasAttribute('data-gh')) {
+      var gh = t.getAttribute('data-gh'), ghk = gh.slice(2);
+      if (gh === 'ALL:1') { state.ghClosedA = {}; state.ghOpenM = {}; var Xh = gaTgtIdx(); Xh.rows.forEach(function (r) { state.ghOpenM[r.mc] = true; }); }
+      else if (gh === 'ALL:0') { state.ghOpenM = {}; state.ghClosedA = {}; gaTgtIdx().rows.forEach(function (r) { state.ghClosedA[r.br] = true; }); }
+      else if (gh.indexOf('A:') === 0) { state.ghClosedA = state.ghClosedA || {}; if (state.ghClosedA[ghk]) delete state.ghClosedA[ghk]; else state.ghClosedA[ghk] = true; }
+      else if (gh.indexOf('M:') === 0) { state.ghOpenM = state.ghOpenM || {}; if (state.ghOpenM[ghk]) delete state.ghOpenM[ghk]; else state.ghOpenM[ghk] = true; }
+    }
     else if (t.hasAttribute('data-gt-sort')) { state.gtSort = t.getAttribute('data-gt-sort'); }
     else if (t.hasAttribute('data-gt-use')) { state.gtUse = t.getAttribute('data-gt-use'); }
     else if (t.hasAttribute('data-ga-basis')) { state.gaBasis = t.getAttribute('data-ga-basis'); state.gaPage = 1; }
@@ -11427,7 +11651,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gtUse'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gtUse', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };

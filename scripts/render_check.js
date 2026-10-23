@@ -241,13 +241,27 @@ for (const tab of ['sp', 'vc', 'sal', 'spi']) {
     if (/undefined|NaN/.test(t)) { failures++; console.log('✗ ur popup undefined/NaN ' + x[1]); } else if (e.rows.length !== parseInt(x[2].replace(/[.,]/g, ''), 10)) { failures++; console.log('✗ ur popup rows ' + e.rows.length + ' != cell ' + x[2] + ' ' + x[1]); } else n++; }
   if (!n) console.log('! no ur popups for ' + tab + ' (view may be on another sub-tab)');
 }
+// Gross Add redesign (24 Oct 2026): every tab of both bases renders, with brand / territory filters, the Outlet formats and the three graph views
+{ const mcR = Object.keys(global.GA_FEED.metadata.mc_info)[0], brR = global.GA_FEED.metadata.mc_info[mcR].br;
+  for (const bs of ['outlet', 'site']) for (const tb of (bs === 'site' ? ['ringkasan', 'target', 'sga', 'harian', 'graf', 'slab'] : ['ringkasan', 'sga', 'dse', 'outlet', 'harian', 'graf', 'slab'])) for (const br of ['all', 'IM3']) for (const sc of ['region', 'branch', 'mc']) {
+    Object.assign(state, { view: 'mb_grossadd', gaBasis: bs, gaTab: tb, gaBrand: br, gaOutFmt: 'list', gaGraf: 'total', branch: sc === 'region' ? '' : brR, kec: sc === 'mc' ? mcR : '', hoa: '', dse: '' });
+    check('gadesign/' + bs + '/' + tb + '/' + br + '/' + sc, VIEWS.mb_grossadd);
+  }
+  for (const f of ['kat', 'tag']) { Object.assign(state, { view: 'mb_grossadd', gaBasis: 'outlet', gaTab: 'outlet', gaOutFmt: f, branch: '', kec: '' }); check('gadesign/outlet-format/' + f, VIEWS.mb_grossadd); }
+  for (const gm of ['stack', 'pct']) for (const bs of ['outlet', 'site']) { Object.assign(state, { view: 'mb_grossadd', gaBasis: bs, gaTab: 'graf', gaGraf: gm }); check('gadesign/graf/' + bs + '/' + gm, VIEWS.mb_grossadd); }
+  // the outlet basis has no Target Kecamatan tab, the site basis keeps it; the Per DSE / Outlet tabs belong to the outlet basis only
+  Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaOutFmt: 'list', gaGraf: 'total', gaBasis: 'outlet' }); let hh = VIEWS.mb_grossadd();
+  if (/data-ga-tab="target"/.test(hh)) { failures++; console.log('✗ outlet basis still has the Target Kecamatan tab'); }
+  state.gaBasis = 'site'; hh = VIEWS.mb_grossadd(); if (!/data-ga-tab="target"/.test(hh) || /data-ga-tab="(dse|outlet)"/.test(hh)) { failures++; console.log('✗ site basis tabs wrong'); }
+  state.gaBasis = 'outlet'; }
 // Gross Add > Slab GA (gaSlab): popups per slab cell, tagging and site basis
 for (const bs of ['outlet', 'site']) {
   state.view = 'mb_grossadd'; state.gaTab = 'slab'; state.gaBasis = bs; state.branch = ''; state.kec = ''; state.hoa = '';
   let html = ''; check('gaslab/popup/' + bs, () => (html = VIEWS.mb_grossadd())); let n = 0;
-  for (const x of html.matchAll(/data-ov="(gs\|[^"]+)"[^>]*>(?:<[^>]+>)*([\d.,]+)<\/span>/g)) { if (n > 40) break; const e = app.ovEntry(x[1]); if (!e) { failures++; console.log('✗ gs popup missing ' + x[1]); continue; } const t = app.ovText(e);
+  const rx = bs === 'site' ? /data-ov="(ss\|[^"]+)"[^>]*>([\d.,]+)<div/g : /data-ov="(gs\|[^"]+)"[^>]*>(?:<[^>]+>)*([\d.,]+)<\/span>/g;
+  for (const x of html.matchAll(rx)) { if (n > 40) break; const e = app.ovEntry(x[1]); if (!e) { failures++; console.log('✗ gs popup missing ' + x[1]); continue; } const t = app.ovText(e);
     if (/undefined|NaN/.test(t)) { failures++; console.log('✗ gs popup undefined/NaN ' + x[1]); } else if (e.rows.length !== parseInt(x[2].replace(/[.,]/g, ''), 10)) { failures++; console.log('✗ gs popup rows ' + e.rows.length + ' != cell ' + x[2] + ' ' + x[1]); } else n++; }
-  if (!n) { failures++; console.log('✗ no gs popups for ' + bs); }
+  if (!n) { failures++; console.log('✗ no slab popups for ' + bs); }
 }
 state.gaBasis = 'outlet'; state.gaTab = 'ringkasan';
 state.sgaSeg = 'all'; state.sgaMetric = 'si'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaTab = 'outlet'; state.gaTab = 'ringkasan'; state.pjTab = 'ringkasan'; state.sgaMetric = 'si';
