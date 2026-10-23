@@ -335,6 +335,13 @@ if SALMO_SRC and os.path.exists(SALMO_SRC):
             continue
         key, brand, tier, cls = resolve(oid)
         days = {d: float(r.get(c) or 0) for d, c in dcols.items() if isinstance(r.get(c), (int, float)) and r.get(c)}
+        # 24 Oct 2026: the SALMO file can be a day ahead of the MOBO workbook (SALMO 23 Oct, MOBO 22 Oct). SAL days after the MOBO cut are held back,
+        # so MTD, LMTD (days <= cut) and the daily table stay on the same window; the held value is reported in metadata.salmo.held_after_cut.
+        if days:
+            sal_meta["file_last_day"] = max(sal_meta.get("file_last_day", 0), max(days))
+        if last_day and any(d > last_day for d in days):
+            sal_meta["held_after_cut"] = sal_meta.get("held_after_cut", 0) + sum(vv for d, vv in days.items() if d > last_day)
+            days = {d: vv for d, vv in days.items() if d <= last_day}
         v = sum(days.values())
         T = tiers[("SAL", cls)]
         T["rows"] += 1; T["ids"].add(oid); T["v"] += v
@@ -356,7 +363,8 @@ if SALMO_SRC and os.path.exists(SALMO_SRC):
     sal_meta.update({"source": SALMO_SRC, "outlets": sum(1 for k in facts if "SAL" in facts[k]),
                      "value": int(sum(F["SAL"]["mv"] for F in facts.values() if "SAL" in F)),
                      "unknown": {"ids": len(sal_unknown), "value": int(sum(sal_unknown.values()))}})
-    print(f"   MOBO_SALMO: {sal_meta['outlets']:,} outlet, Rp {sal_meta['value'] / 1e9:.2f} M, hari terakhir {sal_meta['last_day']}; id tidak dikenal {len(sal_unknown)} (Rp {sum(sal_unknown.values()) / 1e6:.1f} jt)")
+    print(f"   MOBO_SALMO: {sal_meta['outlets']:,} outlet, Rp {sal_meta['value'] / 1e9:.2f} M, hari terakhir {sal_meta['last_day']}; id tidak dikenal {len(sal_unknown)} (Rp {sum(sal_unknown.values()) / 1e6:.1f} jt)"
+          + (f"; file sampai hari {sal_meta['file_last_day']}, Rp {sal_meta['held_after_cut'] / 1e9:.2f} M setelah cut MOBO ditahan" if sal_meta.get("held_after_cut") else ""))
 else:
     print("   MOBO_SALMO tidak ditemukan: kategori SAL dilewati")
 print(f"   hari terakhir dengan data: {last_day} Okt; id tidak dikenal: {len(unknown_ids)} (Rp {sum(unknown_ids.values()) / 1e6:.1f} jt)")

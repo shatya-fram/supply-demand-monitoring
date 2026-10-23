@@ -2,6 +2,18 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 24 Oct 2026 (refresh to 23 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__23_23.zip` (23 Oct 23:22) | Cut 22 → **23 Oct**: 23 days, 20 business days, no missing day. 23 Oct: planned 8,214, executed 7,716, productive 4,272. MTD coverage of PJP outlets 96.3% → **98.5%** (not visited 552 → 229), target hit 74.7% → 75.8%. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (23 Oct 23:22) | Cut 22 → **23 Oct**. MTD Rp B: SP 0.89 → **1.40** (23 Oct Rp 511 Jt, the largest SP day of the month), voucher isi 2.52 → 2.91, voucher blank 0.35 → 0.42, saldo transfer 12.03 → 12.74. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (re-issued 24 Oct 06:34; the first run of the day still had the 22 Oct file) | Cut 22 → **23 Oct**. Total demand MTD Rp 83.38 → **86.41 B** (23 Oct Rp 3.02 B); LMTD 1–23 Sep Rp 75.20 B, growth **+14.9%** (was +16.1% at cut 22); Last FM Rp 106.50 B, gap −20.09 B. RLD 12.44, VCI 12.50, CVM 2.63, PKT 58.84, SP Injection 0.72 B. CVM sheet again carried RECARGE copies (56,990 rows, Rp 36.0 B removed). |
+| SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (23 Oct 23:22) | Saldo Mobo demand Rp 106.25 → **111.77 B** (23 Oct Rp 5.52 B). While the MOBO file was still on 22 Oct the SALMO file (23 Oct) was ahead; the builder now **holds back SAL days after the MOBO cut** (`metadata.salmo.held_after_cut`, `file_last_day`) so MTD, LMTD and the daily table stay on one window. With the 23 Oct MOBO file nothing is held. |
+| ENDBAL | `endbal_20261023.zip` (24 Oct 06:22; report 24 Oct 06:11) | Snapshot 22 → **23 Oct**: 129,107 rows, 18,182 outlets (master 16,025, adhoc 2,157). |
+| GA | unchanged | Cut **21 Oct** (refreshed by another session on 23 Oct); two days behind sell-in. |
+| Derived | | DSE KPI cut 23 (visits cut 23); KRO feed rebuilt and reconciles; weekly PJP mapping unchanged. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,707), `audit_kro`, `audit_dse_catalogue`, `audit_entity` pass. |
+
 ## 23 Oct 2026 (afternoon) · GA refresh to 21 Oct
 | Scope | Source | Change |
 |---|---|---|
