@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'outlet_catalogue_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -425,6 +425,10 @@ state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
   const sumA = F.branches.reduce((a, b) => a + b.daily.reduce((x, c) => x + (c[11] || 0), 0), 0), sumE = F.branches.reduce((a, b) => a + b.entity_planned, 0);
   if (sumA !== EN.entity_planned || sumE !== EN.entity_planned) { failures++; console.log('✗ entity daily cells ' + sumA + ' / rows ' + sumE + ' ≠ regional ' + EN.entity_planned); } else console.log('✓ entity heatmap cells'.padEnd(32) + String(sumA).padStart(9) + ' entity-days = regional');
   state.pjpBasis = 'stop'; state.pjpMetric = 'pjp'; state.visitsLevel = 'auto'; }
+// DSE catalogue (23 Okt 2026): the DSE table shows master logins under the name and PROMOTOR TOKO for operators outside the master
+{ state.view = 'visits'; state.visitsSubView = 'dse'; state.visitsLevel = 'dse'; state.branch = ''; state.kec = ''; state.visitsDse = null; state.visitsBrandFilter = 'all'; state.visitsSearch = 'a'; let h = ''; check('dse-catalogue/visits-dse', () => (h = VIEWS.visits()));
+  if (!/class="dse-login"/.test(h) || !/PROMOTOR TOKO/.test(h)) { failures++; console.log('✗ DSE table lacks master logins or PROMOTOR TOKO'); } else console.log('✓ dse catalogue in DSE table'.padEnd(32));
+  state.visitsSearch = ''; state.visitsLevel = 'auto'; state.visitsSubView = 'heat'; }
 // Entity / brand flag (23 Okt 2026): Data Outlet brand filter and panel, entity-day line in the PJP scorecards
 { for (const bf of ['', 'HYBRID', 'IM3_ONLY', '3ID_ONLY']) { state.view = 'territory'; state.terrSubView = 'outlets'; state.terrBrand = bf; let h = ''; check('territory/brand=' + (bf || 'all'), () => (h = VIEWS.territory())); if (!/Jenis brand outlet/.test(h)) { failures++; console.log('✗ territory brand panel missing'); } }
   state.terrBrand = '';

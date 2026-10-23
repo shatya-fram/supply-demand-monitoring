@@ -2,7 +2,7 @@
 """
 build_ga_site_feed.py  ·  GA by ACTIVATION SITE vs TAGGING OUTLET (MSISDN-level RGU GA, Inner Jakarta)
 
-Source : raw/GA*/Site_rguga_daily_outlet_<YYYYMM>.csv  (one row = one GA MSISDN: tagging outlet + activation site).  The MSISDN never leaves this script:
+Source : raw/GA*/[Site_]rguga_daily_outlet_<YYYYMM>.csv (the uploader dropped the Site_ prefix on 23 Oct 2026; the newest file wins)  (one row = one GA MSISDN: tagging outlet + activation site).  The MSISDN never leaves this script:
          the feed holds counts only.
 Rules  : docs/assessments/ga_site_rguga_assessment.md
   * Inner Jakarta (IJ) activation = activation kecamatan in the 121 kecamatan of the GA target list (M2S KECAMATAN, the same list as Daily_RGUGA); incl. Kepulauan Seribu.
@@ -50,9 +50,9 @@ def nid(v):
 
 
 def find_csv():
-    hits = sorted(glob.glob(os.path.join(RAW_BASE, 'raw', 'GA*', 'Site_rguga_daily_outlet_*.csv')), key=os.path.getmtime, reverse=True)
+    hits = sorted(glob.glob(os.path.join(RAW_BASE, 'raw', 'GA*', '*rguga_daily_outlet_*.csv')), key=os.path.getmtime, reverse=True)
     if not hits:
-        sys.exit('Site_rguga_daily_outlet_*.csv tidak ditemukan di raw/GA*/')
+        sys.exit('[Site_]rguga_daily_outlet_*.csv tidak ditemukan di raw/GA*/')
     return hits[0]
 
 

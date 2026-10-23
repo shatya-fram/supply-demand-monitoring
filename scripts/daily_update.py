@@ -216,6 +216,7 @@ def main():
         ("1/5 Demand · demand feed (MOBO)", [py, "scripts/build_demand_feed.py"]),   # first: Sell-In feed merges SP Injection from it
         ("2/5 Supply · penjualan feed (MOBII + SP Injection)", [py, "scripts/build_penjualan_feed.py"]),
         ("3/5 PJP · DSE visits feed", [py, "scripts/generate_dse_visits_feed.py"]),
+        ("PJP · DSE catalogue (272 DSE of the master file, PROMOTOR TOKO)", [py, "scripts/build_dse_catalogue.py"]),
         ("4/5 DSE KPI inputs", [py, "scripts/build_dse_kpi_feed.py"]),
     ]
     steps.append(("ENDBAL · Stock balance feed (latest snapshot)", [py, "scripts/build_endbal_feed.py"]))
@@ -223,7 +224,7 @@ def main():
         steps.append(("PJP · Weekly mapping (permanent outlet -> DSE)", [py, "scripts/build_pjp_mapping_feed.py"]))   # needs the penjualan feed (saldo sell-in)
     if ga_ok:   # Gross Add / SSO feed (raw/GA); needs no other feed
         steps.append(("GA · Gross Add / SSO feed (RGUGA)", [py, "scripts/build_ga_feed.py"]))
-        if find(r"^Site_rguga_daily_outlet_.*\.csv$"):   # MSISDN-level GA with activation site (counts only reach the feed)
+        if find(r"^(Site_)?rguga_daily_outlet_.*\.csv$"):   # MSISDN-level GA with activation site (counts only reach the feed)
             steps.append(("GA · Site aktivasi vs outlet tagging (kemasukan / pengiriman)", [py, "scripts/build_ga_site_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
     if "--no-render" not in sys.argv and shutil.which("node"):

@@ -798,6 +798,7 @@
     return card('Jenis brand outlet · satu outlet = satu entity', '<p class="note" style="margin:0 0 6px;">' + fmtCount(base.length) + ' outlet di lingkup ini, termasuk ' + fmtCount(cnt.HYBRID) + ' Hybrid yang dihitung sekali (punya id IM3 dan id 3ID). Flag diturunkan dari id; label Status Pairing katalog bertentangan dengan id pada ' + fmtCount(conflict) + ' outlet.</p>' +
       '<div class="map-toolbar"><div class="map-toolbar-group">' + btn('', 'Semua', base.length) + BRAND_FLAGS.map(function (x) { return btn(x[0], '<span class="' + x[2] + '">' + x[1] + '</span>', cnt[x[0]]); }).join('') + '</div></div>');
   }
+  function terrDseLogin(o) { var c = dseCat(), e = c ? c.byName[String(o.dse_name || '').trim().toUpperCase()] : null; return e ? [e.im3, e.id3].filter(Boolean).join(' / ') : (o.dse_code_im3 || ''); }   // master login ids when the DSE is in the catalogue
   function terrOutletRow(o) {
       var isSelected = state.terrSelectedKey === o.outlet_key;
       var siteLabel = o.site_nbs || o.site_name || '—';
@@ -806,7 +807,7 @@
       return '<tr data-terr-outlet="' + esc(o.outlet_key) + '" class="' + (isSelected ? 'sel' : '') + '" style="cursor:pointer;" tabindex="0">' +
         '<td class="cur">' + esc(o.outlet_name) + ' ' + brandBadge(o) + '<br><small style="color:var(--ij-muted); font-size:14px;">IM3: ' + esc(o.outlet_id_im3) + ' | 3ID: ' + esc(o.outlet_id_3id) + (o.partner_name_im3 ? ' &middot; ' + esc(o.partner_name_im3) : '') + '</small></td>' +
         '<td><code>' + esc(siteLabel) + '</code>' + distLabel + '</td>' +
-        '<td><b>' + esc(o.dse_name || o.dse_code_im3 || '—') + '</b><br><small style="color:var(--ij-muted);">' + esc(o.dse_code_im3 || '') + '</small>' + (o.flags ? '<br>' + flagChips(o.flags) : '') + '</td>' +
+        '<td><b>' + esc(o.dse_name || o.dse_code_im3 || '—') + '</b><br><small style="color:var(--ij-muted);">' + esc(terrDseLogin(o)) + '</small>' + (o.flags ? '<br>' + flagChips(o.flags) : '') + '</td>' +
         '<td>' + esc(o.micro_cluster || '—') + '<br><small style="color:var(--ij-muted);">' + esc(o.dso_leader || '') + '</small></td>' +
         '<td>' + esc(o.branch || '—') + '<br><small style="color:var(--ij-muted);">' + esc(o.hoa_leader || '') + '</small></td>' +
         '<td>' + esc(o.kecamatan || '—') + '<br><small style="color:var(--ij-muted);">&gt; ' + esc(o.desa || '—') + '</small></td>' +
@@ -2448,16 +2449,18 @@
       var v = bval(d), rate = hitPct(v);
       var statusTag;
       if (d.is_promotor) statusTag = promoTag(d) + '<br><span class="note">tidak diukur sebagai PJP</span>';
+      else if (d.role === 'PROMOTOR TOKO') statusTag = promoTag(d) + '<br><span class="note">bukan DSE · login di luar master</span>';
       else if (!v.actual && v.planned) statusTag = '<span class="alert-tag">No execution</span>';
       else if (rate >= 70) statusTag = '<span class="good-tag">Strong (&ge;70%)</span>';
       else if (rate >= 50) statusTag = '<span class="sw sw-up"></span> Healthy';
       else if (rate >= 25) statusTag = '<span class="sw sw-watch"></span> Needs Focus';
       else statusTag = '<span class="alert-tag">Severe (&lt;25%)</span>';
-      var logins = (d.logins || []).map(function (l) { var p = l.split(':'); return '<span class="' + (p[0] === 'IM3' ? 'badge-im3' : 'badge-3id') + '">' + esc(p[0]) + '</span> <code>' + esc(p[1]) + '</code>'; }).join(' ');
+      var dc = dseCat(), dcd = dc && d.in_master ? dc.byPid[d.person_id] : null;     // master DSE: the login ids of the MASTER file; others: the logins seen in MOBI
+      var logins = dcd ? dseLoginsHtml(dcd) : (d.logins || []).map(function (l) { var p = l.split(':'); return '<span class="' + (p[0] === 'IM3' ? 'badge-im3' : 'badge-3id') + '">' + esc(p[0]) + '</span> <code>' + esc(p[1]) + '</code>'; }).join(' ');
       var cov = d.assigned_coverage_rate == null ? '—' : d.assigned_coverage_rate + '%';
       var adh = d.adhoc_planned ? ' <span class="badge-adhoc" title="Kunjungan ad-hoc di outlet tanpa DSE, tidak dihitung sebagai PJP">ADHOC ' + fmtCount(d.adhoc_actual) + '/' + fmtCount(d.adhoc_planned) + '</span>' : '';
       return '<tr' + (d.is_promotor ? ' style="background:#faf5ff;"' : '') + '>' +
-        '<td class="cur" style="padding-left:40px;">' + (d.is_promotor ? '🎤 ' : '') + '<b>' + esc(d.dse_name) + '</b> ' + iohTag(d.logins) + promoTag(d) + adh + (d.in_master || d.is_promotor ? '' : ' <span class="note" title="Login not found in MASTER DSE Hirarki">(non-PJP)</span>') + '<br><span style="font-size:13px;">' + logins + '</span></td>' +
+        '<td class="cur" style="padding-left:40px;">' + (d.is_promotor ? '🎤 ' : '') + '<b>' + esc(d.dse_name) + '</b> ' + iohTag(d.logins) + promoTag(d) + adh + (d.in_master || d.is_promotor ? '' : ' ' + promoTag(d)) + '<br><span class="dse-login" style="font-size:13px;">' + logins + '</span></td>' +
         '<td>' + esc(d.operator_type) + '</td>' +
         '<td>' + esc(d.branch) + '</td>' +
         '<td>' + esc(d.micro_cluster) + '</td>' +
@@ -6047,7 +6050,37 @@
   // outlets without a DSE are ad-hoc visits outside the PJP for now (owner, 15 Oct 2026)
   function dseIsNone(n) { n = String(n == null ? '' : n).replace(/\.0$/, '').trim().toUpperCase(); return !n || n === '0' || n.indexOf('UNASSIGNED') === 0 || n === 'ADHOC (NON-PJP)' || n === 'TANPA DSE'; }
   function dseHtml(n) { return dseIsNone(n) ? '<span class="badge-adhoc" title="Outlet tanpa DSE: kunjungan dicatat sebagai ADHOC (non-PJP) untuk sementara">ADHOC · non-PJP</span>' : esc(n); }
-  function promoTag(d) { return d && d.is_promotor ? '<span class="badge-promotor" title="Promotor (PRJAYAIN##): kunjungan ditampilkan tetapi tidak diukur sebagai produktivitas PJP VISIT">🎤 Promotor</span>' : ''; }
+  function promoTag(d) { return d && (d.is_promotor || d.role === 'PROMOTOR TOKO') ? '<span class="badge-promotor" title="PROMOTOR TOKO: operator di luar file MASTER DSE (promotor PRJAYAIN## dan login yang tidak ada di master). Promotor tidak diukur sebagai produktivitas PJP; login di luar master tetap masuk total tetapi bukan DSE.">🎤 PROMOTOR TOKO</span>' : ''; }
+  /* DSE catalogue (owner, 23 Okt 2026): the 272 DSE of the MASTER file are DSE (AKTIF) and show their NAME with the master login ids below; every operator outside the master is PROMOTOR TOKO.
+     Feed DSE_CAT (scripts/build_dse_catalogue.py). A name shared by two people (SUSANTO) is not looked up by name. */
+  var _dcMap = null;
+  function dseCat() {
+    var C = (typeof window !== 'undefined' && window.DSE_CAT) ? window.DSE_CAT : null; if (!C) return null;
+    if (_dcMap && _dcMap.C === C) return _dcMap;
+    var m = { C: C, byName: {}, byPid: {}, pt: {} };
+    (C.dse || []).forEach(function (d) { if (d.pid) m.byPid[d.pid] = d; if (!d.dup) m.byName[String(d.n).toUpperCase()] = d; });
+    (C.pt || []).forEach(function (p) { m.pt[String(p.n).toUpperCase()] = p; });
+    _dcMap = m; return m;
+  }
+  function dseLoginsHtml(d) { return '<span class="badge-im3">IM3</span> <code>' + esc(d.im3 || '—') + '</code> · <span class="badge-3id">3ID</span> <code>' + esc(d.id3 || '—') + '</code>'; }
+  function dseLoginEnhance(root) {
+    var M = dseCat(); if (!M || !root || !root.querySelectorAll) return;
+    var up = function (s) { return String(s || '').replace(/\.0$/, '').trim().toUpperCase(); };
+    [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      [].forEach.call(tb.querySelectorAll('td'), function (td) {
+        if (td.querySelector('.dse-login') || td.querySelector('.dse-role') || td.colSpan > 2) return;
+        var cands = [], b = td.querySelector('b');
+        if (b) cands.push(up(b.textContent));
+        if (!td.children.length) cands.push(up(td.textContent));
+        var m = up(td.textContent).match(/^[🎤\s]*([A-Z0-9][A-Z0-9 .'\-]*?)(?:\s*[·(]|\s+RURAL\b|\s+IOH\b|\s+PROMOTOR\b|$)/); if (m) cands.push(m[1].trim());
+        var n = cands.filter(function (c) { return c && (M.byName[c] || M.pt[c]); })[0]; if (!n) return;
+        var d = document.createElement('div');
+        if (M.byName[n]) { d.className = 'dse-login'; d.innerHTML = dseLoginsHtml(M.byName[n]); d.title = 'DSE aktif (file MASTER DSE) · login ID format master'; }
+        else { d.className = 'dse-role'; d.innerHTML = promoTag({ role: 'PROMOTOR TOKO' }); }
+        td.appendChild(d);
+      });
+    });
+  }
   function iohTag(logins) { var L = {}; (logins || []).forEach(function (l) { L[String(l).split(':')[0]] = 1; }); return L.IM3 && L['3ID'] ? '<span class="badge-ioh" title="IOH: login IM3 + 3ID dalam satu orang (hybrid / paired)">IOH</span> ' : ''; }
   function uarCats(tab) { return tab === 'sp' || tab === 'spi' ? ['SP'] : (tab === 'sal' ? ['SALMO'] : (state.uarVc === 'value' ? ['VCF'] : (state.uarVc === 'zero' ? ['VCB'] : ['VCF', 'VCB']))); }
   function uarSlabIdx(tab, v) { var S = UAR_SLABS[tab]; for (var i = S.length - 1; i >= 0; i--) { if (v >= S[i][0]) return i; } return 0; }
@@ -9902,7 +9935,7 @@
       (e.lines.length ? '<ul class="ov-lines">' + e.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       '<div class="ov-body"><table class="tbl" data-nosort="1"><thead><tr><th class="num">#</th>' + e.cols.map(function (c, i) { return '<th data-col="' + i + '" style="cursor:pointer; white-space:nowrap;"' + (i >= numFrom ? ' class="num"' : '') + '>' + esc(c) + (st.col === i ? (st.dir > 0 ? ' ▲' : ' ▼') : ' <span style="opacity:.3;">⇅</span>') + '</th>'; }).join('') + '</tr></thead><tbody>' +
       (shown.map(function (r, i) { return '<tr><td class="num">' + (i + 1) + '</td>' + r.map(function (c, j) { return '<td' + (j >= numFrom ? ' class="num"' : '') + '>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') || '<tr><td colspan="' + (e.cols.length + 1) + '" class="note">Tidak ada data pada teritori ini.</td></tr>') + '</tbody></table>' + (rows.length > shown.length ? '<p class="note">Menampilkan ' + shown.length + ' dari ' + fmtCount(rows.length) + ' baris; tombol Salin membawa semua baris dengan urutan yang sedang tampil.</p>' : '') + '</div></div>';
-    el.innerHTML = brRelabelHtml(el.innerHTML); dseFlagEnhance(el);
+    el.innerHTML = brRelabelHtml(el.innerHTML); dseFlagEnhance(el); dseLoginEnhance(el);
   }
   function ovOpen(key) {
     var e = ovEntry(key); if (!e || typeof document === 'undefined') return;
@@ -10279,6 +10312,8 @@
       d.code = d.codes[0] || d.pid || '';
       d.text = d.label + (d.code ? ' · ' + d.code : '');
       d.hay = (d.name + ' ' + d.codes.join(' ') + ' ' + d.pid).toUpperCase();
+      var cc = dseCat(), ce = cc ? ((d.pid && cc.byPid[d.pid]) || cc.byName[d.name]) : null;      // DSE catalogue: login ids in the format of the MASTER file (old codes stay searchable)
+      if (ce) { d.mlog = [ce.im3, ce.id3].filter(Boolean); d.code = ce.im3 || d.code; d.text = d.label + ' · ' + d.mlog.join(' / '); d.hay += ' ' + d.mlog.join(' ').toUpperCase(); }
       return d;
     }).filter(function (d) { return d.mc; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     return DSE_DIR;
@@ -10610,7 +10645,7 @@
     if (p) p.textContent = META[state.view][1];
     if (c) { c.setAttribute('role', 'button'); c.setAttribute('tabindex', '0'); c.style.cursor = 'pointer'; c.textContent = cutLabel() + ' · Governed Local Feed ▾'; c.title = 'Klik untuk checklist kelengkapan data. PJP visits end ' + pjpCut() + '; Sell-In (MOBII) ends ' + cutSellIn() + ' ' + cutYear() + '; demand (MOBO) ends ' + cutDemand() + '; Gross Add (RGUGA) ends ' + cutGa() + '; ENDBAL snapshot ' + cutEndbal() + '; MOBI physical distribution ends ' + cutDist() + '. Feeds generated ' + (feedMeta('PENJUALAN_FEED').generated_at || '').slice(0, 10) + '.'; }
     if (s) s.textContent = brRelabelText(scopeText() + (state.dse ? ' · DSE ' + ((dseGet(state.dse) || {}).label || state.dse) : ''));
-    if (v) { v.innerHTML = brRelabelHtml(VIEWS[state.view]()); tsEnhance(v); dseCoverEnhance(v); dseFlagEnhance(v); }
+    if (v) { v.innerHTML = brRelabelHtml(VIEWS[state.view]()); tsEnhance(v); dseCoverEnhance(v); dseFlagEnhance(v); dseLoginEnhance(v); }
     rtSync();
     cleanupStaleMaps();   // the replaced HTML may have detached a live Leaflet map
     if (typeof document !== 'undefined' && document.querySelectorAll) {

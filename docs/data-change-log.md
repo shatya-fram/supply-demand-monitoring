@@ -2,6 +2,15 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 23 Oct 2026 (afternoon) · GA refresh to 21 Oct
+| Scope | Source | Change |
+|---|---|---|
+| GA tagging | `Daily_RGUGA_OUTLET_202610.xlsb` (23 Oct 04:15, 87.0 MB; was 81.1 MB on 21 Oct) | `build_ga_feed.py`: cut 20 → **21 Oct**. GA IM3 105,963 + 3ID 54,421 = **160,384** (1 Oct–21 Oct; 21 Oct alone 7,559); 30,824 brand-outlet rows, 23,017 physical outlets. |
+| GA site location | `rguga_daily_outlet_202610.csv` (23 Oct 04:16, 248.3 MB; **the uploader dropped the `Site_` prefix**, same 22 columns; 1,416,785 rows, 1–21 Oct, days 1–20 identical to the 22 Oct file) | `build_ga_site_feed.py` now takes `*rguga_daily_outlet_*.csv` (newest wins). GA in Inner Jakarta sites **140,376** (21 Oct alone 9,203); 5,523 sites, 121 kecamatan. |
+| KRO | derived | `build_kro_feed.py` rebuilt on the new GA feed. |
+| Not consumed | `GA by Fav Locs/Daily_RGUGA_Kecamatan_202610.xlsb`, `adhoc_rguga_daily_kec_202610.xlsb` | Unchanged since 22 Oct 12:33 / 13:38 (still 1–20 Oct); the official site-location summary is read by analysis only, no builder. |
+| Checks | | `render_check`, `audit_ga` (3,914), `audit_kro`, `audit_scorecard` (164) pass. |
+
 ## 23 Oct 2026 · catalogue workbook re-saved (no substantive change)
 | Scope | Source | Change |
 |---|---|---|

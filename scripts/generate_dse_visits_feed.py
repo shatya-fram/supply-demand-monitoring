@@ -815,6 +815,8 @@ for pid, S in op_stats.items():
             row["flag_notes"].append((_r["note"] + (" · dugaan pemilik: " + _r["dugaan_pemilik"] if _r.get("dugaan_pemilik") else "")).strip())
     row.update(stat_block(S))
     row.update(ent_fields(ent_stats["op"][pid]))
+    row["role"] = "DSE" if row["in_master"] else "PROMOTOR TOKO"          # owner, 23 Oct 2026: the 272 DSE of the MASTER file are DSE (AKTIF); every operator outside the master is PROMOTOR TOKO
+    row["dse_status"] = "AKTIF" if row["in_master"] else ""
     row["total_checkins"] = row["actual_visits"]
     row["daily"] = daily_series("op", pid)
     row["outlets"] = sorted(
