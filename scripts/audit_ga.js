@@ -142,7 +142,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
 { const SF = global.GA_SITE_FEED, vb = (v, b) => { const a = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < 6; i++) { if (b !== '3ID') a[i] += v[i]; if (b !== 'IM3') a[i] += v[6 + i]; } return a; };
   const T0 = a => a.reduce((x, y) => x + y, 0);
   for (const brand of ['all', 'IM3', '3ID']) for (const mc of ['', SF.mc[0].mc]) {
-    const tag = 'site-sec/' + brand + '/' + (mc || 'region'); Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaBasis: 'site', gaSg: 'all', gaCover: 'all', gaBrand: brand, branch: mc ? SF.mc[0].area : '', hoa: '', kec: mc, dse: '', gtSort: 'x', gtUse: 'all' });
+    const tag = 'site-sec/' + brand + '/' + (mc || 'region'); Object.assign(state, { view: 'mb_grossadd', gaTab: 'ringkasan', gaBasis: 'site', gaSg: 'all', gaCover: 'all', gaBrand: brand, branch: mc ? SF.mc[0].area : '', hoa: '', kec: mc, dse: '', gtSort: 'x' });
     const C2 = cards(VIEWS.mb_grossadd()), R = k => C2[Object.keys(C2).find(x => x.startsWith(k))];
     const rows = SF.mc.filter(r => !mc || r.mc === mc); let A = [0, 0, 0, 0, 0, 0]; rows.forEach(r => vb(r.v, brand).forEach((x, i) => A[i] += x));
     const tot = T0(A), ext = A[3] + A[4] + A[5];
@@ -189,6 +189,11 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     state.gaTab = 'sga'; h = VIEWS.mb_grossadd(); const ST = table(h, 'REGION / AREA / MC'); if (ST) { const rr = ST.rows.find(x => /^REGION INNER JAKARTA/.test((x[0] || '').replace(/^[＋－\s]+/, ''))), isite = ST.head.indexOf('SITE'); const nsite = SF.sites.filter(r => { const a = [0, 0]; r.v.forEach((x, i) => { if ((brand === 'IM3' && i >= 6) || (brand === '3ID' && i < 6)) return; a[0] += x; }); return a[0] > 0; }).length; const nz = Object.values(SF.msites).reduce((a, x) => a + x, 0) - SF.sites.filter(r => r.m && (() => { let q = 0; r.v.forEach((x, i) => { if ((brand === 'IM3' && i >= 6) || (brand === '3ID' && i < 6)) return; q += x; }); return q > 0; })()).length; eq(tag2, 'slab site: jumlah site = aktif + master tanpa GA', num(rr[isite]), nsite + Math.max(0, nz)); }
   }
   Object.assign(state, { gaBasis: 'outlet', gaBrand: 'all', gaTab: 'ringkasan', branch: '', kec: '' }); }
+// Purwakarta (SUKASARI|PURWAKARTA) is not Inner Jakarta (owner, 24 Oct 2026): not in the target list, not in the site feed, not in the activation kecamatan
+{ const SF = global.GA_SITE_FEED; checks += 3;
+  if (TK.some(r => /PURWAKARTA/.test(r.kk))) { fails++; console.log('✗ [purwakarta] masih ada di daftar target'); }
+  if (Object.keys(SF.kd).some(k => /PURWAKARTA/.test(k))) { fails++; console.log('✗ [purwakarta] masih ada di GA site per kecamatan'); }
+  if (SF.kec.some(r => /PURWAKARTA/.test(r.k))) { fails++; console.log('✗ [purwakarta] masih ada di daftar kecamatan site'); } }
 // site basis: kecamatan are counted once (no kecamatan-only duplicate of a kecamatan | kabupaten key)
 { const keys = M.loc_keys, full = {}; keys.forEach(k => { if (k.includes('|')) (full[k.split('|')[0]] = full[k.split('|')[0]] || []).push(k); }); const dup = keys.filter(k => !k.includes('|') && full[k] && full[k].length === 1);
   checks++; if (dup.length) { fails++; console.log('✗ [loc_keys] kecamatan tanpa kabupaten sementara ada label lengkapnya (dihitung dua kali sebagai site): ' + dup.join(', ')); } }

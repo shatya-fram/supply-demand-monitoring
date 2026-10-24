@@ -5,7 +5,7 @@ build_ga_site_feed.py  ·  GA by ACTIVATION SITE vs TAGGING OUTLET (MSISDN-level
 Source : raw/GA*/[Site_]rguga_daily_outlet_<YYYYMM>.csv (the uploader dropped the Site_ prefix on 23 Oct 2026; the newest file wins)  (one row = one GA MSISDN: tagging outlet + activation site).  The MSISDN never leaves this script:
          the feed holds counts only.
 Rules  : docs/assessments/ga_site_rguga_assessment.md
-  * Inner Jakarta (IJ) activation = activation kecamatan in the 121 kecamatan of the GA target list (M2S KECAMATAN, the same list as Daily_RGUGA); incl. Kepulauan Seribu.
+  * Inner Jakarta (IJ) activation = activation kecamatan in the 120 kecamatan of the GA target list (Purwakarta SUKASARI excluded, owner 24 Oct 2026) (M2S KECAMATAN, the same list as Daily_RGUGA); incl. Kepulauan Seribu.
   * IJ tagging outlet = (brand, outlet id without leading zeros) is an outlet of ga_feed (Daily_RGUGA) or its micro cluster is one of the 36 IJ MCs.
   * Origin class of a GA activated at an IJ site (MC of the site = main micro cluster of the master outlets at the site, else the MC of the kecamatan):
       S same MC · A same area, other MC · X other IJ area · N outlet outside IJ with attributes · U outlet id without attributes · Z no outlet id
@@ -79,10 +79,12 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
                 site_mc[s][r['micro_cluster']] += 1
             if r['dse_name']:
                 site_dse[s][r['dse_name']] += 1
-    U = set(F['loc_keys'])
+    EXCLUDED = {'SUKASARI|PURWAKARTA'}   # owner, 24 Oct 2026: not Inner Jakarta
+    U = set(F['loc_keys']) - EXCLUDED
     kec_mc = C.defaultdict(C.Counter)
     for t in F['tkec'] or []:
-        U.add(t['kk'])
+        if t['kk'] not in EXCLUDED:
+            U.add(t['kk'])
         kec_mc[t['kk']][t['mc']] += 100000
     path = find_csv()
     B = {'IM3': 0, '3ID': 1}

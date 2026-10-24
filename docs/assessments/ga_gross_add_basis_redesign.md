@@ -19,9 +19,9 @@ Sumber outlet (PJP / NON / KAM), Cakupan dan filter DSE tidak berlaku di basis s
 
 ## 2. Data baru di `ga_site_feed.js` (hanya hitungan, tanpa MSISDN)
 
-`cut` (21 Okt), `kd` (GA harian per kecamatan aktivasi per brand, 121 kecamatan), `skd` (idem per segmen penjual R / K / W / N / U / Z), `sdo` (GA tagging IJ yang diaktivasi di luar IJ per segmen), `msites` (site master per MC, untuk slab "0 GA"), `sites[].ad` (hari aktif per site per brand). Segmen penjual memakai tangga standar owner pada GA September penuh per outlet fisik (Retail ≤ 30, KRO 31–100, Wholesaler > 100). Builder: `scripts/build_ga_site_feed.py`; ukuran feed 2,1 MB.
+`cut` (21 Okt), `kd` (GA harian per kecamatan aktivasi per brand, 120 kecamatan), `skd` (idem per segmen penjual R / K / W / N / U / Z), `sdo` (GA tagging IJ yang diaktivasi di luar IJ per segmen), `msites` (site master per MC, untuk slab "0 GA"), `sites[].ad` (hari aktif per site per brand). Segmen penjual memakai tangga standar owner pada GA September penuh per outlet fisik (Retail ≤ 30, KRO 31–100, Wholesaler > 100). Builder: `scripts/build_ga_site_feed.py`; ukuran feed 2,1 MB.
 
-Total: 140.376 GA aktivasi di IJ (1–21 Okt) = jumlah `kd` = jumlah `skd`: Retail 66.051, KRO 16.321, Wholesaler 22.224, outlet luar IJ 11.889, ID tanpa atribut 13.572, tanpa ID outlet 10.319. Target Oktober 313.511 (IM3 210.955, 3ID 102.556), pro-rata 21/31 = 212.378; pencapaian site 66,1% dari pro-rata.
+Total (setelah Purwakarta dikeluarkan, 24 Okt 2026): 140.359 GA aktivasi di IJ (1–21 Okt) = jumlah `kd` = jumlah `skd`: Retail 66.045, KRO 16.321, Wholesaler 22.223, outlet luar IJ 11.880, ID tanpa atribut 13.571, tanpa ID outlet 10.319. Target Oktober 313.326 (IM3 210.821, 3ID 102.505), pro-rata 21/31 = 212.253; pencapaian site 66,1% dari pro-rata.
 
 ## 3. Definisi yang dipakai
 
@@ -29,7 +29,7 @@ Total: 140.376 GA aktivasi di IJ (1–21 Okt) = jumlah `kd` = jumlah `skd`: Reta
 - **Slab site** adalah usulan (GA per site per bulan: 0 · 1–9 · 10–29 · 30–59 · 60–99 · 100–199 · ≥ 200; median site 16 GA per 20 hari); owner bisa menyesuaikan di `GS_SLAB_GA`. Slab "0" = site master tanpa GA (daftar tidak tersedia, angka tidak bisa diklik).
 - **LMTD September per site / kecamatan tidak ada** di file site (file hanya Oktober): kolom pembanding September basis site menampilkan n/a atau tidak ditampilkan (tidak ada angka 0 buatan).
 - **Kategori outlet** (basis outlet): kelas GA September; perpindahan kelas dihitung dari proyeksi Oktober (GA MTD ÷ cut × 31). **Tag outlet**: program (KRO, Wholesaler, Promotor, DTU, AVA dari `kro_program_outlets.csv`; BOSS dan Tebus Murah belum ada anggota), sumber PJP / NON / KAM, master vs non-master, ber-DSE vs tanpa DSE, Hybrid / IM3 saja / 3ID saja, kategori.
-- GA = semua MSISDN di file; syarat usage > 25 MB belum diterapkan di angka resmi (menunggu konfirmasi owner).
+- GA = semua MSISDN di file. **Keputusan owner 24 Okt 2026: aturan usage > 25 MB tidak dipakai dulu** (tombol matriks "Usage > 25 MB" dihapus dari tab Site location GA).
 
 ## 4. Pemeriksaan
 
@@ -37,9 +37,9 @@ Total: 140.376 GA aktivasi di IJ (1–21 Okt) = jumlah `kd` = jumlah `skd`: Reta
 - `scripts/render_check.js`: semua tab kedua basis × brand × wilayah, tiga format Outlet, tiga tampilan Grafik, popup slab site (jumlah baris = angka di sel).
 - Tombol baru (format outlet, tampilan grafik, buka / tutup baris heatmap) diuji dengan klik di browser; link bersama membawa `gaOutFmt` dan `gaGraf`.
 
-## 5. Hal yang belum / perlu keputusan owner
+## 5. Keputusan owner (24 Okt 2026)
 
-1. Usulan slab site (di atas) dan syarat usage > 25 MB.
-2. Purwakarta (1 kecamatan, 15 GA) masih ikut IJ.
-3. Heatmap site: kecamatan muncul di bawah MC DEMARKASI, bukan MC site master.
-4. Basis site tidak punya September: growth per kecamatan menunggu workbook GA September per site.
+1. Batas slab site (0 · 1–9 · 10–29 · 30–59 · 60–99 · 100–199 · ≥ 200): disetujui.
+2. Tidak ada September per site / kecamatan di file site: diterima (growth per kecamatan n/a).
+3. MC DEMARKASI untuk Target / Harian / Grafik dan MC master untuk Ringkasan / Slab site: diterima.
+4. **Purwakarta (SUKASARI|PURWAKARTA, 1 kecamatan) dikeluarkan dari Inner Jakarta**: 120 kecamatan; target kecamatan itu (IM3 134,2 + 3ID 50,5) ikut keluar. **Usage > 25 MB tidak dipakai dulu.**

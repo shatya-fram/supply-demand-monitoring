@@ -566,7 +566,9 @@ if m2s_files:
             kk, v = r.get(6), r.get(tcol)
             if isinstance(kk, str) and "|" in kk and isinstance(v, (int, float)):
                 tv[brand][kk] = round(float(v), 1)
-    for kk in sorted(set(tv["IM3"]) | set(tv["3ID"])):
+    EXCLUDED_KEC = {"SUKASARI|PURWAKARTA"}   # owner, 24 Oct 2026: the one Purwakarta kecamatan of the target list is NOT Inner Jakarta (120 kecamatan)
+    target["excluded"] = sorted(EXCLUDED_KEC)
+    for kk in sorted((set(tv["IM3"]) | set(tv["3ID"])) - EXCLUDED_KEC):
         d = dem.get(kk) or {}
         mc = str(d.get(1) or "").strip()
         row = {"kk": kk, "kec": kk.split("|")[0], "kab": kk.split("|")[1], "mc": mc, "br": (mc_info.get(mc) or {}).get("br") or str(d.get(0) or OUTSIDE), "IM3": tv["IM3"].get(kk, 0), "3ID": tv["3ID"].get(kk, 0)}
