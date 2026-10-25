@@ -2,6 +2,18 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 26 Oct 2026 (refresh to 25 Oct; GA to 24 Oct)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__23_23 / 24_24 / 25_25.zip` (25 Oct 22:29; a second copy of the same files sits in `MOBI VISIT DSE/OneDrive_1_10-26-2026 (1)/`, dropped by the md5 de-duplication) | Cut 23 → **25 Oct**: 25 days, 21 business days, no missing day. The re-issued 23 Oct file equals the one of 23 Oct (8,214 planned, 7,716 executed). 24 Oct (Sat): planned 9,092, executed 8,262, productive 4,290. **25 Oct (Sun): planned 11, executed 0** (no PJP on Sunday, same as 4, 11 and 18 Oct). MTD coverage of PJP outlets 98.5% → **98.9%** (not visited 229 → 169), target hit 75.8% → 76.8%, productive rate 45.2% → 45.7%. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (25 Oct 22:28) | Cut 23 → **25 Oct**. MTD Rp B: SP 1.40 → **2.11** (24 Oct Rp 575 Jt), voucher isi 2.91 → 3.16, voucher blank 0.42 → 0.48, saldo transfer 12.74 → 13.58, SP Injection 0.76. 25 Oct (Sunday) is a low day (SP Rp 139 Jt, voucher Rp 3 Jt, saldo about 0), like the earlier Sundays. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (25 Oct 22:28) | Cut 23 → **25 Oct**. Total demand MTD Rp 86.41 → **93.84 B** (24 Oct Rp 3.88 B, 25 Oct Rp 3.56 B); LMTD 1–25 Sep Rp 82.33 B, growth **+14.0%** (+14.9% at cut 23); Last FM Rp 106.50 B, gap −12.66 B. RLD 13.69, VCI 13.06, CVM 2.88, PKT 64.22, SP Injection 0.76 B. CVM sheet again carried RECARGE copies (55,774 rows, Rp 32.0 B removed). |
+| SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (25 Oct 22:28) | Saldo Mobo demand Rp 111.77 → **119.58 B**; LMTD 1–25 Sep Rp 110.01 B, growth **+8.7%** (+12.7% at cut 23). File and MOBO both at 25 Oct, nothing held back. |
+| ENDBAL | `endbal_20261025.zip` (26 Oct 05:29; report 26 Oct 04:21); the zips of 22 and 24 Oct were extracted again (same CSVs) | Snapshot 23 → **25 Oct**: 129,161 rows, 18,211 outlets (master 16,025, adhoc 2,186). |
+| GA | `Daily_RGUGA_OUTLET_202610.xlsb` (26 Oct 05:30) | Cut 21 → **24 Oct**. IOH October GA 160,384 → **190,666** pcs (IM3 105,963 → 124,332; 3ID 54,421 → 66,334); September unchanged. One day behind sell-in. |
+| Derived | | DSE KPI cut 25 (visits cut 25); KRO feed rebuilt and reconciles; weekly PJP mapping unchanged (Smartbeat file of 21 Oct). |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,710), `audit_kro`, `audit_dse_catalogue`, `audit_entity` pass. |
+
 ## 24 Oct 2026 (refresh to 23 Oct)
 | Scope | Source | Change |
 |---|---|---|

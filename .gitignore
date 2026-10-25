@@ -10,3 +10,6 @@ dist/
 
 # Sanitized public export (scripts/prepare_public_release.py)
 dist-public/
+
+# Local exports that contain MSISDN (personal data): never committed or published
+exports/
