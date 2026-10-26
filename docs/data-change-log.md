@@ -2,6 +2,12 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 27 Oct 2026 (later) · MOBII to 26 Oct
+| Scope | Source | Change |
+|---|---|---|
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (26 Oct 22:49, arrived after the morning refresh) | Cut 25 → **26 Oct**; all feeds except GA (24 Oct) are now on 26 Oct. MTD Rp B: SP 2.27 (26 Oct Rp 153 Jt), voucher isi 4.87 (26 Oct Rp 1.71 B), voucher blank 0.57, saldo transfer 15.61 (26 Oct Rp 2.04 B), SP Injection 0.81. DSE KPI cut 26. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,845), `audit_consistency` (278) pass. |
+
 ## 27 Oct 2026 (PJP, MOBO, SALMO and ENDBAL to 26 Oct; MOBII and GA unchanged)
 | Scope | Source | Change |
 |---|---|---|
