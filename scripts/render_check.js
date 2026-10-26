@@ -254,6 +254,14 @@ for (const tab of ['sp', 'vc', 'sal', 'spi']) {
   if (/data-ga-tab="target"/.test(hh)) { failures++; console.log('✗ outlet basis still has the Target Kecamatan tab'); }
   state.gaBasis = 'site'; hh = VIEWS.mb_grossadd(); if (!/data-ga-tab="target"/.test(hh) || /data-ga-tab="(dse|outlet)"/.test(hh)) { failures++; console.log('✗ site basis tabs wrong'); }
   state.gaBasis = 'outlet'; }
+// Pemetaan kemasukan (26 Okt 2026): three sources x brands x territory, every popup resolves (rows > 0 for the totals)
+{ const mcM = Object.keys(global.GA_FEED.metadata.mc_info)[0], brM = global.GA_FEED.metadata.mc_info[mcM].br;
+  for (const src of ['area', 'mc', 'ij']) for (const br of ['all', 'IM3', '3ID']) for (const sc of ['region', 'mc']) {
+    Object.assign(state, { view: 'mb_grossadd', gaBasis: 'site', gaTab: 'ringkasan', gaBrand: br, gsSrc: src, branch: sc === 'mc' ? brM : '', kec: sc === 'mc' ? mcM : '', hoa: '' });
+    check('mapping/' + src + '/' + br + '/' + sc, VIEWS.mb_grossadd);
+    for (const k of ['sitearea|ALL', 'outarea|ALL', 'hisite|', 'hidse|', 'hidso|']) { const e = app.ovEntry('gm|' + k); if (!e || !e.rows || !e.cols) { failures++; console.log('✗ mapping popup gm|' + k + ' ' + src + '/' + br + '/' + sc); } else if (/undefined|NaN/.test(app.ovText(e))) { failures++; console.log('✗ mapping popup undefined/NaN gm|' + k); } }
+  }
+  Object.assign(state, { gsSrc: 'area', gaBrand: 'all', branch: '', kec: '' }); }
 // Gross Add > Slab GA (gaSlab): popups per slab cell, tagging and site basis
 for (const bs of ['outlet', 'site']) {
   state.view = 'mb_grossadd'; state.gaTab = 'slab'; state.gaBasis = bs; state.branch = ''; state.kec = ''; state.hoa = '';

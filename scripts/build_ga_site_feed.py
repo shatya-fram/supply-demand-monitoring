@@ -59,7 +59,7 @@ def find_csv():
 def main():
     tmp = tempfile.mkdtemp()
     subprocess.run(['node', '-e', """global.window=global;require(process.argv[2]+'/website/data/ga_feed.js');const F=GA_FEED,fs=require('fs');
-fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk,k:r.k,s:r.s||[]})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
+fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut_day,loc_keys:F.metadata.loc_keys,mc_info:F.metadata.mc_info,outlets:F.outlets.map(r=>({i:r.i,b:r.b,mc:r.mc,t:r.t,sg:r.sg,lk:r.lk,k:r.k,s:r.s||[],n:r.n||'',dse:r.dse||''})),tkec:(F.metadata.target||{}).kec}))""", tmp, ROOT], check=True)
     F = json.load(open(tmp + '/feed.json'))
     fo = {(r['b'], nid(r['i'])): r for r in F['outlets']}
     sep_fm = C.defaultdict(int)   # September GA per physical outlet (IM3 + 3ID folded by key k): standard slab ladder, owner 18 Oct 2026: Retail <= 30, KRO 31-100, Wholesaler > 100
@@ -102,6 +102,8 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     ix = lambda d, k: d.setdefault(k, len(d))
     inrows, outrows = C.defaultdict(lambda: [0, 0]), C.defaultdict(lambda: [0, 0])
     cutd = 0
+    ospairs = C.defaultdict(lambda: [0, 0])   # (tagging outlet, activation site, origin class) -> GA per brand: who supplies which site
+    oinfo = {}                                # outlet idx -> [outlet id, outlet name, origin location idx, master DSE]
     kd = C.defaultdict(lambda: [[0] * 32, [0] * 32])          # activation kecamatan -> daily GA per brand
     skd = C.defaultdict(lambda: C.defaultdict(lambda: [[0] * 32, [0] * 32]))   # activation kecamatan -> tagging segment (R K W N U Z) -> daily GA per brand
     sdo = C.defaultdict(lambda: [[0] * 32, [0] * 32])         # segment of an IJ tagging outlet -> daily GA activated OUTSIDE IJ
@@ -155,7 +157,12 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
                 okec = (row['outlet_kecamatan'] or (F['loc_keys'][fr['lk']].split('|')[0] if fr and fr.get('lk') is not None else '')) if (o_ij or omc) else ''
                 oloc = (okec or '(kecamatan tidak tertulis)', okab if not okab.startswith('(') else '', o_mc if o_ij else omc, oarea) if (o_ij or omc) else ('(lokasi tidak diketahui)', '', '', '')
                 okey = fr['k'] if fr else ((row['ga_brand'] + ':' + oid) if oid else None)
-                inrows[(ix(oid_ix, okey) if okey else -1, ix(loc_ix, oloc), mc_idx.get(amc, -1), k)][b] += 1
+                oix = ix(oid_ix, okey) if okey else -1
+                inrows[(oix, ix(loc_ix, oloc), mc_idx.get(amc, -1), k)][b] += 1
+                if oix >= 0 and k > 0:   # only GA sold by an outlet NOT tagged to the site's MC (classes A X N U); same-MC supply is not an inflow
+                    ospairs[(oix, sid, k)][b] += 1
+                    if oix not in oinfo:
+                        oinfo[oix] = [oid, (row['outlet_nm'] or (fr or {}).get('n') or ''), ix(loc_ix, oloc), (fr or {}).get('dse', '') or row['dse_code'] or '']
                 sup_area[oarea][b] += 1
                 sup_kab[okab][b] += 1
                 sup_prov[PROV.get(okab, '(tidak diketahui)') if not okab.startswith('(') else '(tidak diketahui)'][b] += 1
@@ -200,9 +207,10 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     site_rows = []
     for sid, v in site.items():
         s = sinfo[sid]
-        d = [[a, c] for a, c in site_dse[sid].most_common(2)] if s[3] else []
+        d = [[a, c] for a, c in site_dse[sid].most_common(3)] if s[3] else []
         site_rows.append({'id': sid, 'n': s[0], 'k': s[1], 'mc': s[2], 'm': 1 if s[3] else 0, 'dse': d, 'v': v, 'ad': [len(site_days[sid][0]), len(site_days[sid][1]), len(site_days[sid][0] | site_days[sid][1])]})
     site_rows.sort(key=lambda r: -sum(r['v']))
+    site_ix = {r['id']: i for i, r in enumerate(site_rows)}
     top = lambda d, n: [[k, v] for k, v in sorted(d.items(), key=lambda x: -sum(x[1]))[:n]]
     feed = {'metadata': {
         'generated_at': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'), 'source': os.path.basename(path), 'contract': 'docs/assessments/ga_site_rguga_assessment.md',
@@ -216,6 +224,7 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
         'cut': int(d_hi[8:]), 'kd': {k: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for k, v in kd.items()},
         'skd': {k: {sg: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for sg, v in d.items()} for k, d in skd.items()}, 'sdo': {k: [v[0][1:int(d_hi[8:]) + 1], v[1][1:int(d_hi[8:]) + 1]] for k, v in sdo.items()},
         'msites': {m: len({sid for sid, c in site_mc.items() if c.most_common(1)[0][0] == m}) for m in mapping},
+        'oi': {str(i): v for i, v in oinfo.items()}, 'os': [[o, site_ix[sid], k, v[0], v[1]] for (o, sid, k), v in ospairs.items() if sid in site_ix],
         'ol': [list(k) for k in loc_ix], 'ir': [[o, l, m, c, v[0], v[1]] for (o, l, m, c), v in inrows.items()],
         'dl': [list(k) for k in dloc_ix], 'or': [[o, d, m, v[0], v[1]] for (o, d, m), v in outrows.items()],
         'dest_prov': top(dest_prov, 40), 'dest_kab': [[k, v, [[a, c] for a, c in dkab_src[k].most_common(2)]] for k, v in sorted(dest_kab.items(), key=lambda x: -sum(x[1]))[:60]],

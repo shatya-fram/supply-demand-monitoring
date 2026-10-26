@@ -43,3 +43,22 @@ Total (setelah Purwakarta dikeluarkan, 24 Okt 2026): 140.359 GA aktivasi di IJ (
 2. Tidak ada September per site / kecamatan di file site: diterima (growth per kecamatan n/a).
 3. MC DEMARKASI untuk Target / Harian / Grafik dan MC master untuk Ringkasan / Slab site: diterima.
 4. **Purwakarta (SUKASARI|PURWAKARTA, 1 kecamatan) dikeluarkan dari Inner Jakarta**: 120 kecamatan; target kecamatan itu (IM3 134,2 + 3ID 50,5) ikut keluar. **Usage > 25 MB tidak dipakai dulu.**
+
+## 6. Pemetaan kemasukan GA di tab Site location GA (26 Okt 2026)
+
+Permintaan owner: peta area yang **kemasukan** (berapa outlet pengirim, berapa site, berapa GA terdampak, klik untuk lokasi outlet dan lokasi site), peta area yang **men-supply** (kota, jumlah outlet, klik untuk outlet pengirim), dan kartu ringkasan: site yang paling banyak dimasuki barang lain (terutama > 50% GA datang dari supply area lain) serta DSE / DSO yang perlu difokuskan (klik: impact).
+
+**Data.** `ga_site_feed.js` bertambah `os` (pasangan outlet pengirim × site × kelas asal, hanya GA yang dijual outlet di luar MC site; 48 ribu baris), `oi` (outlet: ID, nama, lokasi, DSE; 12 ribu outlet) dan `sites[].dse` (3 DSE teratas per site). Feed 3,6 MB. Total pasangan = GA kemasukan di kelas A, X, N dan U; kelas Z (tanpa ID outlet) tidak punya outlet sehingga hanya terhitung di GA terdampak.
+
+**Definisi (tombol "Sumber kemasukan", default pertama):**
+- **Dari area (SA) lain** = GA di site yang dijual outlet di luar Area site: area IJ lain, outlet luar IJ, outlet ber-ID tanpa atribut, tanpa ID outlet (57.694 GA, 41,1% dari 140.359 pada 1–21 Okt). "Supply area lain" di permintaan diartikan Area (SA).
+- Di luar MC site (kelas A, X, N, U, Z) dan Dari luar IJ (N, U, Z) sebagai alternatif.
+- **Site dimasuki** = site dengan ≥ 50% GA dari luar dan minimal 20 GA; **DSE / DSO perlu fokus** = ≥ 50% GA di site mereka dari luar dan minimal 100 GA. Ambang adalah usulan (`GM_MIN_PCT`, `GM_MIN_GA`); DSE site = DSE outlet master di site, GA dialokasikan sebanding jumlah outlet master (maksimal 3 DSE per site); site di luar master tidak punya DSE.
+
+**Hasil (sumber default):** 853 site dimasuki (23.851 GA masuk dari 34.137 GA, 69,9%), 73 DSE (impact 18.018 GA) dan 9 DSO (impact 20.753 GA; terbesar Muhamad Rifaldi MC Mustika Jaya 73,3%, Norman Parasian, Muhammad Gufron, Lestari A. R., Rona Dwi Karyo) yang perlu difokuskan.
+
+**Tampilan.** Tiga kartu (site dimasuki, DSE fokus, DSO fokus) dengan popup daftar dan impact; tabel "Pemetaan area yang kemasukan" per Area › MC (site terdampak, outlet pengirim, GA di wilayah, GA terdampak, %, site ≥ 50%) dengan klik ke lokasi site (kecamatan, MC, DSO, asal terbesar) dan lokasi outlet pengirim (kecamatan, kota / kabupaten, MC, area); tabel "Pemetaan area yang men-supply" per kota / kabupaten pemasok (40 teratas, outlet pengirim, site dituju, GA) dengan klik ke daftar outlet pengirim dan site penerima. Mengikuti Brand dan filter Branch / HoA / MC; link bersama membawa `gsSrc`.
+
+**Pemeriksaan:** `audit_ga.js` (3.845): per brand × sumber, GA di wilayah, GA terdampak, site terdampak, site ≥ 50%, kartu, pasangan outlet × site = kemasukan − tanpa ID, jumlah popup outlet dan site, tabel pemasok ≤ kemasukan; `render_check.js`: tiga sumber × brand × wilayah, semua popup `gm|` resolve.
+
+**Keterbatasan.** Outlet luar Jaya tanpa atribut wilayah dikelompokkan "(lokasi tidak diketahui)" (lokasi outlet tidak ada di file); GA tanpa ID outlet tidak punya daftar outlet; cut data site 21 Okt mengikuti file RGU GA per MSISDN.

@@ -341,6 +341,7 @@
     gtDay: 0,                // Daily GA Trend: selected day D1-D31 (0 = last day with data)
     gaOutFmt: 'list',        // Gross Add > Outlet: list | kat (Retail / KRO / Wholesaler) | tag (program and flags)
     gaGraf: 'total',         // Gross Add > Grafik harian: total | stack | pct
+    gsSrc: 'area',           // Gross Add > Site location GA mapping: area (outside the site's Area / SA) | mc | ij
     gtSort: 'x',             // Gross Add > Site location GA ranking: x = GA from outside Inner Jakarta | i = all inflow (outside the MC)
     kroTab: 'ringkasan',     // Outlet & KRO Management: ringkasan | katalog | tracking | aksi
     kroProd: 'sp',           // product: sp | vc | sl | ga
@@ -6993,8 +6994,95 @@
   function gsKecLabel(k) { var p = k.split('|'); return esc(p[0]) + (p[1] ? ' <span class="note">· ' + esc(p[1]) + '</span>' : ''); }
   function gsPct(a, b) { return b > 0 ? (a / b * 100).toFixed(1) + '%' : '—'; }
   function gsBar() {
-    return '<div class="map-toolbar" style="margin-top:8px;">' +
+    return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Sumber kemasukan', 'gs-src', GM_SRC, gsSrc()) +
       sellinBtnGroup('Urutkan top kecamatan dan site', 'gt-sort', [['x', 'GA dari luar IJ'], ['i', 'Semua kemasukan (di luar MC site)']], state.gtSort || 'x') + '</div>';
+  }
+  /* ---- Pemetaan kemasukan GA (owner, 26 Okt 2026): area penerima (outlet pengirim, site, GA terdampak), area pemasok (kota, outlet pengirim), site dan DSE / DSO yang perlu fokus.
+     Kemasukan = GA di site yang dijual outlet di luar [Area (SA) | MC | IJ] site itu, dari GA_SITE_FEED (os = outlet x site x kelas asal, tanpa kelas MC sama). ---- */
+  var GM_CLS = { area: [2, 3, 4, 5], mc: [1, 2, 3, 4, 5], ij: [3, 4, 5] };
+  var GM_SRC = [['area', 'Dari area (SA) lain'], ['mc', 'Di luar MC site'], ['ij', 'Dari luar IJ']];
+  var GM_SRC_TXT = { area: 'di luar Area (SA) site: area IJ lain, outlet luar IJ, outlet tanpa atribut, tanpa ID outlet', mc: 'di luar MC site: MC lain, area lain, luar IJ', ij: 'dari luar Inner Jakarta' };
+  var GM_MIN_GA = 20, GM_MIN_PCT = 50;   // a site is "dimasuki" when >= 50% of its GA comes in from outside and it has >= 20 GA
+  function gsSrc() { return state.gsSrc === 'mc' || state.gsSrc === 'ij' ? state.gsSrc : 'area'; }
+  function gmCtx(brand, src) {
+    var F = gsFeed(), cls = GM_CLS[src], mcRow = {}, ok = {}, sites = [], si = {}, pairs = [];
+    F.mc.forEach(function (m) { mcRow[m.mc] = m; ok[m.mc] = gsMcOk(m); });
+    F.sites.forEach(function (r, i) { if (!ok[r.mc]) return; var a = gsB(r.v, brand), inf = 0; cls.forEach(function (k) { inf += a[k]; }); var s = { i: i, r: r, a: a, tot: gsSum(a), inf: inf, mc: mcRow[r.mc] || {}, pr: [] }; sites.push(s); si[i] = s; });
+    F.os.forEach(function (p) { var s = si[p[1]]; if (!s || cls.indexOf(p[2]) < 0) return; var g = brand === 'IM3' ? p[3] : (brand === '3ID' ? p[4] : p[3] + p[4]); if (!g) return; var x = { o: p[0], s: s, k: p[2], g: g }; pairs.push(x); s.pr.push(x); });
+    sites.forEach(function (s) { s.hi = s.tot >= GM_MIN_GA && s.tot > 0 && s.inf / s.tot * 100 >= GM_MIN_PCT; });
+    return { F: F, cls: cls, sites: sites, si: si, pairs: pairs, mcRow: mcRow, src: src, brand: brand };
+  }
+  function gmOut(F, o) { var i = F.oi[String(o)] || ['', '', 0, '']; return { id: i[0], name: i[1], loc: F.ol[i[2]] || ['(lokasi tidak diketahui)', '', '', ''], dse: i[3] }; }
+  function gmLocTxt(loc) { return loc[1] ? loc[0] + ' · ' + loc[1] : (loc[0] || '—'); }
+  function gmSel(C, sc) { return C.sites.filter(function (s) { return sc === 'ALL' || (sc.indexOf('A:') === 0 ? s.mc.area === sc.slice(2) : s.r.mc === sc.slice(2)); }); }
+  function gmTopSup(C, s) { var g = {}; s.pr.forEach(function (x) { var l = gmOut(C.F, x.o).loc, k = l[3] || l[1] || '(lokasi tidak diketahui)'; g[k] = (g[k] || 0) + x.g; }); var k = Object.keys(g).sort(function (a, b) { return g[b] - g[a]; })[0]; return k ? k + ' ' + fmtCount(g[k]) : (s.a[5] ? 'tanpa ID outlet' : '—'); }
+  function gmSiteRows(C, sites) {
+    return sites.filter(function (s) { return s.inf > 0; }).sort(function (a, b) { return b.inf - a.inf; }).map(function (s) {
+      return [s.r.n + ' (' + s.r.id + ')', s.r.k.split('|')[0] + ' · ' + s.r.mc, s.mc.dso || '—', gmTopSup(C, s), fmtCount(s.tot), fmtCount(s.inf), (s.tot ? (s.inf / s.tot * 100).toFixed(1) : '0') + '%', fmtCount(s.pr.reduce(function (a, p) { return a.indexOf(p.o) < 0 ? a.concat(p.o) : a; }, []).length)];
+    });
+  }
+  var GM_SITE_COLS = ['Site', 'Kecamatan · MC', 'DSO', 'Asal terbesar (area / provinsi outlet)', 'GA di site', 'Kemasukan', '% kemasukan', 'Outlet pengirim'];
+  function gmOutletRows(C, pairs) {   // sending outlets: where they are, how many sites they reach, GA
+    var g = {}, tot = 0; pairs.forEach(function (p) { var x = g[p.o] || (g[p.o] = { o: p.o, sites: {}, ga: 0 }); x.sites[p.s.i] = 1; x.ga += p.g; tot += p.g; });
+    return Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.ga - a.ga; }).map(function (x) { var o = gmOut(C.F, x.o); return [(o.name || '(tanpa nama)') + ' (' + o.id + ')', gmLocTxt(o.loc), (o.loc[2] || '—') + ' · ' + (o.loc[3] || '—'), fmtCount(Object.keys(x.sites).length), fmtCount(x.ga), tot ? (x.ga / tot * 100).toFixed(1) + '%' : '—']; });
+  }
+  var GM_OUT_COLS = ['Outlet pengirim', 'Lokasi outlet (kecamatan · kota / kabupaten)', 'MC · Area / provinsi outlet', 'Site dituju', 'GA masuk', '% dari kemasukan'];
+  function gmFocus(C) {   // DSE and DSO whose sites are mostly entered by outside supply
+    var dse = {}, dso = {};
+    C.sites.forEach(function (s) {
+      var d = s.mc.dso || '(DSO tidak diketahui)', x = dso[d] || (dso[d] = { n: d, mcs: {}, area: s.mc.area, sites: 0, hi: 0, tot: 0, inf: 0, hiInf: 0 }); x.mcs[s.r.mc] = 1; x.sites++; x.tot += s.tot; x.inf += s.inf; if (s.hi) { x.hi++; x.hiInf += s.inf; }
+      var dl = s.r.dse || [], dt = dl.reduce(function (a, y) { return a + y[1]; }, 0);
+      dl.forEach(function (y) { var w = y[1] / dt, e = dse[y[0]] || (dse[y[0]] = { n: y[0], dso: {}, sites: 0, hi: 0, tot: 0, inf: 0, hiInf: 0 }); e.dso[d] = 1; e.sites += w; e.tot += s.tot * w; e.inf += s.inf * w; if (s.hi) { e.hi += w; e.hiInf += s.inf * w; } });
+    });
+    var f = function (x) { return x.tot >= 100 && x.inf / x.tot * 100 >= GM_MIN_PCT; };
+    return { dse: Object.keys(dse).map(function (k) { return dse[k]; }).filter(f).sort(function (a, b) { return b.inf - a.inf; }), dso: Object.keys(dso).map(function (k) { return dso[k]; }).filter(f).sort(function (a, b) { return b.inf - a.inf; }), nDse: Object.keys(dse).length, nDso: Object.keys(dso).length };
+  }
+  function gmLazy(pk) {   // gm|<kind>|<arg>   kinds: sitearea (arg A:area | M:mc | ALL), outarea, hisite, hidse, hidso, supsite / supout (arg kota)
+    var m = /^gm\|([a-z]+)\|(.*)$/.exec(pk); if (!m || !gsFeed()) return null; var kind = m[1], arg = decodeURIComponent(m[2]), brand = gaBrand(), src = gsSrc(), C = gmCtx(brand, src), F = C.F, lab = arg === 'ALL' ? 'Inner Jakarta' : arg.slice(2), note = 'Kemasukan = GA ' + GM_SRC_TXT[src] + '. GA 1–' + F.cut + ' Okt, semua baris (tanpa syarat usage).';
+    if (kind === 'sitearea') { var sel = gmSel(C, arg); return { title: 'Site yang kemasukan · ' + lab, cols: GM_SITE_COLS, rows: gmSiteRows(C, sel), lines: [note, 'Lokasi site: kecamatan dan MC aktivasi; DSO = DSO MC site.'] }; }
+    if (kind === 'outarea') { var sel2 = gmSel(C, arg), set = {}; sel2.forEach(function (s) { set[s.i] = 1; }); return { title: 'Outlet pengirim ke ' + lab, cols: GM_OUT_COLS, rows: gmOutletRows(C, C.pairs.filter(function (p) { return set[p.s.i]; })), lines: [note, 'Hanya outlet ber-ID; GA dari outlet tanpa ID tidak punya daftar outlet. Lokasi outlet = atribut wilayah di file RGU GA (outlet luar Jaya tanpa atribut: lokasi tidak diketahui).'] }; }
+    if (kind === 'hisite') { var hs = C.sites.filter(function (s) { return s.hi; }); return { title: 'Site dimasuki barang lain (≥ ' + GM_MIN_PCT + '% GA dari luar, ≥ ' + GM_MIN_GA + ' GA)', cols: GM_SITE_COLS, rows: gmSiteRows(C, hs), lines: [note, fmtCount(hs.length) + ' site; kemasukan di site ini ' + fmtCount(hs.reduce(function (a, s) { return a + s.inf; }, 0)) + ' dari ' + fmtCount(hs.reduce(function (a, s) { return a + s.tot; }, 0)) + ' GA.'] }; }
+    if (kind === 'supsite' || kind === 'supout') {
+      var kab = arg, ps = C.pairs.filter(function (p) { var l = gmOut(F, p.o).loc; return (l[1] || '(lokasi tidak diketahui)') === kab; });
+      if (kind === 'supout') return { title: 'Outlet pengirim dari ' + kab, cols: GM_OUT_COLS, rows: gmOutletRows(C, ps), lines: [note, 'Satu baris = satu outlet; Site dituju = jumlah site di IJ yang menerima GA-nya.'] };
+      var ss = {}; ps.forEach(function (p) { ss[p.s.i] = p.s; }); var arr = Object.keys(ss).map(function (k) { return ss[k]; });
+      return { title: 'Site yang menerima GA dari ' + kab, cols: GM_SITE_COLS, rows: gmSiteRows(C, arr), lines: [note] };
+    }
+    var fc = gmFocus(C), thr = '≥ ' + GM_MIN_PCT + '% GA site berasal dari luar dan ≥ 100 GA';
+    if (kind === 'hidse') return { title: 'DSE yang perlu difokuskan (' + thr + ')', cols: ['DSE', 'DSO', 'Site dimasuki', 'Site (setara)', 'GA di site', 'Kemasukan', '% kemasukan', 'Impact di site dimasuki'], rows: fc.dse.map(function (x) { return [x.n, Object.keys(x.dso).join(' / '), x.hi.toFixed(1), x.sites.toFixed(1), fmtCount(Math.round(x.tot)), fmtCount(Math.round(x.inf)), (x.inf / x.tot * 100).toFixed(1) + '%', fmtCount(Math.round(x.hiInf))]; }), lines: [note, 'DSE site = DSE outlet master di site, GA dialokasikan sebanding jumlah outlet master (maksimal 3 DSE per site); site di luar master tidak punya DSE. Site dimasuki = site dengan ≥ ' + GM_MIN_PCT + '% kemasukan.'] };
+    if (kind === 'hidso') return { title: 'DSO yang perlu difokuskan (' + thr + ')', cols: ['DSO', 'MC · Area', 'Site dimasuki', 'Site', 'GA di site', 'Kemasukan', '% kemasukan', 'Impact di site dimasuki'], rows: fc.dso.map(function (x) { return [x.n, Object.keys(x.mcs).join(', ') + ' · ' + (x.area || '—'), fmtCount(x.hi), fmtCount(x.sites), fmtCount(x.tot), fmtCount(x.inf), (x.inf / x.tot * 100).toFixed(1) + '%', fmtCount(x.hiInf)]; }), lines: [note, 'DSO = DSO MC site; Impact = kemasukan di site yang ≥ ' + GM_MIN_PCT + '% dimasuki.'] };
+    return null;
+  }
+  function gmView() {
+    var F = gsFeed(), brand = gaBrand(), src = gsSrc(), C = gmCtx(brand, src), mcRows = F.mc.filter(gsMcOk), i;
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('gm|') === 0) delete _ovReg[k]; }); ovLazy('gm', gmLazy);
+    var hi = C.sites.filter(function (s) { return s.hi; }), hiGa = hi.reduce(function (a, s) { return a + s.tot; }, 0), hiInf = hi.reduce(function (a, s) { return a + s.inf; }, 0), fc = gmFocus(C), totGa = C.sites.reduce(function (a, s) { return a + s.tot; }, 0), totInf = C.sites.reduce(function (a, s) { return a + s.inf; }, 0);
+    var ck = function (k, a) { return 'gm|' + k + '|' + encodeURIComponent(a || ''); }, ovkx = function (key, label, value, delta, cls, note) { return ovK(key, label, value, delta, cls, note); };
+    var cards = '<div class="kpis kpis-5" style="margin-top:10px;">' +
+      ovkx(ck('hisite'), 'Site dimasuki barang lain', fmtCount(hi.length) + ' site', fmtCount(hiInf) + ' GA masuk dari ' + fmtCount(hiGa) + ' GA di site (' + gsPct(hiInf, hiGa) + ')', hi.length ? 'down' : 'up', '≥ ' + GM_MIN_PCT + '% GA site ' + GM_SRC_TXT[src] + ' · min ' + GM_MIN_GA + ' GA · dari ' + fmtCount(C.sites.length) + ' site · klik untuk daftar') +
+      ovkx(ck('hidse'), 'DSE yang perlu difokuskan', fmtCount(fc.dse.length) + ' DSE', 'impact ' + fmtCount(Math.round(fc.dse.reduce(function (a, x) { return a + x.inf; }, 0))) + ' GA masuk di wilayah DSE · dari ' + fmtCount(fc.nDse) + ' DSE ber-site', fc.dse.length ? 'down' : 'up', '≥ ' + GM_MIN_PCT + '% GA di site DSE berasal dari luar dan ≥ 100 GA · klik untuk daftar dan impact') +
+      ovkx(ck('hidso'), 'DSO yang perlu difokuskan', fmtCount(fc.dso.length) + ' DSO', 'impact ' + fmtCount(Math.round(fc.dso.reduce(function (a, x) { return a + x.inf; }, 0))) + ' GA masuk di wilayah DSO · dari ' + fmtCount(fc.nDso) + ' DSO', fc.dso.length ? 'down' : 'up', 'sama, per DSO MC site · klik untuk daftar dan impact') + '</div>';
+    /* penerima: Area > MC */
+    var areas = {}, order = [];
+    C.sites.forEach(function (s) { var a = s.mc.area || '—'; if (!areas[a]) { areas[a] = { mcs: {}, sites: [] }; order.push(a); } var m = areas[a].mcs[s.r.mc] || (areas[a].mcs[s.r.mc] = { dso: s.mc.dso, sites: [] }); m.sites.push(s); areas[a].sites.push(s); });
+    function stat(sites) { var out = {}, ga = 0, inf = 0, imp = 0, hi = 0; sites.forEach(function (s) { ga += s.tot; inf += s.inf; if (s.inf > 0) imp++; if (s.hi) hi++; s.pr.forEach(function (p) { out[p.o] = 1; }); }); return { out: Object.keys(out).length, ga: ga, inf: inf, imp: imp, hi: hi, n: sites.length }; }
+    function rowIn(label, ket, sc, sites, style) {
+      var x = stat(sites), ink = /ink/.test(style), bg = ink ? 'var(--ij-ink)' : (/wash/.test(style) ? 'var(--ij-wash)' : '#fff'), clk = function (kind, v, show) { return v ? ovCell(ck(kind, sc), show, ink ? 'color:#fff;' : '') : '<td class="num">' + show + '</td>'; };
+      return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + bg + ';">' + label + '</td><td>' + ket + '</td>' + clk('sitearea', x.imp, fmtCount(x.imp) + '<div class="note" style="' + (ink ? 'color:#fff;' : '') + '">dari ' + fmtCount(x.n) + ' site</div>') + clk('outarea', x.out, '<b>' + fmtCount(x.out) + '</b>') + '<td class="num">' + fmtCount(x.ga) + '</td><td class="num cur"><b>' + fmtCount(x.inf) + '</b></td><td class="num">' + gsPct(x.inf, x.ga) + '</td><td class="num">' + fmtCount(x.hi) + '</td></tr>';
+    }
+    var INK = 'background:var(--ink); color:#fff; font-weight:800;', WASH = 'background:var(--ij-wash); font-weight:800;', rIn = rowIn('<b>REGION INNER JAKARTA</b>', order.length + ' area', 'ALL', C.sites, INK);
+    order.sort(function (a, b) { return stat(areas[b].sites).inf - stat(areas[a].sites).inf; }).forEach(function (a) { rIn += rowIn('<b>' + esc(a) + '</b>', 'Area · ' + Object.keys(areas[a].mcs).length + ' MC', 'A:' + a, areas[a].sites, WASH); Object.keys(areas[a].mcs).sort(function (x, y) { return stat(areas[a].mcs[y].sites).inf - stat(areas[a].mcs[x].sites).inf; }).forEach(function (m) { rIn += rowIn('<span style="padding-left:18px;">' + esc(m) + '</span>', 'DSO ' + esc(areas[a].mcs[m].dso || '—'), 'M:' + m, areas[a].mcs[m].sites, ''); }); });
+    var hIn = '<tr>' + th('Area / MC yang kemasukan') + th('DSO / ket.') + th('Site terdampak', 1) + th('Outlet pengirim', 1) + th('GA di wilayah', 1) + th('GA terdampak (kemasukan)', 1) + th('% terdampak', 1) + th('Site ≥ ' + GM_MIN_PCT + '%', 1) + '</tr>';
+    var tIn = card('Pemetaan area yang kemasukan · berapa outlet, site dan GA terdampak', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + hIn + '</thead><tbody>' + rIn + '</tbody></table></div><p class="note">Kemasukan = GA ' + GM_SRC_TXT[src] + '. Site terdampak = site dengan kemasukan > 0; klik angka untuk lokasi site (kecamatan, MC, DSO, asal terbesar). Outlet pengirim = outlet ber-ID berbeda yang mengirim ke wilayah itu; klik untuk lokasi outlet (kecamatan, kota / kabupaten, MC, area). GA dari outlet tanpa ID ikut dihitung di GA terdampak tetapi tidak punya daftar outlet. Site ≥ ' + GM_MIN_PCT + '% = site dengan ≥ ' + GM_MIN_PCT + '% GA dari luar dan minimal ' + GM_MIN_GA + ' GA.</p>');
+    /* pemasok: kota / kabupaten */
+    var sup = {};
+    C.pairs.forEach(function (p) { var l = gmOut(F, p.o).loc, k = l[1] || '(lokasi tidak diketahui)', x = sup[k] || (sup[k] = { o: {}, s: {}, ga: 0, ar: {} }); x.o[p.o] = 1; x.s[p.s.i] = 1; x.ga += p.g; var a = l[3] || '—'; x.ar[a] = (x.ar[a] || 0) + p.g; });
+    var noid = 0; C.sites.forEach(function (s) { if (C.cls.indexOf(5) >= 0) noid += s.a[5]; });
+    var UNK = '(lokasi tidak diketahui)', sk = Object.keys(sup).sort(function (a, b) { return (a === UNK) - (b === UNK) || sup[b].ga - sup[a].ga; }), shown = sk.filter(function (k) { return k !== UNK; }).slice(0, 40).concat(sup[UNK] ? [UNK] : []), supGa = sk.reduce(function (a, k) { return a + sup[k].ga; }, 0) + noid;
+    var rOut = shown.map(function (k) { var x = sup[k], ar = Object.keys(x.ar).sort(function (a, b) { return x.ar[b] - x.ar[a]; })[0], no = Object.keys(x.o).length, ns = Object.keys(x.s).length; return '<tr><td class="cur"><b>' + esc(k) + '</b></td><td>' + esc(ar) + '</td>' + ovCell(ck('supout', k), '<b>' + fmtCount(no) + '</b>') + ovCell(ck('supsite', k), fmtCount(ns)) + '<td class="num cur"><b>' + fmtCount(x.ga) + '</b></td><td class="num">' + gsPct(x.ga, supGa) + '</td></tr>'; }).join('');
+    if (noid) rOut += '<tr><td class="cur"><b>Tanpa ID outlet</b></td><td>tidak teridentifikasi</td><td class="num">n/a</td><td class="num">n/a</td><td class="num cur"><b>' + fmtCount(noid) + '</b></td><td class="num">' + gsPct(noid, supGa) + '</td></tr>';
+    var tOut = card('Pemetaan area yang men-supply · kota / kabupaten pemasok dan outlet pengirim', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('Kota / kabupaten pemasok') + th('Area / provinsi outlet (dominan)') + th('Outlet pengirim', 1) + th('Site dituju', 1) + th('GA masuk', 1) + th('% dari kemasukan', 1) + '</tr></thead><tbody>' + rOut + '</tbody></table></div><p class="note">Pemasok = kota / kabupaten lokasi outlet penjual (atribut wilayah di file RGU GA); ' + fmtCount(sk.length) + ' kota / kabupaten, 40 teratas ditampilkan. Klik jumlah outlet untuk daftar outlet pengirim (nama, ID, lokasi, site dituju) dan klik site untuk site penerima. Outlet luar Jaya tanpa atribut wilayah masuk "(lokasi tidak diketahui)". Sumber kemasukan mengikuti tombol di atas.</p>');
+    return { bar: sellinBtnGroup('Sumber kemasukan', 'gs-src', GM_SRC, src), cards: cards, tables: tIn + tOut, C: C };
   }
   function gtSiteView() {
     var F = gsFeed(), G = gaPrep(), brand = gaBrand();
@@ -7086,7 +7174,8 @@
     /* MC table */
     var mrow = mcRows.map(function (r) { return { r: r, a: gsB(r.v, brand) }; }).sort(function (x, y) { return key(y.a) - key(x.a); }).slice(0, 36).map(function (x) { var a = x.a, t = gsSum(a); return '<tr><td class="cur">' + esc(x.r.mc) + '</td><td>' + esc(x.r.area) + '</td><td>' + esc(x.r.dso) + '</td><td class="num">' + fmtCount(t) + '</td><td class="num">' + fmtCount(gsIn(a)) + '</td><td class="num">' + gsPct(gsIn(a), t) + '</td><td class="num"><b>' + fmtCount(gsExt(a)) + '</b></td><td class="num">' + gsPct(gsExt(a), t) + '</td></tr>'; }).join('');
     var mcT = card('MC · kemasukan GA per MC site (urut ' + ((state.gtSort || 'x') === 'i' ? 'semua kemasukan' : 'dari luar IJ') + ')', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + th('MC site') + th('Area') + th('DSO') + th('GA di MC', 1) + th('Kemasukan', 1) + th('% kemasukan', 1) + th('Dari luar IJ', 1) + th('% dari luar IJ', 1) + '</tr></thead><tbody>' + mrow + '</tbody></table></div>');
-    return gsBar() + banner + glRow + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
+    var gmv = gmView();
+    return gsBar() + banner + glRow + gmv.cards + gmv.tables + areaIn + areaOut + topKec + topSite + mcT + matrix + outDet + sup;
   }
   function viewGaTrend() {
     var G = gaPrep(); if (!G) return card('Daily GA Trend', '<p class="note">Feed GA belum dibangun. Taruh Daily_RGUGA_OUTLET_*.xlsb di <code>raw/GA/</code> lalu jalankan <code>python3 scripts/build_ga_feed.py</code>.</p>');
@@ -11073,6 +11162,7 @@
       else if (gh.indexOf('A:') === 0) { state.ghClosedA = state.ghClosedA || {}; if (state.ghClosedA[ghk]) delete state.ghClosedA[ghk]; else state.ghClosedA[ghk] = true; }
       else if (gh.indexOf('M:') === 0) { state.ghOpenM = state.ghOpenM || {}; if (state.ghOpenM[ghk]) delete state.ghOpenM[ghk]; else state.ghOpenM[ghk] = true; }
     }
+    else if (t.hasAttribute('data-gs-src')) { state.gsSrc = t.getAttribute('data-gs-src'); }
     else if (t.hasAttribute('data-gt-sort')) { state.gtSort = t.getAttribute('data-gt-sort'); }
     else if (t.hasAttribute('data-ga-basis')) { state.gaBasis = t.getAttribute('data-ga-basis'); state.gaPage = 1; }
     else if (t.hasAttribute('data-ga-brand')) { state.gaBrand = t.getAttribute('data-ga-brand'); state.gaPage = 1; }
@@ -11648,7 +11738,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };

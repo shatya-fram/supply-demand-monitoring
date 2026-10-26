@@ -189,6 +189,23 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     state.gaTab = 'sga'; h = VIEWS.mb_grossadd(); const ST = table(h, 'REGION / AREA / MC'); if (ST) { const rr = ST.rows.find(x => /^REGION INNER JAKARTA/.test((x[0] || '').replace(/^[＋－\s]+/, ''))), isite = ST.head.indexOf('SITE'); const nsite = SF.sites.filter(r => { const a = [0, 0]; r.v.forEach((x, i) => { if ((brand === 'IM3' && i >= 6) || (brand === '3ID' && i < 6)) return; a[0] += x; }); return a[0] > 0; }).length; const nz = Object.values(SF.msites).reduce((a, x) => a + x, 0) - SF.sites.filter(r => r.m && (() => { let q = 0; r.v.forEach((x, i) => { if ((brand === 'IM3' && i >= 6) || (brand === '3ID' && i < 6)) return; q += x; }); return q > 0; })()).length; eq(tag2, 'slab site: jumlah site = aktif + master tanpa GA', num(rr[isite]), nsite + Math.max(0, nz)); }
   }
   Object.assign(state, { gaBasis: 'outlet', gaBrand: 'all', gaTab: 'ringkasan', branch: '', kec: '' }); }
+// Pemetaan kemasukan (26 Okt 2026): area penerima, area pemasok, site dimasuki, DSE / DSO fokus: sums reconcile with the site vectors per brand and per source
+{ const SF = global.GA_SITE_FEED, CLS = { area: [2, 3, 4, 5], mc: [1, 2, 3, 4, 5], ij: [3, 4, 5] }, vbb = (v, b) => { const a = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < 6; i++) { if (b !== '3ID') a[i] += v[i]; if (b !== 'IM3') a[i] += v[6 + i]; } return a; };
+  for (const brand of ['all', 'IM3', '3ID']) for (const src of ['area', 'mc', 'ij']) {
+    Object.assign(state, { view: 'mb_grossadd', gaBasis: 'site', gaTab: 'ringkasan', gaBrand: brand, gsSrc: src, branch: '', hoa: '', kec: '', dse: '' }); const tag = 'mapping/' + brand + '/' + src; const h = VIEWS.mb_grossadd();
+    let ga = 0, inf = 0, hi = 0, imp = 0; SF.sites.forEach(r => { const a = vbb(r.v, brand), t = a.reduce((x, y) => x + y, 0), f = CLS[src].reduce((x, k) => x + a[k], 0); ga += t; inf += f; if (f > 0) imp++; if (t >= 20 && f / t >= 0.5) hi++; });
+    const T = table(h, 'AREA / MC YANG KEMASUKAN'); const rr = T && T.rows.find(x => /^REGION INNER JAKARTA/.test((x[0] || '').replace(/^[＋－\s]+/, '')));
+    checks++; if (!rr) { fails++; console.log('✗ [' + tag + '] tabel area kemasukan tidak ada'); continue; }
+    eq(tag, 'GA di wilayah', num(rr[T.head.indexOf('GA DI WILAYAH')]), ga); eq(tag, 'GA terdampak (kemasukan)', num(rr[T.head.indexOf('GA TERDAMPAK (KEMASUKAN)')]), inf); eq(tag, 'site terdampak', num(String(rr[T.head.indexOf('SITE TERDAMPAK')]).split(' ')[0]), imp); eq(tag, 'site >= 50%', num(rr[T.head.indexOf('SITE ≥ 50%')]), hi);
+    const CT = cards(h), hc = CT[Object.keys(CT).find(x => x.startsWith('SITE DIMASUKI BARANG LAIN'))]; eq(tag, 'kartu site dimasuki', num(hc.value), hi);
+    const ps = SF.os.filter(p => CLS[src].includes(p[2])).reduce((a, p) => a + (brand === 'IM3' ? p[3] : (brand === '3ID' ? p[4] : p[3] + p[4])), 0), noid = CLS[src].includes(5) ? SF.sites.reduce((a, r) => a + vbb(r.v, brand)[5], 0) : 0;
+    eq(tag, 'pasangan outlet x site = kemasukan − tanpa ID', ps, inf - noid);
+    const eo = app.ovEntry('gm|outarea|ALL'); checks++; if (!eo) { fails++; console.log('✗ [' + tag + '] popup outlet pengirim tidak ada'); } else eq(tag, 'popup outlet pengirim jumlah GA', eo.rows.reduce((a, r) => a + num(r[4]), 0), ps);
+    const es = app.ovEntry('gm|sitearea|ALL'); checks++; if (!es) { fails++; console.log('✗ [' + tag + '] popup site tidak ada'); } else { eq(tag, 'popup site: jumlah site terdampak', es.rows.length, imp); eq(tag, 'popup site: jumlah kemasukan', es.rows.reduce((a, r) => a + num(r[5]), 0), inf); }
+    const eh = app.ovEntry('gm|hisite|'); checks++; if (!eh || eh.rows.length !== hi) { fails++; console.log('✗ [' + tag + '] popup site dimasuki ' + (eh && eh.rows.length) + ' != ' + hi); }
+    const sup = T && table(h, 'KOTA / KABUPATEN PEMASOK'); checks++; if (!sup) { fails++; console.log('✗ [' + tag + '] tabel pemasok tidak ada'); } else { const io = sup.head.indexOf('GA MASUK'); const s2 = sup.rows.reduce((a, r) => a + num(r[io]), 0); eq(tag, 'tabel pemasok (40 teratas + tanpa ID) <= kemasukan', s2 <= inf ? 1 : 0, 1); }
+  }
+  Object.assign(state, { gsSrc: 'area', gaBrand: 'all' }); }
 // Purwakarta (SUKASARI|PURWAKARTA) is not Inner Jakarta (owner, 24 Oct 2026): not in the target list, not in the site feed, not in the activation kecamatan
 { const SF = global.GA_SITE_FEED; checks += 3;
   if (TK.some(r => /PURWAKARTA/.test(r.kk))) { fails++; console.log('✗ [purwakarta] masih ada di daftar target'); }
