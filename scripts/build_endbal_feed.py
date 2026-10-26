@@ -101,6 +101,11 @@ def main():
         o['type'] = o['type'] or r['Organization Type']; o['cl'] = o['cl'] or r['Cluster']
         o['name'] = o['name'] or r['Organization Name']; o['sa'] = o['sa'] or r['Sales Area']
     snapshot = rows[0]['Date']
+    # "kemarin" cards use the last working day (Monday-Saturday) and the working day before it (owner, 27 Oct 2026): a Sunday has almost no saldo transfers.
+    _y, _m = int(PM['cut'][:4]), int(PM['cut'][5:7])
+    _wk = [d for d in range(1, cut + 1) if datetime(_y, _m, d).weekday() != 6]
+    yd = _wk[-1] if _wk else cut
+    pd_ = _wk[-2] if len(_wk) > 1 else yd - 1
 
     # ---- roll up to one record per outlet key (dual-brand outlets have two organization ids)
     out = {}
@@ -137,8 +142,8 @@ def main():
             y = pv = 0
             if sal:
                 for d in sal[10] or []:
-                    if d[0] == cut: y += d[1]
-                    if d[0] == cut - 1: pv += d[1]
+                    if d[0] == yd: y += d[1]
+                    if d[0] == pd_: pv += d[1]
             rec.update({'i': [], 'st': 0.0, 'ot': 0.0, 'cm': 0.0, 'av': 0.0, 'y': round(y), 'p': round(pv), 'mt': round(sal[1]) if sal else 0, 'sf': round(sal[5]) if sal else 0, 'sl': round(sal[3]) if sal else 0})
             e = out[key] = rec
         e['i'].append(oid)
@@ -153,7 +158,7 @@ def main():
     feed = {
         'metadata': {
             'generated_at': datetime.now().isoformat(timespec='seconds'), 'snapshot': snapshot, 'files': files,
-            'sellin_cut': PM['cut'], 'sellin_cut_day': cut, 'rows': len(rows), 'organizations': len(org),
+            'sellin_cut': PM['cut'], 'sellin_cut_day': cut, 'kemarin_day': yd, 'kemarin_prev_day': pd_, 'rows': len(rows), 'organizations': len(org),
             'outlet_orgs': sum(1 for o in org.values() if o['type'] == 'Outlet'), 'classification': dict(cls),
             'unmapped_by_cluster': dict(unmapped.most_common(15)), 'unmapped_stock_balance': round(unmapped_bal),
             'outlets': len(recs), 'master_outlets': sum(1 for r in recs if r['t'] == 'M'), 'adhoc_outlets': sum(1 for r in recs if r['t'] == 'A'),

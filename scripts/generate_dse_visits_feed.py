@@ -125,10 +125,12 @@ _covered = {d for z in VISIT_ZIPS for d in range(z[4], z[5] + 1)}   # day number
 _fmt = lambda d: datetime(_year, _month, d).strftime("%d-%b-%Y")
 
 PERIOD_START, PERIOD_END = _fmt(1), _fmt(_last_day)
-DATES_LAST_3D = {_fmt(d) for d in range(max(1, _last_day - 2), _last_day + 1)}
-DATES_LAST_7D = {_fmt(d) for d in range(max(1, _last_day - 6), _last_day + 1)}
+# "Not visited in the last 3 / 7 days" windows count working days (owner, 27 Oct 2026): Sundays (no PJP) and days no export covers are skipped.
+_work_days = [d for d in range(1, _last_day + 1) if d in _covered and datetime(_year, _month, d).weekday() != 6]
+DATES_LAST_3D = {_fmt(d) for d in _work_days[-3:]}
+DATES_LAST_7D = {_fmt(d) for d in _work_days[-7:]}
 W1_DAYS = [_fmt(d) for d in range(1, min(4, _last_day) + 1)]
-W2_DAYS = sorted(DATES_LAST_7D)
+W2_DAYS = [_fmt(d) for d in range(max(1, _last_day - 6), _last_day + 1)]   # calendar last 7 days (run-rate week 2)
 PREV7_DAYS = [_fmt(d) for d in range(max(1, _last_day - 13), max(1, _last_day - 6))] if _last_day >= 14 else W1_DAYS   # the 7 days before the last 7: true week over week
 DAYS = [_fmt(d) for d in range(1, _last_day + 1)]   # every calendar day counts
 # Days inside the period that no export file covers: shown as "data not available", never as a zero-execution day.

@@ -120,7 +120,7 @@
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
     cfg_target: ['Konfigurasi · Target Setting', 'Target resmi per DSE untuk dua KPI, Sell-In SP dan OSA (IM3, 3ID, IOH), diagregasi ke MC, Area dan Region, dibandingkan dengan pencapaian MTD.'],
     mb_stock: ['Morning DSE Briefing · Stok Outlet · Over / Par / Low', 'Sell-in dan sell-out SP, Voucher dan Saldo (September penuh, Oktober MTD) dengan estimasi sisa stok per Outlet, Site, Kecamatan, MC, Area dan Region, plus peta poligon Over (hijau), Par (kuning) dan Low (merah).'],
-    mb_endbal: ['Morning DSE Briefing · END BALANCE Outlet', 'Stok saldo penutupan outlet (ENDBAL) per outlet, site, MC, DSO dan DSE: outlet zero stock, slab balance, inventory days, dan sell-in saldo kemarin.'],
+    mb_endbal: ['Morning DSE Briefing · END BALANCE Outlet', 'Stok saldo penutupan outlet (ENDBAL) per outlet, site, MC, DSO dan DSE: outlet zero stock, slab balance, inventory days, dan sell-in saldo hari kerja terakhir.'],
     mb_ringkasan: ['Morning DSE Briefing · Ringkasan Performance', 'DSE Productivity (KPI DSE Oct 2026: OSA, SP Data Sell In, compliance), ringkasan PJP, penjualan, demand, dan heat map teritori.'],
     mb_pjp: ['Morning DSE Briefing · PJP Visit', 'Performa kunjungan PJP saat ini: heatmap harian per Area, MC, DSE, dan outlet. Klik tanggal untuk melihat performa hari itu per DSE dan per outlet.'],
     mb_performance: ['Morning DSE Briefing · Demand Customer', 'Demand (sell-out) outlet dari DAILY_DATA_MOBO: Reload, Voucher Injection, CVM dan Paket Data per teritori, DSE, outlet dan produk, dibandingkan dengan Sell-In (supply) pada hari yang sama. SP Injection ada di Penjualan ke Outlet.'],
@@ -6644,6 +6644,7 @@
   }
   /* two KPI cards (GA vs target; projection and required run-rate) for a territory scope */
   function gaTgtCards(brand) {
+    if (!gaSiteMode()) return '';   /* target belongs to the site / location basis only (owner, 24 and 27 Okt 2026) */
     var T = gaTgtSummary(brand); if (!T) return '';
     var up = T.achP != null && T.achP >= 100, dp = T.projP != null && T.projP >= 100, c = T.rr ? T.req / T.rr * 100 - 100 : null;
     return kpi('GA vs target Oktober (kecamatan)', fmtCount(T.s.q) + ' pcs', (T.ach == null ? '—' : T.ach.toFixed(1) + '% dari target ' + fmtCount(Math.round(T.s.t))) + ' · pro-rata ' + (T.achP == null ? '—' : T.achP.toFixed(0) + '%'), up ? 'up' : 'down', 'target pro-rata ' + fmtCount(Math.round(T.pro)) + ' (' + T.cut + '/' + T.days + ') · ' + fmtCount(T.s.k) + ' kecamatan · filter DSE tidak berlaku · GA tanpa kecamatan ' + fmtCount(T.un.q) + ' pcs di luar angka ini') +
@@ -8426,7 +8427,7 @@
     var pc = d ? n / d : 0, c = pc >= 0.4 ? 'bad' : (pc >= 0.2 ? 'warn' : 'ok');
     return dkTag(c, fmtCount(n) + ' · ' + (pc * 100).toFixed(0) + '%');
   }
-  function ebDay(feed, off) { var d = feed.metadata.sellin_cut_day - off; return d + ' Okt'; }
+  function ebDay(feed, off) { var M = feed.metadata, d = off ? (M.kemarin_prev_day || M.sellin_cut_day - off) : (M.kemarin_day || M.sellin_cut_day); return d + ' Okt'; }   /* kemarin = hari kerja terakhir (Minggu dilewati), owner 27 Okt 2026 */
   function ebBasisBar() {
     return '<div class="map-toolbar" style="margin-top:8px;">' + sellinBtnGroup('Basis balance', 'eb-basis', [['stock', 'Stock Account (utama)'], ['all', 'Stock + rekening lainnya']], state.ebBasis || 'stock') +
       '<div class="map-toolbar-group"><span class="note">Rekening komisi tidak pernah dihitung sebagai stok. Zero stock = balance ≤ 0 pada basis terpilih.</span></div></div>';
@@ -8474,7 +8475,7 @@
       'Saldo sell-in (MOBII, outlet-bound): FM Sep penuh ' + pjRp(tot.fm) + ' · MTD Okt ' + pjRp(tot.mt) + ' · LMTD 1–cut Sep ' + pjRp(tot.lm) + '. Voucher Injection = MOBO VCI (Rp).',
       'Jumlah visit = hari check-in PJP selesai bulan ini (promotor dikecualikan); outlet non-PJP: n/a. Inventory days = End Balance ÷ rata-rata transaksi harian, n/a bila tanpa penjualan.'])};
   }
-  var EB_METRIC = { n: 'Semua outlet', zero: 'Zero stock', lt50: 'Balance < 50K', b50: 'Balance 50–100K', b100: 'Balance 100–300K', b300: 'Balance ≥ 300K', sub50: 'Balance < 50K (zero + rendah)', zdem: 'Zero stock dengan permintaan', uar: 'Outlet beli saldo kemarin (UAR)', sg_demand: 'Kosong dengan permintaan', sg_sep: 'Beli September, tidak Oktober', sg_dormant: 'Outlet tidur', zsite: 'Zero stock di site bermasalah', c0: 'Inventory days < 1 hari', c1: 'Inventory days 1–3', c3: 'Inventory days 3–7', c7: 'Inventory days 7–14', c14: 'Inventory days 14–30', c30: 'Inventory days > 30 (overstock)', cn: 'Inventory days: tanpa penjualan' };
+  var EB_METRIC = { n: 'Semua outlet', zero: 'Zero stock', lt50: 'Balance < 50K', b50: 'Balance 50–100K', b100: 'Balance 100–300K', b300: 'Balance ≥ 300K', sub50: 'Balance < 50K (zero + rendah)', zdem: 'Zero stock dengan permintaan', uar: 'Outlet beli saldo hari kerja terakhir (UAR)', sg_demand: 'Kosong dengan permintaan', sg_sep: 'Beli September, tidak Oktober', sg_dormant: 'Outlet tidur', zsite: 'Zero stock di site bermasalah', c0: 'Inventory days < 1 hari', c1: 'Inventory days 1–3', c3: 'Inventory days 3–7', c7: 'Inventory days 7–14', c14: 'Inventory days 14–30', c30: 'Inventory days > 30 (overstock)', cn: 'Inventory days: tanpa penjualan' };
   function ebMetricOk(o, m) {
     var b = ebBal(o);
     if (m === 'n') return true;
@@ -8512,8 +8513,8 @@
     var A = ebAgg(list), M = feed.metadata, scope = esc(scopeText());
     var g = A.p > 0 ? (A.y / A.p - 1) * 100 : null;
     var cards = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('Sell-in saldo kemarin (' + M.sellin_cut_day + ' Okt)', pjRp(A.y), (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%') + ' vs ' + ebDay(feed, 1) + ' (' + pjRp(A.p) + ')', g != null && g >= 0 ? 'up' : 'down', 'Nilai saldo ke outlet, DAILY_DATA_MOBII') +
-      ovK(ebKey(ebScopeKey('all', ''), 'uar'), 'Outlet beli saldo kemarin (UAR)', fmtCount(A.uarY), pctOf(A.uarY, A.n) + '% dari ' + fmtCount(A.n) + ' outlet · ' + ebDay(feed, 1) + ': ' + fmtCount(A.uarP), A.uarY >= A.uarP ? 'up' : 'down', 'Jumlah transaksi per outlet tidak ada di data harian; UAR dipakai sebagai pengganti') +
+      kpi('Sell-in saldo hari kerja terakhir (' + ebDay(feed, 0) + ')', pjRp(A.y), (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%') + ' vs ' + ebDay(feed, 1) + ' (' + pjRp(A.p) + ')', g != null && g >= 0 ? 'up' : 'down', 'Nilai saldo ke outlet, DAILY_DATA_MOBII') +
+      ovK(ebKey(ebScopeKey('all', ''), 'uar'), 'Outlet beli saldo hari kerja terakhir (UAR)', fmtCount(A.uarY), pctOf(A.uarY, A.n) + '% dari ' + fmtCount(A.n) + ' outlet · ' + ebDay(feed, 1) + ': ' + fmtCount(A.uarP), A.uarY >= A.uarP ? 'up' : 'down', 'Jumlah transaksi per outlet tidak ada di data harian; UAR dipakai sebagai pengganti') +
       kpi('Rata-rata sell-in per outlet pembeli', pjRp(A.uarY ? A.y / A.uarY : 0), 'MTD ' + pjRp(A.mt) + ' · September penuh ' + pjRp(A.sf), 'up', 'Nilai kemarin ÷ UAR kemarin') +
       kpi('Total balance stok ' + M.snapshot.slice(8) + ' Okt', pjRp(A.bal), 'rata-rata Rp ' + fmtCount(Math.round(A.n ? A.bal / A.n / 1000 : 0)) + ' rb / outlet', 'up', (state.ebBasis === 'all' ? 'Stock + rekening lainnya' : 'Stock Account Normal') + ' · komisi Rp ' + fmtCount(Math.round(A.comm / 1e6)) + ' Jt terpisah') +
       ovK(ebKey(ebScopeKey('all', ''), 'zero'), 'Outlet zero stock', fmtCount(A.bands.zero), ebPct(A.bands.zero, A.n) + ' dari outlet', A.bands.zero / Math.max(A.n, 1) >= 0.3 ? 'down' : 'up', fmtCount(A.zeroDemand) + ' di antaranya punya permintaan harian') +
@@ -8684,7 +8685,7 @@
   function ebExportCsv(feed) {
     if (typeof window === 'undefined') return;
     function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
-    var list = ebScope(feed.outlets), lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Stock Account', 'Komisi', 'Rekening lainnya', 'Total semua rekening', 'Average transaksi harian', 'Balance terakhir (basis)', 'Inventory days', 'Sell-in saldo kemarin', 'Sell-in saldo MTD', 'Sell-in saldo Sep penuh', 'Jumlah visit MTD', 'Last visit', 'Status'].map(q).join(',')];
+    var list = ebScope(feed.outlets), lines = [['Area', 'MC', 'DSO', 'DSE', 'Site', 'Outlet ID', 'Outlet Name', 'Stock Account', 'Komisi', 'Rekening lainnya', 'Total semua rekening', 'Average transaksi harian', 'Balance terakhir (basis)', 'Inventory days', 'Sell-in saldo hari kerja terakhir', 'Sell-in saldo MTD', 'Sell-in saldo Sep penuh', 'Jumlah visit MTD', 'Last visit', 'Status'].map(q).join(',')];
     list.forEach(function (o) { var b = ebBal(o); lines.push([o.b, o.m, o.o, o.d, o.s, o.i.join(' / '), o.n, o.st, o.cm, o.ot, o.st + o.cm + o.ot, o.av, b, o.av > 0 ? (b / o.av).toFixed(1) : '', o.y, o.mt, o.sf, ebVisit(o, ebMaps())[0], ebVisit(o, ebMaps())[1], ebFlags(o).map(function (f) { return f[1]; }).join('; ')].map(q).join(',')); });
     var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }), link = document.createElement('a');
     link.href = URL.createObjectURL(blob); link.download = 'end_balance_outlet_' + feed.metadata.snapshot + '.csv'; link.click();

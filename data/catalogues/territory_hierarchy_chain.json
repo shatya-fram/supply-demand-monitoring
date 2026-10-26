@@ -2,12 +2,12 @@
   {
     "branch": "SOUTH JAKARTA DEPOK",
     "hoa_leader": "Roswida Sidauruk",
-    "outlet_count": 2975,
+    "outlet_count": 2968,
     "micro_clusters": [
       {
         "micro_cluster": "MC-KEBAYORAN",
         "dso_leader": "YUALITA PRASIDA RAMADHANI",
-        "outlet_count": 449,
+        "outlet_count": 447,
         "dse_count": 18,
         "dses": [
           {
@@ -56,7 +56,7 @@
           },
           {
             "dse_code": "DSEKEBAY1683ID",
-            "outlet_count": 10
+            "outlet_count": 8
           },
           {
             "dse_code": "DSEKEBAY7683ID",
@@ -255,8 +255,8 @@
       {
         "micro_cluster": "MC-BEJI",
         "dso_leader": "INVENT RADIANTI PRATIWI",
-        "outlet_count": 397,
-        "dse_count": 15,
+        "outlet_count": 395,
+        "dse_count": 14,
         "dses": [
           {
             "dse_code": "DSEIN054",
@@ -264,7 +264,7 @@
           },
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 39
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEIN073",
@@ -297,10 +297,6 @@
           {
             "dse_code": "CSO-LOKADPK093ID",
             "outlet_count": 14
-          },
-          {
-            "dse_code": "2613052261.0",
-            "outlet_count": 1
           },
           {
             "dse_code": "CSO-LOKADPK023ID",
@@ -395,7 +391,7 @@
       {
         "micro_cluster": "MC-CIPAYUNG",
         "dso_leader": "FRILA HANDRIANI",
-        "outlet_count": 488,
+        "outlet_count": 485,
         "dse_count": 17,
         "dses": [
           {
@@ -452,7 +448,7 @@
           },
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 15
+            "outlet_count": 12
           },
           {
             "dse_code": "1-136291163598",
@@ -529,7 +525,7 @@
   {
     "branch": "KARAWANG",
     "hoa_leader": "Apri Sugiyanto",
-    "outlet_count": 2659,
+    "outlet_count": 2657,
     "micro_clusters": [
       {
         "micro_cluster": "MC-KARAWANG",
@@ -670,7 +666,7 @@
       {
         "micro_cluster": "MC-EAST CIKAMPEK",
         "dso_leader": "WIWIT PRASETYO",
-        "outlet_count": 391,
+        "outlet_count": 390,
         "dse_count": 13,
         "dses": [
           {
@@ -679,7 +675,7 @@
           },
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 11
+            "outlet_count": 10
           },
           {
             "dse_code": "CSO-CKP004",
@@ -730,7 +726,7 @@
       {
         "micro_cluster": "MC-BATUJAYA",
         "dso_leader": "ADHITYA PRATAMA",
-        "outlet_count": 534,
+        "outlet_count": 533,
         "dse_count": 18,
         "dses": [
           {
@@ -763,7 +759,7 @@
           },
           {
             "dse_code": "DSERNAK06",
-            "outlet_count": 58
+            "outlet_count": 57
           },
           {
             "dse_code": "DSERNAK08",
@@ -1949,7 +1945,7 @@
   {
     "branch": "CENTRAL NORTH JAKARTA",
     "hoa_leader": "Ragus Sularto",
-    "outlet_count": 1828,
+    "outlet_count": 1827,
     "micro_clusters": [
       {
         "micro_cluster": "MC-CEMPAKA PUTIH",
@@ -2086,7 +2082,7 @@
       {
         "micro_cluster": "MC-KELAPA GADING",
         "dso_leader": "MUHAMAD YUNUS HIDAYAT",
-        "outlet_count": 333,
+        "outlet_count": 332,
         "dse_count": 15,
         "dses": [
           {
@@ -2115,7 +2111,7 @@
           },
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 9
+            "outlet_count": 8
           },
           {
             "dse_code": "DSEBUANAJKU033ID",

@@ -353,6 +353,29 @@ def apply(base_outlets, cat_dir=None):
     # ---- result
     for o in outlets:
         o.pop('_del', None)
+    # ---- 3b. One row per outlet key (owner, 27 Oct 2026; docs/assessments/qa_consistency_audit.md section 3.1): the id-less placeholder rows `0_0`
+    # carry no outlet id and the same key repeated with the placeholder name `0.0` is a duplicate, so every PJP / UAR base counts distinct outlets.
+    def _score(o):
+        nm = str(o.get('outlet_name') or '').strip()
+        return ((nm not in ('', '0', '0.0') and not nm.lower().startswith('unnamed')) * 4
+                + (str(o.get('dse_name') or 'UNASSIGNED').upper() != 'UNASSIGNED') * 2 + bool(o.get('micro_cluster')))
+    n_before = len(outlets)
+    outlets = [o for o in outlets if not (o['outlet_key'] == '0_0' and not nid(o.get('outlet_id_im3')) and not nid(o.get('outlet_id_3id')))]
+    rep['dropped_idless_rows'] = n_before - len(outlets)
+    best = {}
+    for o in outlets:
+        k = o['outlet_key']
+        if k not in best or _score(o) > _score(best[k]):
+            best[k] = o
+    seen = set()
+    deduped = []
+    for o in outlets:
+        k = o['outlet_key']
+        if best[k] is o and k not in seen:
+            seen.add(k)
+            deduped.append(o)
+    rep['dropped_duplicate_rows'] = len(outlets) - len(deduped)
+    outlets = deduped
     # ---- 4. Entity and brand flag (owner, 23 Oct 2026; docs/assessments/hybrid_entity_recommendation.md): one physical outlet = one entity.
     # brand_flag is derived from the ids (never copied from the catalogue label Status Pairing); the label stays in pairing_status and a contradiction is flagged.
     n3 = Counter(nid(o.get('outlet_id_3id')) for o in outlets if nid(o.get('outlet_id_3id')))

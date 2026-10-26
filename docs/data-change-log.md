@@ -2,6 +2,15 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 27 Oct 2026 (evening) · QA decisions applied
+| Scope | Change |
+|---|---|
+| Territory master | De-duplicated: 3 id-less `0_0` rows and 7 duplicate rows dropped, 16,130 → 16,120 outlets (14,958 with a DSE = PJP base; "belum divisit" MTD 139, no more 169 / 170 split). Territory, sell-in, target, map and coverage feeds rebuilt. |
+| PJP windows | "Not visited last 3 / 7 days" count working days (Sundays skipped): at cut 26 Oct the 3-day window is 23, 24, 26 Oct (not visited 3d 909, 7d 309). |
+| End Balance | "Kemarin" cards use the last working day (26 Oct) vs the working day before (24 Oct). |
+| Gross Add | GA target cards shown on the site / location basis only. |
+| Checks | `render_check`, `audit_scorecard` (164), `audit_ga` (3,683), `audit_consistency` (278), `audit_kro`, `audit_dse_catalogue`, `audit_entity` pass. |
+
 ## 27 Oct 2026 (later) · MOBII to 26 Oct
 | Scope | Source | Change |
 |---|---|---|
