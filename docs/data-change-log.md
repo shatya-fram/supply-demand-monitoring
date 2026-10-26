@@ -2,6 +2,17 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 27 Oct 2026 (PJP, MOBO, SALMO and ENDBAL to 26 Oct; MOBII and GA unchanged)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__26_26.zip` (26 Oct 22:37) | Cut 25 → **26 Oct**: 26 days, 22 business days, no missing day. MTD coverage of PJP outlets 98.9% → **99.1%** (not visited 169 → 140), target hit 76.8% → **77.8%**, productive rate 45.7% → 45.6%. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (still the 25 Oct 22:28 file) | **No new file**: cut stays 25 Oct. Penjualan and DSE KPI sell-in are one day behind PJP and demand. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (26 Oct 22:36) | Cut 25 → **26 Oct**. Total demand (RLD+VCI+CVM+PKT) MTD Rp 93.84 → **98.24 B** (26 Oct Rp 4.38 B). |
+| SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (26 Oct 22:36) | Saldo Mobo demand Rp 119.58 → **125.62 B** (26 Oct Rp 6.04 B); file and MOBO both at 26 Oct, nothing held back. |
+| ENDBAL | `endbal_20261026.zip` / report of 27 Oct 01:49 | Snapshot 25 → **26 Oct**: 129,292 rows, 18,211 outlets. |
+| GA | none | Cut stays **24 Oct** (no new RGUGA file). |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,845), `audit_consistency` (278) pass. |
+
 ## 26 Oct 2026 (refresh to 25 Oct; GA to 24 Oct)
 | Scope | Source | Change |
 |---|---|---|

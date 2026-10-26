@@ -129,6 +129,7 @@ DATES_LAST_3D = {_fmt(d) for d in range(max(1, _last_day - 2), _last_day + 1)}
 DATES_LAST_7D = {_fmt(d) for d in range(max(1, _last_day - 6), _last_day + 1)}
 W1_DAYS = [_fmt(d) for d in range(1, min(4, _last_day) + 1)]
 W2_DAYS = sorted(DATES_LAST_7D)
+PREV7_DAYS = [_fmt(d) for d in range(max(1, _last_day - 13), max(1, _last_day - 6))] if _last_day >= 14 else W1_DAYS   # the 7 days before the last 7: true week over week
 DAYS = [_fmt(d) for d in range(1, _last_day + 1)]   # every calendar day counts
 # Days inside the period that no export file covers: shown as "data not available", never as a zero-execution day.
 MISSING_DAYS = [_fmt(d) for d in range(1, _last_day + 1) if d not in _covered]
@@ -925,6 +926,8 @@ w1_pl = sum(daily_stats[d]["planned"] for d in W1_DAYS); w1_ac = sum(daily_stats
 w2_pl = sum(daily_stats[d]["planned"] for d in W2_DAYS); w2_ac = sum(daily_stats[d]["actual"] for d in W2_DAYS)
 W1_AVAIL = [d for d in W1_DAYS if d not in MISSING_DAYS]; W2_AVAIL = [d for d in W2_DAYS if d not in MISSING_DAYS]
 w1_rate, w2_rate = w1_ac / max(len(W1_AVAIL), 1), w2_ac / max(len(W2_AVAIL), 1)
+PREV7_AVAIL = [d for d in PREV7_DAYS if d not in MISSING_DAYS]
+p7_rate = sum(daily_stats[d]["actual"] for d in PREV7_DAYS) / max(len(PREV7_AVAIL), 1)
 
 regional_summary = {
     "total_planned_visits": total_planned, "total_actual_visits": total_actual, "adhoc_visits_no_beatplan": sum(1 for s_ in pjp_stops.values() if s_["ah"] and s_["ci"]),
@@ -971,6 +974,7 @@ regional_summary = {
                    "w1_compliance": round(w1_ac / w1_pl * 100, 1) if w1_pl else 0, "w2_compliance": round(w2_ac / w2_pl * 100, 1) if w2_pl else 0,
                    "w1_per_day": round(w1_rate), "w2_per_day": round(w2_rate),
                    "run_rate_growth_pct": round((w2_rate - w1_rate) / w1_rate * 100, 1) if w1_rate else 0.0,
+                   "wow_prev_per_day": round(p7_rate), "wow_prev_days": len(PREV7_AVAIL), "wow_pct": round((w2_rate - p7_rate) / p7_rate * 100, 1) if p7_rate else 0.0,
                    "mom_note": "Baseline month (Oct 2026). MoM populates when Sep 2026 logs are ingested."},
 }
 

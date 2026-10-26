@@ -227,6 +227,7 @@ def main():
         if find(r"^(Site_)?rguga_daily_outlet_.*\.csv$"):   # MSISDN-level GA with activation site (counts only reach the feed)
             steps.append(("GA · Site aktivasi vs outlet tagging (kemasukan / pengiriman)", [py, "scripts/build_ga_site_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
+        steps.append(("STOCK · Stok Outlet Over / Par / Low (KRO + ENDBAL)", [py, "scripts/build_stock_feed.py"]))
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
         steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))

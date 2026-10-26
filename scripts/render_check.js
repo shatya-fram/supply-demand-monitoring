@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -31,6 +31,7 @@ if (typeof global.dseVisitsFeed === 'undefined') {
   if (m) global.dseVisitsFeed = JSON.parse(m[1]);
 }
 
+require(path.join(root, 'website', 'stock.js'));
 const app = require(path.join(root, 'website', 'app.js'));
 const { VIEWS, state } = app;
 let failures = 0;
@@ -436,6 +437,15 @@ state.ebSeg = 'all';
 state.branch = fb.branch; for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/branch', VIEWS.mb_endbal); }
 state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringkasan', 'slab', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/mc', VIEWS.mb_endbal); }
 { const eo = (global.ENDBAL_FEED && global.ENDBAL_FEED.outlets.find(o => o.m === fm.micro_cluster)); if (eo) { state.ebOpen = {}; state.ebOpen[eo.m + '||' + eo.d] = true; state.ebTab = 'detail'; check('endbal/detail/open-dse', VIEWS.mb_endbal); state.ebOpen = {}; } }
+// Stok Outlet (mb_stock): every level x product mix x tab, filtered and unfiltered
+{ state.view = 'mb_stock'; const sv = { b: state.branch, h: state.hoa, k: state.kec };
+  for (const tab of ['ringkasan', 'peta']) for (const lv of ['area', 'mc', 'kec', 'site', 'outlet']) for (const pr of ['sp', 'vc', 'sa', 'sp,vc,sa']) { state.stTab = tab; state.stLevel = lv; state.stProd = pr; state.stStat = 'all'; check('stock/' + tab + '/' + lv + '/' + pr, VIEWS.mb_stock); }
+  for (const stt of ['low', 'par', 'over', 'idle']) { state.stTab = 'ringkasan'; state.stLevel = 'mc'; state.stProd = 'sp,vc,sa'; state.stStat = stt; check('stock/status=' + stt, VIEWS.mb_stock); }
+  state.stStat = 'all'; state.stLevel = 'site'; state.branch = fb.branch; check('stock/site/branch', VIEWS.mb_stock);
+  state.kec = fm.micro_cluster; state.stLevel = 'outlet'; state.stSaOther = true; check('stock/outlet/mc+other', VIEWS.mb_stock); state.stSaOther = false;
+  state.stSearch = 'cell'; check('stock/outlet/search', VIEWS.mb_stock); state.stSearch = '';
+  state.stTh = { sp: [3, 10] }; check('stock/threshold', VIEWS.mb_stock); state.stTh = null;
+  state.stTab = 'ringkasan'; state.stLevel = 'area'; state.stProd = 'sp,vc,sa'; state.branch = sv.b; state.hoa = sv.h; state.kec = sv.k; }
 state.ebTab = 'site'; { const so = global.ENDBAL_FEED.outlets.find(o => o.s && o.m === fm.micro_cluster); if (so) { state.ebSite = so.s + '::' + so.m; check('endbal/site/open', VIEWS.mb_endbal); state.ebSite = null; } }
 state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
 // Entity-day heatmap basis (23 Okt 2026): both heatmaps render at every level in every cell view on the entity basis, and the entity rows add up to the feed

@@ -66,6 +66,7 @@
       mb_overall: 'Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P + ' · GA ' + G,
       mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution ' + cutDist() + ' ' + Y,
       mb_endbal: 'ENDBAL ' + cutEndbal() + ' · Sell-In saldo ' + S + ' ' + Y,
+      mb_stock: 'Sell-In ' + S + ' · Demand ' + D + ' · GA ' + G + ' · ENDBAL ' + cutEndbal(),
       cfg_target: 'Target Oktober ' + Y + ' · pencapaian cut ' + S,
       cfg_pjp: 'Template PJP mingguan · mapping permanen',
       mb_grossadd: 'RGUGA GA cut ' + G + ' ' + Y,
@@ -118,6 +119,7 @@
     mb_grossadd: ['Morning DSE Briefing · Gross Add', 'Gross Add dan SSO (SIM Selling Outlet) dari RGUGA per outlet: Oktober vs September, per Area, MC, DSE dan outlet (basis tagging) atau per site / kecamatan (basis lokasi dari data RGUGA), harian, dan slab SSO.'],
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
     cfg_target: ['Konfigurasi · Target Setting', 'Target resmi per DSE untuk dua KPI, Sell-In SP dan OSA (IM3, 3ID, IOH), diagregasi ke MC, Area dan Region, dibandingkan dengan pencapaian MTD.'],
+    mb_stock: ['Morning DSE Briefing · Stok Outlet · Over / Par / Low', 'Sell-in dan sell-out SP, Voucher dan Saldo (September penuh, Oktober MTD) dengan estimasi sisa stok per Outlet, Site, Kecamatan, MC, Area dan Region, plus peta poligon Over (hijau), Par (kuning) dan Low (merah).'],
     mb_endbal: ['Morning DSE Briefing · END BALANCE Outlet', 'Stok saldo penutupan outlet (ENDBAL) per outlet, site, MC, DSO dan DSE: outlet zero stock, slab balance, inventory days, dan sell-in saldo kemarin.'],
     mb_ringkasan: ['Morning DSE Briefing · Ringkasan Performance', 'DSE Productivity (KPI DSE Oct 2026: OSA, SP Data Sell In, compliance), ringkasan PJP, penjualan, demand, dan heat map teritori.'],
     mb_pjp: ['Morning DSE Briefing · PJP Visit', 'Performa kunjungan PJP saat ini: heatmap harian per Area, MC, DSE, dan outlet. Klik tanggal untuk melihat performa hari itu per DSE dan per outlet.'],
@@ -232,6 +234,7 @@
 
   /* ---------- state and aggregation ---------- */
   var state = {
+    stTab: 'ringkasan', stProd: 'sp,vc,sa', stLevel: 'area', stStat: 'all', stSearch: '', stTh: null, stSaOther: false,
     view: 'mb_ringkasan',
     branch: '',
     hoa: '',
@@ -3412,7 +3415,7 @@
       kpi('Ad-hoc Visits (A)', fmtCount(sc.ah), pctOf(sc.ah, sc.actual) + '% of ' + fmtCount(sc.actual) + ' visits · total (P + A) hit ' + sc.hit + '%', 'up', 'Check-in without a beat plan (BEATPLANID empty), never in the plan') +
       kpi('Productive Stops', sc.prodRate == null ? '—' : sc.prodRate + '%', sc.prodRate == null ? 'Not split by brand' : fmtCount(sc.productive) + ' stops · ' + fmtCount(sc.prodPhys) + ' physical SP/VC · ' + fmtCount(sc.prodSaldo) + ' saldo', sc.prodRate != null && sc.prodRate >= 30 ? 'up' : 'down', esc(prodRule) + (sc.flowRate != null ? ' · flow completed ' + sc.flowRate + '%' : '')) +
       kpi('Active Visited Stores', fmtCount(sc.visited), pctOf(sc.visited, sc.outlets) + '% of ' + fmtCount(sc.outlets) + ' master stores', 'up', fmtCount(sc.hybrid) + ' dual-brand hybrid stores') +
-      kpi('Run-Rate Velocity', (gw.run_rate_growth_pct >= 0 ? '+' : '') + gw.run_rate_growth_pct + '% WoW', 'W2 ' + fmtCount(gw.w2_per_day || 0) + '/day vs W1 ' + fmtCount(gw.w1_per_day || 0) + '/day', 'up', 'Regional, all brands, baseline month Oct 2026') +
+      kpi('Run-Rate Velocity', ((gw.wow_pct != null ? gw.wow_pct : gw.run_rate_growth_pct) >= 0 ? '+' : '') + (gw.wow_pct != null ? gw.wow_pct : gw.run_rate_growth_pct) + '% WoW', gw.wow_pct != null ? 'Last 7 days ' + fmtCount(gw.w2_per_day || 0) + '/day vs previous 7 days ' + fmtCount(gw.wow_prev_per_day || 0) + '/day' : 'W2 ' + fmtCount(gw.w2_per_day || 0) + '/day vs W1 ' + fmtCount(gw.w1_per_day || 0) + '/day', 'up', 'Regional, all brands, baseline month Oct 2026') +
       kpi('Unvisited Outlets · MTD', fmtCount(sc.nvm), pctOf(sc.nvm, sc.outlets) + '% of ' + fmtCount(sc.outlets) + ' stores', 'down', 'No completed check-in ' + pjpPeriod('mtd') + '') +
       kpi('Unvisited Outlets · Last 7 Days', fmtCount(sc.nv7), pctOf(sc.nv7, sc.outlets) + '% of ' + fmtCount(sc.outlets) + ' stores', 'down', 'No completed check-in ' + pjpPeriod('l7') + '') +
       kpi('Unvisited Outlets · Last 3 Days', fmtCount(sc.nv3), pctOf(sc.nv3, sc.outlets) + '% of ' + fmtCount(sc.outlets) + ' stores', 'down', 'No completed check-in ' + pjpPeriod('l3') + '') +
@@ -3567,18 +3570,19 @@
     facts.forEach(function (f) {
       var o = dim[f[7]];
       var k = sellinKeyOf(level, f, o);
-      var G = g[k] || (g[k] = { key: k, o: o, tx: 0, vc: 0, sp: 0, ev: 0, pval: 0, val: 0, outlets: {}, dses: {}, days: {} });
+      var G = g[k] || (g[k] = { key: k, o: o, tx: 0, vc: 0, sp: 0, ev: 0, pval: 0, val: 0, outlets: {}, outletsM: {}, dses: {}, days: {} });
       G.tx++;
       if (f[3] === 'VC') G.vc += f[5]; else if (f[3] === 'SP') G.sp += f[5]; else G.ev += f[6];
       if (f[2] === 'P') G.pval += f[6];
       G.val += f[6];
       G.outlets[f[7]] = 1;
+      if (String(f[7]).indexOf('X:') !== 0) G.outletsM[f[7]] = 1;   // PJP (master) outlets only: keys 'X:' are outlets outside the master
       if (f[8]) G.dses[f[8]] = 1;
       G.days[f[0]] = 1;
     });
     return Object.keys(g).map(function (k) {
       var G = g[k];
-      G.uar = Object.keys(G.outlets).length; G.ndse = Object.keys(G.dses).length; G.ndays = Object.keys(G.days).length;
+      G.uar = Object.keys(G.outlets).length; G.uarM = Object.keys(G.outletsM).length; G.ndse = Object.keys(G.dses).length; G.ndays = Object.keys(G.days).length;
       return G;
     }).sort(function (a, b) { return b.val - a.val || b.uar - a.uar; });
   }
@@ -3637,7 +3641,7 @@
     c.rows.forEach(function (G) {
       var base = c.base[G.key] || 0;
       var name = c.level === 'outlet' ? ((G.o && G.o.outlet_name) || '') + ' [' + G.key + ']' : G.key;
-      lines.push([name, sellinRowParent(c.level, G).replace(/<[^>]+>/g, ''), G.tx, G.vc, G.sp, G.ev, G.pval, G.val, G.uar, base, base ? (G.uar / base * 100).toFixed(1) : '', G.ndse, G.ndays].map(q).join(','));
+      lines.push([name, sellinRowParent(c.level, G).replace(/<[^>]+>/g, ''), G.tx, G.vc, G.sp, G.ev, G.pval, G.val, G.uar, base, base ? (G.uarM / base * 100).toFixed(1) : '', G.ndse, G.ndays].map(q).join(','));
     });
     var blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     var link = document.createElement('a');
@@ -3929,13 +3933,13 @@
       return '<tr><td class="num">' + (start + i + 1) + '</td><td class="cur">' + name + '</td><td>' + sellinRowParent(level, G) + '</td>' +
         '<td class="num">' + fmtCount(G.tx) + '</td><td class="num">' + fmtCount(G.vc) + '</td><td class="num">' + fmtCount(G.sp) + '</td>' +
         '<td class="num">' + fmtRp(G.ev) + '</td><td class="num">' + fmtRp(G.pval) + '</td><td class="num cur"><b>' + fmtRp(G.val) + '</b></td><td>' + bar + '</td>' +
-        '<td class="num cur"><b>' + fmtCount(G.uar) + '</b></td><td class="num">' + (base ? fmtCount(base) : '—') + '</td><td class="num">' + (base ? pctOf(G.uar, base) + '%' : '—') + '</td>' +
+        '<td class="num cur"><b>' + fmtCount(G.uar) + '</b></td><td class="num">' + (base ? fmtCount(base) : '—') + '</td><td class="num">' + (base ? pctOf(G.uarM, base) + '%' + (G.uar > G.uarM ? '<br><span class="note">+' + fmtCount(G.uar - G.uarM) + ' non-PJP</span>' : '') : '—') + '</td>' +
         '<td class="num">' + fmtCount(G.ndse) + '</td><td class="num">' + fmtRp(G.uar ? G.val / G.uar : 0) + '</td><td class="num">' + G.ndays + '/' + days.length + '</td><td>' + drill + '</td></tr>';
     }).join('');
     var TT = { tx: 0, vc: 0, sp: 0, ev: 0, pval: 0, val: 0, uar: 0, base: 0, ndse: 0 };
-    rows.forEach(function (G) { TT.tx += G.tx || 0; TT.vc += G.vc || 0; TT.sp += G.sp || 0; TT.ev += G.ev || 0; TT.pval += G.pval || 0; TT.val += G.val || 0; TT.uar += G.uar || 0; TT.base += c.base[G.key] || 0; TT.ndse += G.ndse || 0; });
+    rows.forEach(function (G) { TT.tx += G.tx || 0; TT.vc += G.vc || 0; TT.sp += G.sp || 0; TT.ev += G.ev || 0; TT.pval += G.pval || 0; TT.val += G.val || 0; TT.uar += G.uar || 0; TT.uarM = (TT.uarM || 0) + (G.uarM || 0); TT.base += c.base[G.key] || 0; TT.ndse += G.ndse || 0; });
     if (rows.length > 1) trs += '<tr style="background:var(--ink); color:#fff; font-weight:800;"><td></td><td class="cur" style="background:var(--ink); color:#fff;">TOTAL · ' + fmtCount(rows.length) + ' ' + esc(levelLabel) + '</td><td></td><td class="num">' + fmtCount(TT.tx) + '</td><td class="num">' + fmtCount(TT.vc) + '</td><td class="num">' + fmtCount(TT.sp) + '</td>' +
-      '<td class="num">' + fmtRp(TT.ev) + '</td><td class="num">' + fmtRp(TT.pval) + '</td><td class="num">' + fmtRp(TT.val) + '</td><td></td><td class="num">' + fmtCount(TT.uar) + '</td><td class="num">' + (TT.base ? fmtCount(TT.base) : '—') + '</td><td class="num">' + (TT.base ? pctOf(TT.uar, TT.base) + '%' : '—') + '</td><td class="num">' + fmtCount(TT.ndse) + '</td><td class="num">' + fmtRp(TT.uar ? TT.val / TT.uar : 0) + '</td><td></td><td></td></tr>';
+      '<td class="num">' + fmtRp(TT.ev) + '</td><td class="num">' + fmtRp(TT.pval) + '</td><td class="num">' + fmtRp(TT.val) + '</td><td></td><td class="num">' + fmtCount(TT.uar) + '</td><td class="num">' + (TT.base ? fmtCount(TT.base) : '—') + '</td><td class="num">' + (TT.base ? pctOf(TT.uarM, TT.base) + '%' + (TT.uar > TT.uarM ? '<br><span class="note">+' + fmtCount(TT.uar - TT.uarM) + ' non-PJP</span>' : '') : '—') + '</td><td class="num">' + fmtCount(TT.ndse) + '</td><td class="num">' + fmtRp(TT.uar ? TT.val / TT.uar : 0) + '</td><td></td><td></td></tr>';
     var pag = rows.length > pageSize ? '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">' +
       '<span class="note">Showing ' + (start + 1) + '–' + Math.min(start + pageSize, rows.length) + ' of ' + fmtCount(rows.length) + '</span>' +
       '<div style="display:flex; gap:6px;">' +
@@ -5322,11 +5326,11 @@
     return s;
   }
   function poAgg(rows) {
-    var A = { tot: { v: 0, u: 0, lv: 0, fv: 0, lu: 0, fu: 0 } }; ['SPI', 'RLD', 'VCI', 'CVM', 'PKT'].forEach(function (c) { A[c] = { q: 0, u: 0, v: 0, lq: 0, lv: 0, fq: 0, fv: 0, lu: 0 }; });
+    var A = { tot: { v: 0, u: 0, uM: 0, lv: 0, fv: 0, lu: 0, luM: 0, fu: 0, fuM: 0 } };   /* QA-FIX-23OCT: uM / luM / fuM = PJP (master) outlets only */ ['SPI', 'RLD', 'VCI', 'CVM', 'PKT'].forEach(function (c) { A[c] = { q: 0, u: 0, v: 0, lq: 0, lv: 0, fq: 0, fv: 0, lu: 0 }; });
     rows.forEach(function (o) {
       var any = false;
       PO_CATS.forEach(function (c) { var x = o.c[c[0]]; if (!x) return; var a = A[c[0]]; a.q += x[0]; if (c[0] !== 'SPI') { a.v += x[1]; A.tot.v += x[1]; } else a.v += x[1]; if ((c[0] === 'SPI' ? x[0] : x[1]) > 0) { a.u++; any = true; } });
-      var anyV = PO_VALUE_CATS.some(function (c) { return o.c[c] && o.c[c][1] > 0; }); if (anyV) A.tot.u++;
+      var anyV = PO_VALUE_CATS.some(function (c) { return o.c[c] && o.c[c][1] > 0; }); if (anyV) { A.tot.u++; if (o.tier === 'M') A.tot.uM++; }
       if (o.l) {
         var anyL = false, anyF = false;
         Object.keys(o.l).forEach(function (c) {
@@ -5334,7 +5338,7 @@
           a.lq += x[0]; a.lv += x[1]; a.fq += x[2]; a.fv += x[3]; if ((c === 'SPI' ? x[0] : x[1]) > 0) a.lu++;
           if (c !== 'SPI') { A.tot.lv += x[1]; A.tot.fv += x[3]; if (x[1] > 0) anyL = true; if (x[3] > 0) anyF = true; }
         });
-        if (anyL) A.tot.lu++; if (anyF) A.tot.fu++;
+        if (anyL) { A.tot.lu++; if (o.tier === 'M') A.tot.luM++; } if (anyF) { A.tot.fu++; if (o.tier === 'M') A.tot.fuM++; }
       }
     });
     return A;
@@ -5697,7 +5701,7 @@
     var sdays = poSupplyDaily(F, rows), supTot = sdays.reduce(function (a, v) { return a + v; }, 0);
     var kpis = '<div class="kpis" style="margin-top:10px; grid-template-columns: repeat(5, 1fr);">' +
       kpi('Total demand · MTD', pjRp(A.tot.v), (A.tot.lv ? pjGrowthTxt(A.tot.v, A.tot.lv) + ' vs LMTD ' + pjRp(A.tot.lv) + ' · Δ ' + (A.tot.v - A.tot.lv >= 0 ? '+' : '−') + pjRp(Math.abs(A.tot.v - A.tot.lv)) : 'LMTD September belum tersedia'), A.tot.v >= A.tot.lv ? 'up' : 'down', 'Last FM ' + pjRp(A.tot.fv) + ' · gap ' + (A.tot.v - A.tot.fv >= 0 ? '+' : '−') + pjRp(Math.abs(A.tot.v - A.tot.fv)) + ' · butuh ' + pjRp(Math.max(0, A.tot.fv - A.tot.v) / Math.max(1, M.mtd_month_days - n)) + '/hari (kini ' + pjRp(A.tot.v / n) + ') · ' + ldT.replace(' · ', '') + pjRp(LDK.D.tot.v) + ldDelta(LDK.D.tot.v, LDK.P.tot.v) + ' vs ' + LDK.W.prevShort) +
-      kpi('UAR · outlet dengan demand', fmtCount(A.tot.u), pctOf(A.tot.u, base) + '% dari ' + fmtCount(base) + ' outlet PJP · Δ ' + (A.tot.u - A.tot.lu >= 0 ? '+' : '−') + fmtCount(Math.abs(A.tot.u - A.tot.lu)) + ' vs LMTD ' + fmtCount(A.tot.lu), A.tot.u >= A.tot.lu ? 'up' : 'down', 'Last FM ' + fmtCount(A.tot.fu) + ' outlet · Reload, Voucher Injection, CVM dan Paket Data') +
+      kpi('UAR · outlet dengan demand', fmtCount(A.tot.u), pctOf(A.tot.uM, base) + '% outlet PJP aktif (' + fmtCount(A.tot.uM) + ' dari ' + fmtCount(base) + ') · +' + fmtCount(A.tot.u - A.tot.uM) + ' non-PJP · Δ PJP ' + (A.tot.uM - A.tot.luM >= 0 ? '+' : '−') + fmtCount(Math.abs(A.tot.uM - A.tot.luM)) + ' vs LMTD ' + fmtCount(A.tot.luM), A.tot.uM >= A.tot.luM ? 'up' : 'down', 'Last FM ' + fmtCount(A.tot.fuM) + ' outlet PJP · Reload, Voucher Injection, CVM dan Paket Data') +
       kpi('Run-rate akhir Oktober', pjRp(A.tot.v / n * M.mtd_month_days), 'rata-rata ' + pjRp(A.tot.v / n) + ' per hari · ' + (A.tot.fv ? ovGrowthTxt(A.tot.v / n * M.mtd_month_days, A.tot.fv) + ' vs Last FM ' + pjRp(A.tot.fv) : ''), A.tot.v / n * M.mtd_month_days >= A.tot.fv ? 'up' : 'down', 'Nilai MTD ÷ ' + n + ' × ' + M.mtd_month_days + ' · Last FM ' + pjRp(A.tot.fv / 30) + '/hari') +
       (function () { var GS = poGaScope(); if (!GS) return ''; var a = GS.A, g = gaGrow(a.q, a.p); return kpi('SSO · gross add MTD', fmtCount(a.u) + ' · ' + fmtCount(a.q) + ' pcs', (g == null ? '—' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%') + ' GA vs LMTD Sep', g != null && g >= 0 ? 'up' : 'down', 'SSO = outlet dengan ≥ 1 gross add · 1–' + GS.G.cut + ' Okt · detail di menu Gross Add'); })() +
       kpi('Demand ÷ saldo Sell-In masuk', supTot ? (A.tot.v / supTot).toFixed(2) + '×' : '—', 'saldo masuk 1–' + n + ' Okt ' + pjRp(supTot), supTot && A.tot.v / supTot > 1 ? 'down' : 'up', '> 1× = jual lebih banyak daripada isi saldo') +
@@ -10598,7 +10602,9 @@
         return '<tr><td class="cur"><code>' + esc(r[0]) + '</code></td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>';
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
-  var VIEWS = { brief: viewBrief, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  function stockApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, dkTag: dkTag, scopeText: scopeText, grpBody: grpBody, grpBar: grpBar }; }
+  function viewStock() { return (typeof window !== 'undefined' && window.IJStock) ? window.IJStock.view(stockApi()) : card('Stok Outlet', '<p class="note">Modul stock.js belum dimuat.</p>'); }
+  var VIEWS = { brief: viewBrief, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
@@ -10704,7 +10710,7 @@
   }
   function cleanupStaleMaps() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
-    ['_jakartaMapInstance', '_inactMapInstance', '_mbMapInstance', '_opdMapInstance'].forEach(function (k) {
+    ['_jakartaMapInstance', '_inactMapInstance', '_mbMapInstance', '_opdMapInstance', '_stMapInstance'].forEach(function (k) {
       var m = window[k];
       if (!m) return;
       var c = null; try { c = m.getContainer(); } catch (e) {}
@@ -10981,6 +10987,7 @@
       }, 60);
     }
     if (state.view === 'mb_ringkasan') { setTimeout(initBriefMap, 60); setTimeout(initOpdMap, 60); }
+    if (state.view === 'mb_stock' && typeof window !== 'undefined' && window.IJStock) setTimeout(function () { window.IJStock.after(stockApi()); }, 60);
     if (typeof document !== 'undefined' && document.getElementById('inactivity-map')) {
       setTimeout(initInactivityMap, 60);
     }
@@ -11401,6 +11408,7 @@
     else if (t.getAttribute('data-act') === 'clear-pj-dse') { state.pjDse = null; state.pjPage = 1; }
     else if (t.hasAttribute('data-pj-out-toggle')) { var ok_ = t.getAttribute('data-pj-out-toggle'); state.pjOutOpen = state.pjOutOpen || {}; state.pjOutOpen[ok_] = !pjOutOpen(ok_, ok_.charAt(0)); }
     else if (t.hasAttribute('data-grp-toggle')) { var gk_ = t.getAttribute('data-grp-toggle'); state.grpOpen = state.grpOpen || {}; state.grpOpen[gk_] = t.getAttribute('aria-expanded') !== 'true'; }
+    else if (t.hasAttribute('data-st')) { if (window.IJStock) window.IJStock.click(t.getAttribute('data-st'), stockApi()); }
     else if (t.getAttribute('data-act') === 'grp-all') { var gt_ = t.getAttribute('data-t'); state.grpAll = state.grpAll || {}; state.grpAll[gt_] = t.getAttribute('data-v'); Object.keys(state.grpOpen || {}).forEach(function (k) { if (k.indexOf(gt_ + '|') === 0) delete state.grpOpen[k]; }); }
     else if (t.getAttribute('data-act') === 'pj-out-all') { state.pjOutAll = t.getAttribute('data-v'); state.pjOutOpen = {}; }
     else if (t.getAttribute('data-act') === 'pj-only-nomtd') { state.pjOnlyNoMtd = !state.pjOnlyNoMtd; state.pjPage = 1; }
@@ -11487,6 +11495,7 @@
     render();
   }
   function onChange(e) {
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-st-in') && window.IJStock) { window.IJStock.change(e.target, stockApi()); render(); return; }
     if (e.target && e.target.id === 'prDateInput') { state.prDate = e.target.value; render(); return; }
     if (e.target && e.target.id === 'gtDaySelect') { state.gtDay = parseInt(e.target.value, 10) || 0; render(); return; }
     if (e.target && e.target.id === 'pmDateInput') { state.pmDate = e.target.value; render(); return; }
@@ -11738,7 +11747,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
   };
