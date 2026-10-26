@@ -9,12 +9,12 @@
     "TANPA_ID": 3,
     "conflict": 496
   },
-  "dse_flag_rows": 38,
+  "dse_flag_rows": 36,
   "dse_im3_3id_differ": 143,
   "final_only_added": 1373,
   "final_only_ioh_non": 1286,
   "final_only_paired_added": 63,
-  "generated_at": "2026-10-23T11:05:29",
+  "generated_at": "2026-10-26T14:43:11",
   "outlets_login_renamed": 93,
   "outlets_not_in_final": 1167,
   "outlets_swapped_accepted": 306,
@@ -25,7 +25,7 @@
   "pairs_in_catalogue": 7229,
   "pairs_new_supported_applied": 275,
   "rows_without_outlet_id": 3,
-  "sem_logins": 12,
+  "sem_logins": 10,
   "swap_dse": 42,
   "swap_pairs": 24
 }
