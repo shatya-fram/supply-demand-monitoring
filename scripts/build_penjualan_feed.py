@@ -48,6 +48,7 @@ CATS = {"SP": "Starter Pack", "VCF": "Voucher isi", "VCB": "Voucher blank", "SAL
 OUTSIDE = "OUTSIDE MASTER TERRITORY"
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sp_defs import sp_class   # SP Data class (3GB + S PLUS), for the daily KPI-basis series `sk`
 import entity_map          # a Hybrid outlet outside the master is ONE entity (catalogue pair, key C:<im3>_<3id>; owner, 23 Oct 2026)
 
 
@@ -217,6 +218,7 @@ def empty_fact():
     return {"mq": 0.0, "mv": 0.0, "lq": 0.0, "lv": 0.0, "fq": 0.0, "fv": 0.0, "tq": 0, "tlq": 0, "tfq": 0, "md": {}, "ld": {}}   # tq/tlq/tfq = jumlah transfer saldo (baris-hari AMOUNT > 0): MTD, LMTD, Sep penuh. md/ld: day -> [q, v]
 
 
+SK_DAYS = defaultdict(lambda: defaultdict(float))   # key -> day -> SP Data pcs (class 3gb)
 outlet_facts = defaultdict(lambda: defaultdict(empty_fact))   # key -> cat -> fact   (brand kept per outlet key)
 outlet_brand = {}
 brand_facts = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0.0] * 6)))   # key -> brand -> cat (SP, SALMO) -> [mq, mv, lq, lv, fq, fv]: IM3 and 3ID kept apart for hybrid outlets
@@ -284,6 +286,8 @@ for sname, rows in sheets.items():
                 if bf_ is not None:
                     bf_[0] += q; bf_[1] += v
                 cell = tgt["md"].setdefault(d, [0.0, 0.0]); cell[0] += (1 if cat == "SALMO" and v > 0 else q); cell[1] += v   # SALMO: qty harian = jumlah transfer
+                if cat == "SP" and tier == "OUTLET" and q and sp_class(pname, (v / q) if q else None) == "3gb":
+                    SK_DAYS[key][d] += q          # daily SP Data (KPI class 3gb) pcs, for the heat map vs the KPI target
                 tier_tot[t_key][0] += q; tier_tot[t_key][1] += v
                 if tier == "OUTLET":
                     pf = prod_facts[(brand, cat, pname)]; pf["mq"] += q; pf["mv"] += v; pf["mo"].add(key)
@@ -347,6 +351,8 @@ for key, cats in outlet_facts.items():
     if key.startswith("C:"):
         row["id2"] = dim["id_3id"] if row["b"] == "IM3" else dim["id_im3"]      # merged catalogue pair: the other brand's id
     row["c"] = {cat: pack(f) for cat, f in cats.items()}
+    if SK_DAYS.get(key):
+        row["sk"] = [[d, int(q)] for d, q in sorted(SK_DAYS[key].items())]      # daily SP Data (3GB + S PLUS) pcs MTD
     bs = {}
     for br_, cs_ in brand_facts.get(key, {}).items():
         d_ = {}

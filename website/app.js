@@ -325,6 +325,7 @@
     // Sell-In Monitoring
     sellinSrc: 'all',
     sellinBrand: 'all',
+    sellinUar: '3',
     sellinCat: 'all',
     sellinFlow: 'all',
     // Morning DSE Briefing
@@ -3673,13 +3674,14 @@
     });
     return per;
   }
+  function sellinUarMin() { return state.sellinUar === '5' ? 5 : 3; }   // UAR SP threshold toggle (owner, 27 Oct 2026): 3 or 5 pcs
   function sellinGroupStats(G, outletsAgg, denoms) {
     // G.keys: outlet keys in this location; returns per-group KPI object
     var out = { SP: { active: 0, uar3: 0, pcs: 0, amt: 0, d: {} }, VC: { active: 0, uar10: 0, amt250: 0, pcs: 0, amt: 0, d: {} }, SALDO: { active: 0, ge300: 0, amt: 0, b: { LT50K: 0, '50_100K': 0, '100_300K': 0, GE300K: 0 }, d: {} }, total: 0 };
     Object.keys(G.keys).forEach(function (k) {
       var P = outletsAgg[k]; if (!P) return;
       var sp = P.SP, vc = P.VC, sa = P.SALDO;
-      if (sp.pcs > 0) { out.SP.active++; if (sp.pcs >= 3) out.SP.uar3++; out.SP.pcs += sp.pcs; out.SP.amt += sp.amt; Object.keys(sp.d).forEach(function (d) { out.SP.d[d] = (out.SP.d[d] || 0) + sp.d[d]; }); }
+      if (sp.pcs > 0) { out.SP.active++; if (sp.pcs >= sellinUarMin()) out.SP.uar3++; out.SP.pcs += sp.pcs; out.SP.amt += sp.amt; Object.keys(sp.d).forEach(function (d) { out.SP.d[d] = (out.SP.d[d] || 0) + sp.d[d]; }); }
       if (vc.pcs > 0) { if (vc.pcs >= 5) out.VC.active++; if (vc.pcs >= 10) out.VC.uar10++; if (vc.amt >= 250000) out.VC.amt250++; out.VC.pcs += vc.pcs; out.VC.amt += vc.amt; Object.keys(vc.d).forEach(function (d) { out.VC.d[d] = (out.VC.d[d] || 0) + vc.d[d]; }); }
       if (sa.amt > 0) { out.SALDO.active++; out.SALDO.amt += sa.amt; if (sa.amt >= 300000) out.SALDO.ge300++; out.SALDO.b[sa.amt < 50000 ? 'LT50K' : sa.amt < 100000 ? '50_100K' : sa.amt < 300000 ? '100_300K' : 'GE300K']++; }
       out.total += sp.amt + vc.amt + sa.amt;
@@ -3720,7 +3722,7 @@
         '<th colspan="6" style="text-align:center; border-bottom:1px solid var(--ij-hairline);">Vouchers</th>' +
         '<th colspan="5" style="text-align:center; border-bottom:1px solid var(--ij-hairline);">Saldo (MOBO)</th>' +
         '<th rowspan="2" class="num">Total amount</th></tr>' +
-        '<tr>' + th('Outlets ≥1 SP', 1) + th('% PJP', 1) + th('Pcs', 1) + th('Amount', 1) + th('UAR 3 pcs', 1) +
+        '<tr>' + th('Outlets ≥1 SP', 1) + th('% PJP', 1) + th('Pcs', 1) + th('Amount', 1) + th('UAR ' + sellinUarMin() + ' pcs', 1) +
         th('Outlets ≥5 pcs', 1) + th('% PJP', 1) + th('Pcs', 1) + th('Amount', 1) + th('UAR 10 pcs', 1) + th('Outlets ≥250K', 1) +
         th('Outlets', 1) + th('% PJP', 1) + th('Amount', 1) + th('Outlets ≥300K', 1) + th('Avg / outlet', 1) + '</tr>';
       body = function (G, bold) {
@@ -3743,7 +3745,7 @@
       };
     } else {
       var denoms = ((groupsDef[grp] || {}).denominations || []).filter(function (d) { return d.skus.length; });
-      var minLbl = grp === 'SP' ? 'Outlets ≥1 SP' : 'Outlets ≥5 pcs', uarLbl = grp === 'SP' ? 'UAR 3 pcs' : 'UAR 10 pcs';
+      var minLbl = grp === 'SP' ? 'Outlets ≥1 SP' : 'Outlets ≥5 pcs', uarLbl = grp === 'SP' ? 'UAR ' + sellinUarMin() + ' pcs' : 'UAR 10 pcs';
       head = '<tr>' + th(locLabel) + th('Parent') + th('PJP outlets', 1) + th(minLbl, 1) + th('% PJP', 1) + th('Pcs', 1) + th('Amount', 1) + th(uarLbl, 1) + (grp === 'VC' ? th('Outlets ≥250K', 1) : '') +
         denoms.map(function (d) { return th(d.label + ' (pcs)', 1); }).join('') + '</tr>';
       body = function (G, bold) {
@@ -3796,7 +3798,7 @@
   function exportSellinSummaryCsv(feed, S) {
     if (typeof window === 'undefined') return;
     function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
-    var lines = [['Location', 'PJP outlets', 'SP outlets >=1', 'SP pcs', 'SP amount', 'SP UAR 3 pcs', 'VC outlets >=5 pcs', 'VC pcs', 'VC amount', 'VC UAR 10 pcs', 'VC outlets >=250K', 'Saldo outlets', 'Saldo amount', 'Saldo outlets >=300K', 'Total amount'].map(q).join(',')];
+    var lines = [['Location', 'PJP outlets', 'SP outlets >=1', 'SP pcs', 'SP amount', 'SP UAR ' + sellinUarMin() + ' pcs', 'VC outlets >=5 pcs', 'VC pcs', 'VC amount', 'VC UAR 10 pcs', 'VC outlets >=250K', 'Saldo outlets', 'Saldo amount', 'Saldo outlets >=300K', 'Total amount'].map(q).join(',')];
     S.rows.concat([S.total]).forEach(function (G) {
       var s = G.s;
       lines.push([G.key, G.pjp, s.SP.active, s.SP.pcs, s.SP.amt, s.SP.uar3, s.VC.active, s.VC.pcs, s.VC.amt, s.VC.uar10, s.VC.amt250, s.SALDO.active, s.SALDO.amt, s.SALDO.ge300, s.total].map(q).join(','));
@@ -3833,6 +3835,7 @@
     var toolbar = '<div class="map-toolbar" style="margin-top:8px;">' +
       sellinBtnGroup('Territory', 'sellin-loc', SELLIN_LOCS, state.sellinLoc || 'area') +
       sellinBtnGroup('Brand', 'sellin-brand', [['all', 'All'], ['IM3', 'IM3'], ['3ID', '3ID']], state.sellinBrand || 'all') +
+      sellinBtnGroup('UAR SP', 'sellin-uar', [['3', '≥ 3 pcs'], ['5', '≥ 5 pcs']], state.sellinUar || '3') +
       sellinBtnGroup('Flow', 'sellin-flow', [['all', 'All'], ['DSE', 'DSE → Outlet'], ['MPX', 'MPX → Outlet'], ['SDP', 'SDP → Outlet'], ['UNK', 'Unidentified']], state.sellinFlow || 'all') +
     '</div>' +
     '<div class="map-toolbar" style="margin-top:6px;">' +
@@ -3852,7 +3855,7 @@
       kp = kpi('SP Pieces Sold In', fmtCount(st.SP.pcs), 'Starter packs', 'up', periodNote) +
         kpi('SP Amount', fmtRp(st.SP.amt), 'QTY × rate per SKU', 'up', fmtCount(c.facts.length) + ' transactions') +
         kpi('Outlets ≥ 1 SP (UAR)', fmtCount(st.SP.active), pctOf(st.SP.active, pjp) + '% of ' + fmtCount(pjp) + ' PJP outlets', st.SP.active / Math.max(pjp, 1) >= 0.3 ? 'up' : 'down', 'GAPLOK "# outlet min 1 SP"') +
-        kpi('UAR 3 pcs', fmtCount(st.SP.uar3), pctOf(st.SP.uar3, pjp) + '% of PJP', 'up', 'Outlets with ≥ 3 starter packs') +
+        kpi('UAR ' + sellinUarMin() + ' pcs', fmtCount(st.SP.uar3), pctOf(st.SP.uar3, pjp) + '% of PJP', 'up', 'Outlets with ≥ ' + sellinUarMin() + ' starter packs (all MOBII SP, SP Injection not included)') +
         kpi('Active DSEs', fmtCount(ndse), 'DSEs with ≥ 1 SP sell-in', 'up', 'Login = master DSE code, else outlet DSE') +
         kpi('Avg Pcs per Active Outlet', (st.SP.active ? (st.SP.pcs / st.SP.active).toFixed(1) : '0'), 'Drop size (pcs)', 'up', 'SP pcs ÷ outlets ≥ 1 SP') +
         kpi('Avg Amount per Active DSE', fmtRp(ndse ? st.SP.amt / ndse : 0), 'DSE productivity', 'up', 'SP amount ÷ active DSEs') +
@@ -3892,7 +3895,7 @@
     // 3. Summary by territory (GAPLOK layout)
     var summary = card('Sell-In Summary · ' + tabLabel + ' by ' + locLabel + ' · ' + m.period_start + ' to ' + asOf,
       sellinSummaryTable(feed, S) +
-      '<p class="note">PJP outlets = PJP outlets in scope. SP active = outlet with ≥ 1 starter pack, UAR 3 pcs = ≥ 3. Voucher active = outlet with ≥ 5 pcs, UAR 10 pcs = ≥ 10, ≥ 250K = voucher amount per outlet. Saldo ≥ 300K = GAPLOK OSA DSE productivity threshold. Month-over-month (AGS vs SEP) appears once September exports are loaded.</p>');
+      '<p class="note">PJP outlets = PJP outlets in scope. SP active = outlet with ≥ 1 starter pack, UAR ' + sellinUarMin() + ' pcs = ≥ ' + sellinUarMin() + ' (toggle UAR SP). Voucher active = outlet with ≥ 5 pcs, UAR 10 pcs = ≥ 10, ≥ 250K = voucher amount per outlet. Saldo ≥ 300K = GAPLOK OSA DSE productivity threshold. Month-over-month (AGS vs SEP) appears once September exports are loaded.</p>');
 
     // 4. Daily progression per territory
     var P = sellinProgression(feed, c.facts, tab);
@@ -4571,7 +4574,15 @@
   }
   function pjDailyAch(items, cat, n) {
     var cats = cat === 'SP' ? ['SP'] : ['SP', 'VCF', 'VCB', 'SALMO'], qi = cat === 'SP' ? 2 : 1, s = []; for (var i = 0; i < n; i++) s.push(0);
-    items.forEach(function (o) { if (o.tier !== 'M') return; cats.forEach(function (c) { var x = o.c[c]; if (!x) return; (x[10] || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[qi]; }); }); });
+    items.forEach(function (o) {
+      if (o.tier !== 'M') return;
+      if (cat === 'SP') {   // SP target = SP Data (3GB + S PLUS) + SP Injection, the KPI basis (owner, 27 Oct 2026); SP Zero and other SP are not in the series
+        (o.sk || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[1]; });
+        var x = dkSpiOn() ? o.c.SPI : null; if (x) (x[10] || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[2]; });
+        return;
+      }
+      cats.forEach(function (c) { var x = o.c[c]; if (!x) return; (x[10] || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[qi]; }); });
+    });
     return s;
   }
   function pjHeatAch(F, level, groups, cat, showParent, pg) {
@@ -4592,7 +4603,7 @@
     var totalRow = cnt < 1 || groups.length < 2 ? '' : '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">Semua dalam lingkup (' + fmtCount(groups.length) + ' baris)</td>' + (showParent ? '<td></td>' : '') + perf(sum, true) + sum.ser.map(function (v) { return cell({ tgt: sum.tgt, req: sum.req }, v); }).join('') + '<td></td></tr>';
     var body = rows.map(function (r) { return '<tr>' + pjNameCell(r.G) + (showParent ? '<td>' + esc(r.G.parent) + '</td>' : '') + perf(r, false) + r.ser.map(function (v) { return cell(r, v); }).join('') + '<td>' + pjDetailBtn(level, r.G) + '</td></tr>'; }).join('');
     var head = th(pjEntityHead(level)) + (showParent ? th(pjParentHead(level)) : '') + th('Target FM', 1) + th('MTD (PJP)', 1) + th('Gap vs FM', 1) + th('Target harian (Req RR)', 1) + th('RR kini / hari', 1) + pjDayHead(F) + th('Detail');
-    return { head: head, body: totalRow + body, note: 'Sel = nilai Sell-In hari itu ÷ <b>target harian</b>; target harian = (target FM − MTD) ÷ ' + rem + ' hari tersisa setelah tanggal ' + n + ' Okt (Req RR), sehingga 100% = laju yang harus dijaga setiap hari. Target resmi ' + (cat === 'SP' ? 'Sell-In SP (pcs)' : 'OSA (Rp)') + ' per DSE, dijumlahkan ke MC dan Area; hanya outlet PJP. Warna: ' + heatLegend(true) + '; ✓ = target FM sudah tercapai; · = tanpa target.' };
+    return { head: head, body: totalRow + body, note: 'Sel = nilai Sell-In hari itu ÷ <b>target harian</b> (untuk Starter Pack: SP Data 3GB + S PLUS + SP Injection, sama dengan basis target; SP Zero dan SP lain tidak dihitung); target harian = (target FM − MTD) ÷ ' + rem + ' hari tersisa setelah tanggal ' + n + ' Okt (Req RR), sehingga 100% = laju yang harus dijaga setiap hari. Target resmi ' + (cat === 'SP' ? 'Sell-In SP (pcs)' : 'OSA (Rp)') + ' per DSE, dijumlahkan ke MC dan Area; hanya outlet PJP. Warna: ' + heatLegend(true) + '; ✓ = target FM sudah tercapai; · = tanpa target.' };
   }
   function pjHeat(F) {
     var level = pjLevel(), groups = pjRowsAt(F, level), n = F.metadata.cut_day, cat = pjCat(), showParent = pjParentVaries(groups);
@@ -7975,7 +7986,7 @@
   /* ================= SLAB SELL-IN / GA SP / SALDO · bulan lalu (FM dan LMTD) vs bulan ini (MTD), flag gap ================= */
   var SG_PCS = [[101, Infinity, '> 100'], [61, 100, '60–100'], [31, 60, '30–60'], [11, 30, '10–30'], [1, 10, '1–10']];   // [from, to, label]; the upper bound belongs to the lower slab
   var SG_RP = PJ_SLABS_RP.slice(1).reverse();                                                                              // the existing Rupiah slabs, highest first
-  var SG_LABEL = { si: 'Sell-in SP (pcs)', ga: 'GA SP (pcs)', sal: 'Saldo Mobo (Rp)' };
+  var SG_LABEL = { si: 'Sell-in SP semua MOBII (pcs)', ga: 'GA SP (pcs)', sal: 'Saldo Mobo (Rp)' };
   function sgSlabs(m) { return m === 'sal' ? SG_RP : SG_PCS; }
   function sgIdx(S, x) { if (!(x > 0)) return S.length; for (var i = 0; i < S.length; i++) if (x >= S[i][0]) return i; return S.length - 1; }   // S.length = no volume
   function sgFmt(m, v) { return m === 'sal' ? pjRp(v) : fmtCount(Math.round(v)); }
@@ -8024,7 +8035,7 @@
     var tabs = [['outlet', '🏪 Slab Outlet'], ['dse', '👤 Slab DSE'], ['flag', '🚩 Flag Gap Outlet & DSE']];
     var thrOpts = C.m === 'sal' ? [500000, 1000000, 2000000, 5000000] : [10, 30, 60], thr = (state.sgaThr || {})[C.m] || thrOpts[1];
     var tabNav = '<div class="sub-nav" role="tablist">' + tabs.map(function (x) { var a = (state.sgaTab || 'outlet') === x[0]; return '<button type="button" role="tab" class="sub-nav-btn' + (a ? ' active' : '') + '" data-sga-tab="' + x[0] + '" aria-selected="' + a + '">' + x[1] + '</button>'; }).join('') + '</div>';
-    var bar = '<div class="map-toolbar" style="margin-top:8px;">' + (_sgMode === 'ga' ? '<div class="map-toolbar-group"><span class="map-label">Metrik:</span><span class="chip">GA SP (pcs) · Daily_RGUGA_OUTLET</span></div>' : sellinBtnGroup('Metrik', 'sga-metric', [['si', 'Sell-in SP (pcs)'], ['sal', 'Saldo (Rp)']], C.m)) +
+    var bar = '<div class="map-toolbar" style="margin-top:8px;">' + (_sgMode === 'ga' ? '<div class="map-toolbar-group"><span class="map-label">Metrik:</span><span class="chip">GA SP (pcs) · Daily_RGUGA_OUTLET</span></div>' : sellinBtnGroup('Metrik', 'sga-metric', [['si', 'Sell-in SP semua MOBII (pcs)'], ['sal', 'Saldo (Rp)']], C.m)) +
       ((state.sgaTab || 'outlet') === 'flag' ? sellinBtnGroup('Gap terhadap', 'sga-base', [['lm', 'Bulan lalu LMTD'], ['fm', 'Bulan lalu penuh (FM)']], state.sgaBase || 'lm') +
         sellinBtnGroup('Gap besar ≥', 'sga-thr', thrOpts.map(function (v) { return [String(v), C.m === 'sal' ? pjRp(v) : v + ' pcs']; }), String(thr)) : '') + '</div>';
     return tabNav + bar;
@@ -8705,7 +8716,7 @@
   function dkFeed() { return (typeof window !== 'undefined' && window.DSE_KPI_FEED) ? window.DSE_KPI_FEED : null; }
   function dkOpt() { return { basis: state.dkBasis || 'prorata', osa: state.dkOsa || 'all', ec: state.dkEc || 'prod', sp: 'target', spi: state.dkSpi !== 'off' }; }
   function dkSpiOn() { return state.dkSpi !== 'off'; }   // SP Injection (MOBO, digital) counts as SP Sell-In achievement (owner, 19 Oct 2026)
-  function dkSp3(r) { return r.sp3_pcs != null ? r.sp3_pcs : (r.sp_pcs || 0); }   // SP KPI = SP 3GB (SP Zero / SP0 is not counted, owner 20 Oct 2026) + SP Injection
+  function dkSp3(r) { return r.sp3_pcs || 0; }   // no silent fallback to all SP (sp_pcs): a row without sp3_pcs counts 0 SP Data   // SP KPI = SP 3GB (SP Zero / SP0 is not counted, owner 20 Oct 2026) + SP Injection
   function dkSpPcs(r) { return dkSp3(r) + (dkSpiOn() ? (r.spi_pcs || 0) : 0); }
   function dkTag(kind, text) { var c = DK_COL[kind]; return '<span style="display:inline-block; padding:2px 7px; font:700 13px var(--ij-font); background:' + c[0] + '; color:' + c[1] + '; border:1px solid ' + c[1] + '33; white-space:nowrap;">' + text + '</span>'; }
   function dkScore(r, F, opt) {
@@ -8795,10 +8806,11 @@
   }
   function dkSpiNote(sell, spi) { return spi ? '<div class="note" style="font-weight:500;">' + fmtCount(sell) + ' SP 3GB + ' + fmtCount(spi) + ' inject</div>' : ''; }
   function dkAgg(list, F, opt) {
-    var A = { n: list.length, withVis: 0, amt: 0, tgt: 0, osaInc: 0, osaSl: [0, 0, 0, 0], sp: 0, sp1: 0, spi: 0, spTgt: 0, spOf: 0, spInc: 0, spSl: [0, 0, 0], uar: 0, uarTgt: 0, ecNum: 0, ecDen: 0, comp: 0, idx: { '1': 0, '0.97': 0, '0.95': 0, '0': 0 }, total: 0, final: 0, rows: [] };
+    var A = { n: list.length, withVis: 0, amt: 0, tgt: 0, osaInc: 0, osaSl: [0, 0, 0, 0], sp: 0, sp1: 0, spi: 0, spTgt: 0, spOf: 0, spInc: 0, spSl: [0, 0, 0], spb: { IM3: [0, 0], '3ID': [0, 0], NB: [0, 0] }, uar: 0, uarTgt: 0, ecNum: 0, ecDen: 0, comp: 0, idx: { '1': 0, '0.97': 0, '0.95': 0, '0': 0 }, total: 0, final: 0, rows: [] };
     list.forEach(function (r) {
       var o = dkScore(r, F, opt); A.rows.push({ r: r, o: o });
       A.amt += o.osaAmt; A.tgt += o.osaTgt; A.osaInc += o.osaInc; A.osaSl[o.osaAch == null ? 3 : o.osaSlab + 1]++;
+      if (r.spb) Object.keys(A.spb).forEach(function (b) { var v = r.spb[b]; if (v) { A.spb[b][0] += v[0]; A.spb[b][1] += dkSpiOn() ? v[3] : 0; } });
       A.sp += o.sp; A.sp1 += o.sp1; A.spi += o.spi; A.spInc += o.spInc; A.spSl[o.spSlab + 1]++; if (o.spOfficial) { A.spTgt += o.spTgt; A.spOf += o.sp; }
       A.uar += o.uar; A.uarTgt += o.uarTgt;
       if (r.vis) { A.withVis++; A.ecNum += o.ecNum; A.ecDen += o.ecDen; }
@@ -9043,7 +9055,7 @@
     var cards = '<div class="kpis" style="margin-top:10px;">' +
       kpi('DSE dalam cakupan', fmtCount(A.n), fmtCount(A.withVis) + ' punya data PJP', 'up', scope) +
       kpi('OSA · pencapaian vs target', A.osaAch == null ? '—' : (A.osaAch * 100).toFixed(1) + '%', pjRp(A.amt) + ' dari target ' + pjRp(A.tgt), A.osaAch != null && A.osaAch >= 0.9 ? 'up' : 'down', fmtCount(A.osaSl[2]) + ' DSE 100% · ' + fmtCount(A.osaSl[1]) + ' DSE 90% · ' + fmtCount(A.osaSl[0]) + ' di bawah 90%') +
-      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', fmtCount(A.sp1) + ' SP 3GB' + (A.spi ? ' + ' + fmtCount(A.spi) + ' injection' : '') + ' · rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
+      kpi('SP Data Sell In', fmtCount(A.sp) + ' pcs', fmtCount(A.sp1) + ' SP Data (3GB + S PLUS)' + (A.spi ? ' + ' + fmtCount(A.spi) + ' injection' : '') + ' · IM3 ' + fmtCount(A.spb.IM3[0] + A.spb.IM3[1]) + ' · 3ID ' + fmtCount(A.spb['3ID'][0] + A.spb['3ID'][1]) + (A.spb.NB[1] ? ' · tanpa brand ' + fmtCount(A.spb.NB[0] + A.spb.NB[1]) : '') + ' · rata-rata ' + (A.n ? Math.round(A.sp / A.n) : 0) + ' pcs / DSE · tier ' + fmtCount(Math.round(P.sp.tiers[0].pcs * f)) + ' / ' + fmtCount(Math.round(P.sp.tiers[1].pcs * f)), A.spSl[1] + A.spSl[2] > 0 ? 'up' : 'down', fmtCount(A.spSl[2]) + ' DSE 100% · ' + fmtCount(A.spSl[1]) + ' DSE 90% · ' + fmtCount(A.spSl[0]) + ' di bawah tier 1') +
       kpi('Compliance index', (A.compAvg * 100).toFixed(1) + '% skor rata-rata', fmtCount(A.idx['1']) + ' DSE × 1 · ' + fmtCount(A.idx['0.97'] + A.idx['0.95']) + ' DSE × 0.97/0.95 · ' + fmtCount(A.idx['0']) + ' DSE × 0', A.idx['1'] > 0 ? 'up' : 'down', 'UAR ≥ 5 pcs ' + fmtCount(A.uar) + ' outlet · effective call ' + (A.ec == null ? '—' : (A.ec * 100).toFixed(1) + '%')) +
       kpi('Insentif total (sebelum index)', pjRp(A.total), 'OSA ' + pjRp(A.osaInc) + ' · SP ' + pjRp(A.spInc), 'up', 'maksimum Rp 1 Jt per KPI per DSE') +
       kpi('Insentif final', pjRp(A.final), 'total × compliance index', A.final > 0 ? 'up' : 'down', A.total > 0 ? 'index memotong ' + pjRp(A.total - A.final) + ' (' + ((1 - A.final / A.total) * 100).toFixed(0) + '%)' : 'belum ada DSE yang mencapai slab') +
@@ -10164,9 +10176,9 @@
       ovAdd('sal_uar_d1', 'UAR SALMO D-1 ' + LD.W.short, ['DSE', 'MC', 'Outlet binaan', 'UAR MTD', '% UAR', 'UAR D-1'], ovRows(T.filter(function (r) { return r.asg > 0; }).sort(function (a, b) { return a.saUD - b.saUD; }), rUar), ['D-1 ' + ovN(saD.u) + ' outlet menerima saldo vs ' + ovN(LD.P.SALMO.u) + ' pada ' + LD.W.prevShort + ' · Δ ' + ovSN(saD.u - LD.P.SALMO.u)]);
       out.push(ovKpiGroup('Sell-In SP · ' + scope, [
         ovK('sp_mtd', 'Sell-In SP MTD · semua SP MOBII', ovN(sp.mq) + ' pcs', ovSg(gSp) + ' · Δ ' + ovSN(sp.mq - sp.lq) + ' vs LMTD ' + ovN(sp.lq), ovCls(gSp, 2), 'September penuh ' + ovN(sp.fq) + ' pcs · semua jenis SP MOBII ke outlet (SP Zero, KPK, kosong, FWA ikut); tanpa SP Injection. KPI: kartu Achievement SP'),
-        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(spAct, spTgt)) : '—', spTgt ? ovP(ovPct(spAct, spPro)) + ' prorata · gap ' + ovSN(spAct - spPro) + ' pcs · SP 3GB (MOBII)' + (spI ? ' + ' + ovN(spI) + ' SP Injection (MOBO)' : '') + ', SP0 tidak dihitung · vs LMTD Sep ' + ovN(kLt) + ' (' + ovSg(ovGrowth(spAct, kLt)) + ')' : 'tanpa target', ovCls(ovPct(spAct, spPro), 100), (spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - spAct) / Math.max(1, md - n)) + '/hari (kini ' + ovN(spAct / n) + ') · ' : '') + 'September penuh ' + ovN(kFt) + ' pcs, basis sama'),
-        ovK('sp_d1', 'D-1 Sell-In SP · ' + LD.W.short, ovN(spD.q) + ' pcs', ovSg(ovGrowth(spD.q, LD.P.SP.q)) + ' · Δ ' + ovSN(spD.q - LD.P.SP.q) + ' vs ' + LD.W.prevShort, spD.q >= LD.P.SP.q ? 'up' : 'down', 'Rata-rata harian MTD ' + ovN(sp.mq / n) + ' pcs'),
-        ovK('sp_uar', 'UAR Sell-In SP', ovN(sp.omM), ovP(ovPct(sp.omM, mN)) + ' dari ' + ovN(mN) + ' outlet PJP · Δ ' + ovSN(sp.omM - sp.olM) + ' vs LMTD', sp.omM >= sp.olM ? 'up' : 'down', 'LMTD ' + ovN(sp.olM) + ' outlet PJP · +' + ovN(sp.om - sp.omM) + ' non-PJP di luar master · D-1: ' + ovN(spD.u) + ' outlet (termasuk non-PJP)')]));
+        ovK('sp_ach', 'Achievement SP vs target', spTgt ? ovP(ovPct(spAct, spTgt)) : '—', spTgt ? ovP(ovPct(spAct, spPro)) + ' prorata · gap ' + ovSN(spAct - spPro) + ' pcs · SP Data 3GB + S PLUS (MOBII)' + (spI ? ' + ' + ovN(spI) + ' SP Injection (MOBO)' : '') + ', SP0 tidak dihitung · vs LMTD Sep ' + ovN(kLt) + ' (' + ovSg(ovGrowth(spAct, kLt)) + ')' : 'tanpa target', ovCls(ovPct(spAct, spPro), 100), (spTgt ? 'FM ' + ovN(spTgt) + ' pcs · sisa ' + (md - n) + ' hari: butuh ' + ovN(Math.max(0, spTgt - spAct) / Math.max(1, md - n)) + '/hari (kini ' + ovN(spAct / n) + ') · ' : '') + 'September penuh ' + ovN(kFt) + ' pcs, basis sama'),
+        ovK('sp_d1', 'D-1 Sell-In SP (semua SP MOBII) · ' + LD.W.short, ovN(spD.q) + ' pcs', ovSg(ovGrowth(spD.q, LD.P.SP.q)) + ' · Δ ' + ovSN(spD.q - LD.P.SP.q) + ' vs ' + LD.W.prevShort, spD.q >= LD.P.SP.q ? 'up' : 'down', 'Rata-rata harian MTD ' + ovN(sp.mq / n) + ' pcs'),
+        ovK('sp_uar', 'UAR Sell-In SP (semua SP MOBII, > 0 pcs)', ovN(sp.omM), ovP(ovPct(sp.omM, mN)) + ' dari ' + ovN(mN) + ' outlet PJP · Δ ' + ovSN(sp.omM - sp.olM) + ' vs LMTD', sp.omM >= sp.olM ? 'up' : 'down', 'LMTD ' + ovN(sp.olM) + ' outlet PJP · +' + ovN(sp.om - sp.omM) + ' non-PJP di luar master · D-1: ' + ovN(spD.u) + ' outlet (termasuk non-PJP)')]));
       out.push(ovKpiGroup('Saldo Mobo (SALMO) Sell-In · ' + scope, [
         ovK('sal_mtd', 'SALMO MTD', pjRp(sa.mv), ovSg(gSa) + ' · Δ ' + ovSR(sa.mv - sa.lv) + ' vs LMTD ' + pjRp(sa.lv), ovCls(gSa, 2), 'Sep penuh ' + pjRp(sa.fv) + ' · butuh ' + pjRp(Math.max(0, sa.fv - sa.mv) / Math.max(1, md - n)) + '/hari (kini ' + pjRp(sa.mv / n) + ')'),
         ovK('sal_d1', 'D-1 SALMO · ' + LD.W.short, pjRp(saD.v), ovSg(ovGrowth(saD.v, LD.P.SALMO.v)) + ' · Δ ' + ovSR(saD.v - LD.P.SALMO.v) + ' vs ' + LD.W.prevShort, saD.v >= LD.P.SALMO.v ? 'up' : 'down', 'Rata-rata harian MTD ' + pjRp(sa.mv / n)),
@@ -11296,6 +11308,7 @@
       return;
     }
     else if (t.hasAttribute('data-sellin-src')) { state.sellinSrc = t.getAttribute('data-sellin-src'); state.sellinPage = 1; }
+    else if (t.hasAttribute('data-sellin-uar')) { state.sellinUar = t.getAttribute('data-sellin-uar'); }
     else if (t.hasAttribute('data-sellin-brand')) { state.sellinBrand = t.getAttribute('data-sellin-brand'); state.sellinPage = 1; }
     else if (t.hasAttribute('data-sellin-cat')) { state.sellinCat = t.getAttribute('data-sellin-cat'); state.sellinPage = 1; }
     else if (t.hasAttribute('data-sellin-flow')) { state.sellinFlow = t.getAttribute('data-sellin-flow'); state.sellinPage = 1; }
@@ -11750,7 +11763,7 @@
   var RT_VIEW_TABS = {
     territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
-    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab']
+    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab', 'sellinUar']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
   var RT_DEFAULTS = null, RT_LAST_VIEW = null;
