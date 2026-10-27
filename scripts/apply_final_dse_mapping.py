@@ -274,6 +274,18 @@ def apply(base_outlets, cat_dir=None):
         o['pairing_status'] = r.get('status_pairing', '')
         o['outlet_type_im3'] = (byi.get(o['outlet_id_im3']) or {}).get('outlet_type_im3', '')
         o['outlet_type_3id'] = (by3.get(o['outlet_id_3id']) or {}).get('outlet_type_3id', '')
+        # An outlet name that is a number ('0.0', '0': a missing name that became a float in the old master) is replaced by the name of the sheet OUTLET IOH (IM3 name, then 3ID name);
+        # without one it becomes 'Unnamed Outlet' (never '0.0' on screen).  23 Oct master: 1,422 outlets, 989 named from OUTLET IOH.
+        if str(o.get('outlet_name') or '').strip() in ('', '0', '0.0', 'nan', 'NaN', 'None'):
+            nm = ''
+            for rr, col in ((byi.get(o['outlet_id_im3']), 'outlet_name_im3'), (by3.get(o['outlet_id_3id']), 'outlet_name_3id')):
+                v = str((rr or {}).get(col) or '').strip()
+                if v and v not in ('0', '0.0', 'nan'):
+                    nm = v
+                    break
+            o['outlet_name'] = nm or 'Unnamed Outlet'
+            rep['outlet_name_fixed'] = rep.get('outlet_name_fixed', 0) + (1 if nm else 0)
+            rep['outlet_name_unnamed'] = rep.get('outlet_name_unnamed', 0) + (0 if nm else 1)
         if r:
             rep['outlets_with_ioh_row'] += 1
 

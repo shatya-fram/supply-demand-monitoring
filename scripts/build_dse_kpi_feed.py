@@ -64,17 +64,7 @@ POLICY = {
 
 
 
-def sp_class(name, price):
-    """SP KPI definition (owner, 20 Oct 2026): SP Data Sell-In counts SP 3GB (plus SP Injection, from MOBO); SP0 / Zero is not counted.
-    '3gb'  = name carries 3GB and is not a Zero SP (IM3 SP ORI 3GB / SP 3GB ORI, 3ID SP HAPPY 3GB, BUNDLE PACK ORI REGULER 3GB)
-    'zero' = SP Zero, 3ID KPK bundle and empty-card bundles, FWA starter packs (Rp 10,000 class)
-    'other'= any other starter pack (Happy 5GB / 7GB eSIM, S PLUS)"""
-    n = (name or '').upper()
-    if re.search(r'3\s?GB', n) and 'ZERO' not in n:
-        return '3gb'
-    if 'ZERO' in n or 'KPK' in n or 'KOSONG' in n or 'FWA' in n or price == 10000:
-        return 'zero'
-    return 'other'
+from sp_defs import sp_class   # shared with build_penjualan_feed.py
 
 def norm(s):
     s = str(s if s is not None else '').upper().strip()
@@ -157,7 +147,7 @@ def main():
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
 
     # ---- sell-in per master outlet, rolled up to its DSE
-    acc = defaultdict(lambda: {'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0, 'spi_lpcs': 0, 'spi_sep': 0,
+    acc = defaultdict(lambda: {'spb': {'IM3': [0] * 6, '3ID': [0] * 6, 'NB': [0] * 6}, 'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0, 'spi_lpcs': 0, 'spi_sep': 0,
                                 'osa_amt': 0, 'osa_all': 0, 'sep_all': 0, 'osa_out': 0, 'sep_saldo': 0, 'sep_osa_amt': 0, 'sep_osa_out': 0, 'sp_sep_pcs': 0, 'outlets_seen': 0})
     qmin = POLICY['osa']['qualify_min_rp']
     unmatched = 0
@@ -190,6 +180,8 @@ def main():
             cl = sp_class(pd['n'], pd.get('price'))
             if cl == '3gb':
                 s3[0] += num(arr[0]); s3[1] += num(arr[2]); s3[2] += num(arr[4])
+                _bb = a['spb'][pd.get('b') if pd.get('b') in ('IM3', '3ID') else 'NB']       # per brand: [SP Data MTD, LMTD, Sep, SPI MTD, LMTD, Sep]
+                _bb[0] += num(arr[0]); _bb[1] += num(arr[2]); _bb[2] += num(arr[4])
             elif cl == 'zero':
                 a['sp0_pcs'] += num(arr[0])
             else:
@@ -199,7 +191,9 @@ def main():
             a['sp3_out'] += 1
         spi_q = g('SPI', 0)                           # SP Injection (digital, MOBO), MTD pcs; part of Sell-In SP achievement (owner, 19 Oct 2026)
         a['spi_pcs'] += spi_q; a['spi_amt'] += g('SPI', 1)
-        a['spi_lpcs'] += g('SPI', 2); a['spi_sep'] += g('SPI', 4)       # September baseline of SP Injection (LMTD 1..cut, full month), same basis as the October actual
+        a['spi_lpcs'] += g('SPI', 2); a['spi_sep'] += g('SPI', 4)
+        _sb = a['spb'][o.get('b') if o.get('b') in ('IM3', '3ID') else 'NB']              # SP Injection brand = brand of the MOBO id; NB = id not mapped to a brand
+        _sb[3] += spi_q; _sb[4] += g('SPI', 2); _sb[5] += g('SPI', 4)       # September baseline of SP Injection (LMTD 1..cut, full month), same basis as the October actual
         umin = POLICY['compliance']['uar']['min_pcs']      # UAR >= 5 pcs counts SP 3GB + SP Injection, SP0 / Zero excluded (owner, 20 Oct 2026)
         if s3[0] + spi_q >= umin:
             a['sp_uar5'] += 1
@@ -305,7 +299,7 @@ def main():
             'osa_tgt': round(osa_tgt), 'osa_tgt_all': round(a['sep_all']), 'osa_tgt_src': tgt_src,
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
-            'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'], 'spi_lpcs': round(a['spi_lpcs']), 'spi_sep': round(a['spi_sep']),
+            'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spb': {b_: [round(x) for x in v_] for b_, v_ in a['spb'].items()}, 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'], 'spi_lpcs': round(a['spi_lpcs']), 'spi_sep': round(a['spi_sep']),
             'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))

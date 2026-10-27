@@ -18,6 +18,7 @@ Tidak ada kolom brand; brand outlet disimpulkan dari id (id IM3 master, id 3ID m
 Pure stdlib. Jalankan dari root proyek.
 """
 
+import glob
 import json
 import os
 import re
@@ -272,6 +273,51 @@ def find_sheet(sheets, sname):
     return None
 
 
+# ---- SP Injection de-duplication (owner decision 27 Oct 2026; docs/assessments/sp_sellin_definition_assessment.md 7.3):
+# when the same outlet id + product + day appears in MOBII SP (sell-in) and MOBO SP_INJECTION with the same quantity (|diff| <= max(3, 1%)),
+# it is ONE movement recorded twice (distributor-style ids "1-1633..."): keep the MOBII sell-in and drop the MOBO injection quantity.
+def _mobii_src():
+    if os.environ.get("MOBII_SRC") and os.path.exists(os.environ["MOBII_SRC"]):
+        return os.environ["MOBII_SRC"]
+    c = sorted(glob.glob("raw/**/DAILY_DATA_MOBII_*.xlsb", recursive=True), key=os.path.getmtime)
+    return c[-1] if c else None
+
+
+def _norm_pn(s):
+    return re.sub(r"\s+", " ", str(s or "").upper().strip())
+
+
+SPI_DUP = {"source": None, "mtd": {"pcs": 0, "value": 0, "rows": []}, "lm": {"pcs": 0, "value": 0}}
+_dup_map = {"MTD": {}, "LMTD": {}}
+_msrc = _mobii_src()
+if _msrc:
+    SPI_DUP["source"] = _msrc
+    _ms = read_xlsb(_msrc)
+    for _sh, _key in (("MTD_SP", "MTD"), ("LMTD_SP", "LMTD")):
+        _rows = _ms.get(_sh)
+        if not _rows or len(_rows) < 2:
+            continue
+        _h = {str(v).strip(): c for c, v in _rows[0].items()}
+        _ci, _cp = _h.get("id_outlet"), _h.get("product_name")
+        _dc = {d: (_h.get(f"DT_{d:02d}") if _h.get(f"DT_{d:02d}") is not None else _h.get(f"HITS_{d:02d}")) for d in range(1, 32)}
+        for _r in _rows[1:]:
+            _oid = norm_id(_r.get(_ci))
+            if not _oid:
+                continue
+            for d, c in _dc.items():
+                q = float(_r.get(c) or 0) if c is not None else 0.0
+                if q:
+                    k = (_oid, _norm_pn(_r.get(_cp)), d)
+                    _dup_map[_key][k] = _dup_map[_key].get(k, 0.0) + q
+    del _ms
+    print(f"   MOBII untuk dedup SP Injection: {_msrc}")
+
+
+def spi_is_dup(which, oid, pname, d, qq):
+    m = _dup_map[which].get((oid, _norm_pn(pname), d))
+    return bool(m) and abs(m - qq) <= max(3.0, 0.01 * qq)
+
+
 for sname, (code, label, has_val) in SHEETS.items():
     rows = find_sheet(sheets, sname)
     if not rows or len(rows) < 2:
@@ -299,6 +345,9 @@ for sname, (code, label, has_val) in SHEETS.items():
             qq = float(r.get(hits[d]) or 0) if d in hits else 0.0
             vv = float(r.get(amts[d]) or 0) if d in amts else 0.0
             if not qq and not vv:
+                continue
+            if code == "SPI" and spi_is_dup("MTD", oid, pname, d, qq):
+                SPI_DUP["mtd"]["pcs"] += int(qq); SPI_DUP["mtd"]["value"] += int(vv); SPI_DUP["mtd"]["rows"].append([oid, pname, d, int(qq)])
                 continue
             days[d] = (qq, vv)
             q += qq; v += vv
@@ -411,6 +460,9 @@ if LM_SRC and os.path.exists(LM_SRC):
                 vv = float(r.get(amts[d]) or 0) if d in amts else 0.0
                 if not qq and not vv:
                     continue
+                if code == "SPI" and spi_is_dup("LMTD", oid, pname, d, qq):
+                    SPI_DUP["lm"]["pcs"] += int(qq); SPI_DUP["lm"]["value"] += int(vv)
+                    continue
                 lm_daily[code][d] += vv; lm_dailyq[code][d] += qq
                 fq += qq; fv += vv
                 if d <= CUT_DAY:
@@ -430,7 +482,7 @@ if LM_SRC and os.path.exists(LM_SRC):
                 for d in range(1, 32):
                     qq = float(r.get(hits[d]) or 0) if d in hits else 0.0
                     vv = float(r.get(amts[d]) or 0) if d in amts else 0.0
-                    if qq or vv:
+                    if (qq or vv) and not spi_is_dup("LMTD", oid, pname, d, qq):
                         _c = spi_lm_mc[(_mc, brand)][d]; _c[0] += qq; _c[1] += vv
             P = lm_prod[(code, pname)]; P["lq"] += lq; P["lv"] += lv; P["fq"] += fq; P["fv"] += fv
             if lv or lq: P["lo"].add(key)
@@ -535,7 +587,7 @@ feed = {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
         "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
-        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in list(CATS) + ["SAL"]}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}, "salmo": lm_sal_meta}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
+        "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "spi_dedup": {"source": SPI_DUP["source"], "mtd_pcs": SPI_DUP["mtd"]["pcs"], "mtd_value": SPI_DUP["mtd"]["value"], "mtd_rows": SPI_DUP["mtd"]["rows"], "lm_pcs": SPI_DUP["lm"]["pcs"], "lm_value": SPI_DUP["lm"]["value"], "rule": "same outlet id + product + day in MOBII SP and MOBO SP_INJECTION with equal qty (|diff| <= max(3, 1%)) = one movement recorded twice; MOBII sell-in kept, MOBO injection dropped (owner, 27 Oct 2026)"}, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in list(CATS) + ["SAL"]}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}, "salmo": lm_sal_meta}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],
         "lm_columns": "outlets[].l[cat] = [LMTD hits, LMTD Rp, Last FM hits, Last FM Rp] (September, LMTD = days 1..cut_day); products[] carry lq, lv, fq, fv, lo, fo",
