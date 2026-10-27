@@ -2,6 +2,15 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 27 Oct 2026 (night) · GA by Outlet, GA per site and Fav Locs to 26 Oct
+| Scope | Source | Change |
+|---|---|---|
+| GA by Outlet | `Daily_RGUGA_OUTLET_202610.xlsb` (27 Oct 11:54) | GA cut 24 → **26 Oct**. GA Okt IM3 124,332 → **144,243**, 3ID 66,334 → **82,669**. KRO feed and catalogue rebuilt on the new cut. |
+| GA per site | `rguga_daily_outlet_202610.csv` (27 Oct 11:49) | 1,416,785 → **1,999,094** rows (1-26 Oct); GA at IJ sites 197,774, 5,569 sites, 120 kecamatan. |
+| Fav Locs | `Daily_RGUGA_favloc_202610.xlsb` (27 Oct 11:55) | Cross-check only (no builder): IJ IOH 1-26 Oct 189,665 vs site CSV 197,774 (+4.3%, was 0.45% at 20 Oct): ask the uploader. |
+| Watch | | Daily GA jumps from 74k (20 Oct) to 134k (26 Oct) circle-wide, IJ 7k to 19.4k; present in the source, no duplicate MSISDN-days. Assessment: `docs/assessments/daily_update_2026-10-27_ga.md`. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,683), KRO, DSE catalogue, entity pass. |
+
 ## 27 Oct 2026 (evening) · QA decisions applied
 | Scope | Change |
 |---|---|
