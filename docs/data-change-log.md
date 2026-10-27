@@ -2,6 +2,14 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 28 Oct 2026 · PJP visits and MOBII to 27 Oct
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__27_27.zip` (27 Oct 22:46) | Cut 26 -> **27 Oct**: 23 business days, no missing day. Planned 154,105 -> 162,592, executed 119,868 -> 127,741, hit rate 77.8% -> 78.6%; coverage MTD 99.1% -> **99.2%** (not visited MTD 139 -> 123; 3d 909 -> 959, 7d 309 -> 279 on working-day windows). |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (28 Oct 05:44) | Cut 26 -> **27 Oct**. MTD Rp: SP 2.40 B, Voucher 5.07 B, Saldo 16.78 B. |
+| Not updated | MOBO, SALMO, ENDBAL, GA | No 27 Oct file yet: demand, Saldo Mobo, End Balance and GA stay at 26 Oct, so cuts differ by one day. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,683), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment: `docs/assessments/daily_update_2026-10-28.md`. |
+
 ## 27 Oct 2026 (night) · GA by Outlet, GA per site and Fav Locs to 26 Oct
 | Scope | Source | Change |
 |---|---|---|
