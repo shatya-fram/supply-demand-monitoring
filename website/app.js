@@ -5065,6 +5065,14 @@
     if (x) { u.IM3 = gaStat(x, 'IM3').cur; u['3ID'] = gaStat(x, '3ID').cur; early = gaStat(x, 'all').w1; }
     return { u: u, early: early };
   }
+  function opUarTier(uI, u3, early5) {   // incentive and tier of one outlet from its GA per brand (the program rule above)
+    var comb = uI + u3, inc = 0, tier = 0;
+    if (comb >= 20) { inc = 200000; tier = 4; }
+    else if (comb >= 10) { inc = 100000; tier = 3; }
+    else { [uI, u3].forEach(function (v) { if (v >= 5) { inc += 35000; tier = Math.max(tier, 2); } else if (v >= 3) { inc += 15000; tier = Math.max(tier, 1); } }); }
+    if (early5 && tier >= 2) inc += 5000;
+    return { inc: inc, tier: tier };
+  }
   function opUarOutlet(F, o) {
     var gu = opGaUnits(o), u = gu.u, comb = u.IM3 + u['3ID'];
     var inc = 0, tier = 0, detail = [];
@@ -5132,7 +5140,27 @@
     function oRowsSub(x) { return '<td class="num">' + grpSum(x, function (r) { return r.u.IM3; }) + '</td><td class="num">' + grpSum(x, function (r) { return r.u['3ID']; }) + '</td><td class="num"><b>' + grpSum(x, function (r) { return r.comb; }) + '</b></td><td></td><td class="num">' + pjRp(grpSum(x, function (r) { return r.inc; })) + '</td><td></td>'; }
     var oRows = grpMi(F, 'opuar-out', outs, function (r) { return r.o.mc; }, { row: oRowsFn, sub: oRowsSub, span: 2, cols: 8, val: function (r) { return r.inc; }, unit: 'outlet', search: false });
     var outCard = card('Profil outlet · GA MTD per brand, tier dan jarak ke tier berikut', '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('opuar-out') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area › MC › Outlet') + th('MC · DSE') + th('GA IM3', 1) + th('GA 3ID', 1) + th('Gabungan', 1) + th('Tier') + th('Insentif', 1) + th('Tier berikut') + '</tr></thead><tbody>' + oRows + '</tbody></table></div>' + '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); klik panah untuk membuka, baris grup menjumlahkan isinya.</p>');
-    return rules + kpis + mcCard + dseCard + outCard;
+    return rules + kpis + opUarImpact(F, A, gcut) + mcCard + dseCard + outCard;
+  }
+  /* Impact of the outlet-based GA (Daily_RGUGA, same source as the program) on the UAR / SSO Improvement program: SSO, run-rate projection to the end of the month, uplift if near-tier outlets move up */
+  function opUarImpact(F, A, gcut) {
+    var gp = gaPrep(), dm = (gp && gp.src && gp.src.metadata && gp.src.metadata.cur_days) || 31, f = dm / Math.max(1, gcut), byMc = {}, T = { n: 0, sso: 0, zero: 0, low: 0, now: 0, proj: 0, up: 0, uar3: 0, uar3p: 0 };
+    A.perOutlet.forEach(function (r) {
+      var uI = r.u.IM3, u3 = r.u['3ID'], pI = Math.round(uI * f), p3 = Math.round(u3 * f), pr = opUarTier(pI, p3, r.early).inc, up = 0;
+      if (r.next && r.next.gap <= 2 && r.next.gap > 0) { var add = r.next.gap, hi = uI >= u3 ? 'I' : '3', ui = uI + (hi === 'I' ? add : 0), u3b = u3 + (hi === '3' ? add : 0); up = Math.max(0, opUarTier(ui, u3b, r.early).inc - r.inc); }
+      var M = byMc[r.o.mc] || (byMc[r.o.mc] = { mc: r.o.mc, br: pjDim(r.o, F).br, n: 0, sso: 0, zero: 0, low: 0, now: 0, proj: 0, up: 0, uar3: 0, uar3p: 0 });
+      [M, T].forEach(function (X) { X.n++; if (r.comb >= 1) X.sso++; if (r.comb === 0) X.zero++; if (r.comb >= 1 && !r.uar3) X.low++; X.now += r.inc; X.proj += pr; X.up += up; if (r.uar3) X.uar3++; if (pI >= 3 || p3 >= 3) X.uar3p++; });
+    });
+    var rows = Object.keys(byMc).map(function (k) { return byMc[k]; }).sort(function (a, b) { return b.up - a.up || b.zero - a.zero; });
+    var kp = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('SSO outlet binaan (≥ 1 GA MTD)', fmtCount(T.sso), pctOf(T.sso, T.n) + '% dari ' + fmtCount(T.n) + ' outlet PJP', T.sso / (T.n || 1) >= 0.5 ? 'up' : 'down', 'GA D1–D' + gcut + ' · Daily_RGUGA_OUTLET, per outlet tagging') +
+      kpi('Outlet tanpa GA / GA 1–2 (belum UAR 3)', fmtCount(T.zero) + ' · ' + fmtCount(T.low), 'nol GA · 1–2 GA di semua brand', 'down', 'sasaran SSO Improvement: aktifkan outlet nol GA dan dorong ke 3 GA') +
+      kpi('Insentif DSE bila laju GA MTD berlanjut', pjRp(T.proj), 'sekarang ' + pjRp(T.now) + ' (sebelum cap DSE) · × ' + dm + '/' + gcut + ' hari', T.proj >= T.now ? 'up' : 'down', 'GA per outlet diproyeksikan ke akhir bulan lalu dihitung ulang dengan aturan program') +
+      kpi('Potensi tambahan: outlet ≤ 2 GA dari tier', pjRp(T.up), fmtCount(T.uar3) + ' outlet UAR 3 sekarang → ' + fmtCount(T.uar3p) + ' pada proyeksi', 'up', 'jika outlet hampir naik tier mencapai tier berikutnya') + '</div>';
+    var body = rows.map(function (M) { return '<tr><td class="cur"><b>' + esc(M.mc) + '</b><br><span class="note">' + esc(M.br) + '</span></td><td class="num">' + fmtCount(M.n) + '</td><td class="num"><b>' + fmtCount(M.sso) + '</b> <span class="note">' + pctOf(M.sso, M.n) + '%</span></td><td class="num">' + fmtCount(M.zero) + '</td><td class="num">' + fmtCount(M.low) + '</td><td class="num">' + fmtCount(M.uar3) + '</td><td class="num">' + fmtCount(M.uar3p) + '</td><td class="num">' + pjRp(M.now) + '</td><td class="num">' + pjRp(M.proj) + '</td><td class="num"><b>' + pjRp(M.up) + '</b></td></tr>'; }).join('');
+    var tbl = card('Dampak GA outlet-based per Micro Cluster · SSO, proyeksi dan potensi insentif', '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('MC') + th('Outlet PJP', 1) + th('SSO (≥ 1 GA)', 1) + th('Nol GA', 1) + th('1–2 GA', 1) + th('UAR 3 kini', 1) + th('UAR 3 proyeksi', 1) + th('Insentif kini', 1) + th('Insentif proyeksi', 1) + th('Potensi tambahan', 1) + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="note">Sumber GA sama dengan program (outlet tagging, Daily_RGUGA_OUTLET, D1–D' + gcut + '). Proyeksi = GA MTD × ' + dm + '/' + gcut + ' per outlet per brand (dibulatkan), lalu aturan tier; insentif dihitung per outlet sebelum cap Rp 1 jt per DSE dan sebelum syarat compliance. Potensi tambahan = selisih insentif bila outlet dengan jarak ≤ 2 GA ke tier berikut mencapainya (GA tambahan di brand terbesar).</p>');
+    return kp + tbl;
   }
   // ---------- Rabu Mantap ----------
   function opRabuWindows(F) {
@@ -5229,7 +5257,23 @@
     function oRowsSub(x) { return '<td class="num">' + grpSum(x, function (r) { return r.u.IM3; }) + '</td><td class="num">' + grpSum(x, function (r) { return r.u['3ID']; }) + '</td><td class="num"><b>' + grpSum(x, function (r) { return r.comb; }) + '</b></td><td></td>'; }
     var oRows = grpMi(F, 'op5sp-out', ol, function (r) { return r.o.mc; }, { row: oRowsFn, sub: oRowsSub, span: 2, cols: 6, val: function (r) { return r.comb; }, unit: 'outlet', search: false });
     var outCard = card('Profil outlet · unit SP gabungan dan jarak ke 5 unit (' + fmtCount(ol.length) + ' outlet beli SP)', '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('op5sp-out') + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Area › MC › Outlet') + th('MC · DSE') + th('SP IM3', 1) + th('SP 3ID', 1) + th('Gabungan', 1) + th('Status') + '</tr></thead><tbody>' + oRows + '</tbody></table></div>' + '<p class="note">Dikelompokkan Area › Micro Cluster (DSO); klik panah untuk membuka, baris grup menjumlahkan isinya.</p>');
-    return rules + kpis + mcCard + dseCard + outCard;
+    return rules + kpis + opKotkabGa(F, perOutlet) + mcCard + dseCard + outCard;
+  }
+  /* Kota/Kab Khusus x outlet-based GA (Daily_RGUGA): per kecamatan, who buys SP but does not activate, who does neither, ranked as focus kecamatan */
+  function opKotkabGa(F, perOutlet) {
+    var gp = gaPrep(), gcut = gp ? gp.cut : F.metadata.cut_day, byK = {}, T = { n: 0, ga: 0, sso: 0, sp5: 0, sp5noga: 0, zero: 0 };
+    perOutlet.forEach(function (r) {
+      var o = r.o; if (o.tier !== 'M') return;
+      var g = opGaUnits(o), ga = g.u.IM3 + g.u['3ID'], k = (o.kec || '—') + '|' + o.mc, K = byK[k] || (byK[k] = { kec: o.kec || '—', mc: o.mc, n: 0, ga: 0, sso: 0, sp5: 0, sp5noga: 0, zero: 0, ga5: 0 });
+      [K, T].forEach(function (X) { X.n++; X.ga += ga; if (ga >= 1) X.sso++; if (ga >= 5) X.ga5 = (X.ga5 || 0) + 1; if (r.comb >= 5) { X.sp5++; if (ga === 0) X.sp5noga++; } if (ga === 0 && r.comb === 0) X.zero++; });
+    });
+    var rows = Object.keys(byK).map(function (k) { return byK[k]; }).filter(function (K) { return K.n >= 5; }).sort(function (a, b) { return (b.zero + b.sp5noga) - (a.zero + a.sp5noga) || b.n - a.n; });
+    var kp = '<div class="kpis" style="margin-top:10px;">' +
+      kpi('GA outlet-based di 3 kot/kab fokus', fmtCount(T.ga), fmtCount(T.sso) + ' outlet SSO (≥ 1 GA) · ' + pctOf(T.sso, T.n) + '% dari ' + fmtCount(T.n) + ' outlet PJP', 'up', 'Daily_RGUGA_OUTLET D1–D' + gcut + ', outlet tagging') +
+      kpi('Beli ≥ 5 SP tetapi nol GA', fmtCount(T.sp5noga), 'dari ' + fmtCount(T.sp5) + ' outlet lolos ≥ 5 SP', T.sp5noga ? 'down' : 'up', 'SP sudah masuk, aktivasi belum: dorong konversi ke GA') +
+      kpi('Outlet tanpa SP dan tanpa GA', fmtCount(T.zero), pctOf(T.zero, T.n) + '% outlet PJP kot/kab', T.zero ? 'down' : 'up', 'prioritas kunjungan DSE / DSO') + '</div>';
+    var body = rows.slice(0, 40).map(function (K) { return '<tr><td class="cur"><b>' + esc(K.kec) + '</b><br><span class="note">' + esc(K.mc) + '</span></td><td class="num">' + fmtCount(K.n) + '</td><td class="num">' + fmtCount(K.sp5) + ' <span class="note">' + pctOf(K.sp5, K.n) + '%</span></td><td class="num"><b>' + fmtCount(K.ga) + '</b></td><td class="num">' + fmtCount(K.sso) + ' <span class="note">' + pctOf(K.sso, K.n) + '%</span></td><td class="num">' + fmtCount(K.ga5) + '</td><td class="num"><b>' + fmtCount(K.sp5noga) + '</b></td><td class="num"><b>' + fmtCount(K.zero) + '</b></td></tr>'; }).join('');
+    return kp + card('Kecamatan fokus · SP ≥ 5 vs GA outlet-based (urut: outlet SP tanpa GA + outlet nol)', '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th('Kecamatan · MC') + th('Outlet PJP', 1) + th('≥ 5 SP', 1) + th('GA MTD', 1) + th('SSO (≥ 1 GA)', 1) + th('≥ 5 GA', 1) + th('SP ≥ 5 tanpa GA', 1) + th('Nol SP dan GA', 1) + '</tr></thead><tbody>' + body + '</tbody></table></div><p class="note">Kecamatan = kecamatan master outlet; hanya kecamatan dengan ≥ 5 outlet PJP, 40 teratas. GA = outlet tagging (Daily_RGUGA), SP = semua SP MOBII (IM3 + 3ID), keduanya MTD.</p>');
   }
   // ---------- Zero Improvement ----------
   function opZeroTab(F) {
