@@ -2,6 +2,17 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 29 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 28 Oct; GA to 27 Oct
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__28_28.zip` (28 Oct 22:27) | Cut 27 -> **28 Oct**, 24 business days. Planned 162,592 -> **171,414**, executed 127,741 -> **136,014**, hit rate 78.6 -> **79.3%**, coverage 99.2 -> **99.3%** (not visited MTD 123 -> 110). |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (28 Oct 22:26) | Cut 27 -> **28 Oct**. MTD SP Rp 2.52 B, Voucher isi 5.26 B, Voucher blank 0.71 B, Saldo 17.79 B. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (29 Oct 05:52) | Cut 27 -> **28 Oct**. Total demand (RLD+VCI+CVM+PKT) MTD Rp 103.22 -> **106.90 B**. |
+| MOBO_SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (28 Oct 22:26) | Saldo Mobo MTD Rp 130.05 -> **137.04 B**, 13,493 outlets, last day 28 Oct. |
+| ENDBAL | snapshot 28 Oct (`..._2026-10-29_05-17-58*.csv`) | Snapshot 27 -> **28 Oct**: 129,525 rows, 18,246 outlets. |
+| GA by Outlet / site | `Daily_RGUGA_OUTLET_202610.xlsb`, `rguga_daily_outlet_202610.csv` (28 Oct 22:31) | Cut 26 -> **27 Oct**. GA Oct IM3 144,243 -> **156,019**, 3ID 82,669 -> **92,128**. Fav Locs: no new file. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,629), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment: `docs/assessments/daily_update_2026-10-29.md`. |
+
 ## 28 Oct 2026 (midday) · MOBO, SALMO and ENDBAL to 27 Oct
 | Scope | Source | Change |
 |---|---|---|
