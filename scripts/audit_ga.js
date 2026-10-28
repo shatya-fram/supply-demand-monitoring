@@ -119,8 +119,13 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   const inScope = o => basis === 'site' ? ((!state.branch || (o.la || (mi[o.lm] || {}).br || o.br) === state.branch) && (!state.kec || o.lm === state.kec)) : ((!state.branch || o.br === state.branch) && (!state.kec || o.mc === state.kec));
   const { A, list } = model(basis, brand, sg, onlyM, inScope), tag2 = basis === 'site' ? 'BASIS SITE' : 'BASIS OUTLET';
   let mtd = 0, lmtd = 0, dayQ = 0, w7 = 0; list.forEach(o => { mtd += sum(o.o, 1, ne); lmtd += sum(o.s, 1, ne); dayQ += o.o[ne]; w7 += sum(o.o, Math.max(1, ne - 6), ne); });
+  if (basis === 'site') {   // site basis: the daily series is the activation-site feed (kd) of the target kecamatan in scope, September is n/a
+    const SFk = global.GA_SITE_FEED, arr = []; for (let d = 0; d <= 31; d++) arr.push(0);
+    TK.filter(r => (!state.branch || r.br === state.branch) && (!state.kec || r.mc === state.kec)).forEach(r => { const a = SFk.kd[r.kk]; if (!a) return; a.forEach((bd, bi) => { if ((brand === 'IM3' && bi === 1) || (brand === '3ID' && bi === 0)) return; bd.forEach((q, i) => { arr[i + 1] += q; }); }); });
+    mtd = sum(arr, 1, ne); lmtd = null; dayQ = arr[ne]; w7 = sum(arr, Math.max(1, ne - 6), ne);
+  }
   let c = R('MTD D1'); checks++; if (!c || !/BASIS/.test(Object.keys(C).find(x => x.startsWith('MTD D1')))) { fails++; console.log('✗ [' + tag + '] kartu MTD tanpa label basis'); }
-  c = R('MTD D1'); if (c) { eq(tag, 'trend MTD', num(c.value), mtd); eq(tag, 'trend LMTD', num((c.delta.match(/LMTD D1–D\d+ ([\d,]+)/) || [, 0])[1]), lmtd); }
+  c = R('MTD D1'); if (c) { eq(tag, 'trend MTD', num(c.value), mtd); if (lmtd != null) eq(tag, 'trend LMTD', num((c.delta.match(/LMTD D1–D\d+ ([\d,]+)/) || [, 0])[1]), lmtd); }
   checks++; if (!Object.keys(C).some(x => x.includes(tag2))) { fails++; console.log('✗ [' + tag + '] label basis salah / hilang'); }
   c = R('GA D' + ne + ' ·'); if (c) eq(tag, 'trend GA hari terpilih', num(c.value), dayQ);
   c = R('RUN-RATE HARIAN'); if (c) { eq(tag, 'trend run-rate', num(c.value), mtd / ne, 0.51); eq(tag, 'trend run-rate 7 hari', num((c.note.match(/: ([\d,]+)\/hari vs/) || [, 0])[1]), w7 / Math.min(7, ne), 0.51); }
@@ -130,7 +135,7 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
   checks++; if (basis === 'outlet' && !/Target GA hanya untuk basis site/.test(html)) { fails++; console.log('✗ [' + tag + '] catatan "target hanya basis site" hilang'); }
   if (basis === 'site') {
     const tin = r => (!state.branch || r.br === state.branch) && (!state.kec || r.mc === state.kec), tv = r => brand === 'all' ? r.IM3 + r['3ID'] : r[brand];
-    let T = 0, Q = 0; TK.filter(tin).forEach(r => { T += tv(r); }); list.forEach(o => { const k = tkey(o.lk); if (k && tin(tby[k])) Q += sum(o.o, 1, ne); });
+    let T = 0, Q = mtd; TK.filter(tin).forEach(r => { T += tv(r); });
     c = R('TARGET GA OKTOBER'); if (c) eq(tag, 'trend target Okt', num(c.value), T, 1);
     c = R('GA D1–D' + ne + ' VS TARGET'); if (c) { const pro = T * ne / days; eq(tag, 'trend GA di kecamatan target', num(c.value), Q); eq(tag, 'trend gap vs pro-rata', num((c.delta.match(/gap vs pro-rata ([\-−+\d,]+)/) || [, '0'])[1].replace('−', '-')), Q - pro, 0.6); eq(tag, 'trend % pro-rata', num((c.delta.match(/(\d+)% dari pro-rata/) || [, 0])[1]), pro ? Q / pro * 100 : 0, 0.51); }
     c = R('PROYEKSI AKHIR OKTOBER VS'); if (c) eq(tag, 'trend proyeksi vs target', num(c.note.match(/run-rate D1–D\d+ ([\d,]+)\/hari/)[1]) * days, Q / ne * days, days * 0.51);
