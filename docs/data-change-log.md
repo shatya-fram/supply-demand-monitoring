@@ -2,6 +2,15 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 28 Oct 2026 (midday) · MOBO, SALMO and ENDBAL to 27 Oct
+| Scope | Source | Change |
+|---|---|---|
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (28 Oct 02:04) | Cut 26 -> **27 Oct**. Total demand (RLD+VCI+CVM+PKT) MTD Rp 98.24 -> **103.22 B**. |
+| MOBO_SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (28 Oct 02:04) | Saldo Mobo MTD Rp 125.62 -> **130.05 B**, 13,404 outlets, last day 27 Oct. |
+| ENDBAL | snapshot 27 Oct (`endbal_20261027.zip`) | Snapshot 26 -> **27 Oct**: 129,321 rows, 18,225 outlets, stock Rp 3.52 B, 5,570 zero-stock outlets. |
+| Not updated | GA by Outlet, GA per site, Fav Locs | No 27 Oct file yet: GA stays at 26 Oct. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,683), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment: `docs/assessments/daily_update_2026-10-28_siang.md`. |
+
 ## 28 Oct 2026 · PJP visits and MOBII to 27 Oct
 | Scope | Source | Change |
 |---|---|---|
