@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js']) {
+for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -32,6 +32,7 @@ if (typeof global.dseVisitsFeed === 'undefined') {
 }
 
 require(path.join(root, 'website', 'stock.js'));
+require(path.join(root, 'website', 'vanguard.js'));
 const app = require(path.join(root, 'website', 'app.js'));
 const { VIEWS, state } = app;
 let failures = 0;
@@ -437,6 +438,14 @@ state.ebSeg = 'all';
 state.branch = fb.branch; for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/branch', VIEWS.mb_endbal); }
 state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringkasan', 'slab', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/mc', VIEWS.mb_endbal); }
 { const eo = (global.ENDBAL_FEED && global.ENDBAL_FEED.outlets.find(o => o.m === fm.micro_cluster)); if (eo) { state.ebOpen = {}; state.ebOpen[eo.m + '||' + eo.d] = true; state.ebTab = 'detail'; check('endbal/detail/open-dse', VIEWS.mb_endbal); state.ebOpen = {}; } }
+// Vanguard 5G (mb_vanguard): every tab x day x level x step filter, filtered and unfiltered
+{ state.view = 'mb_vanguard'; const V = global.window.VANGUARD, sv = { b: state.branch, h: state.hoa, k: state.kec };
+  for (const tab of ['brief', 'progres', 'site', 'dq']) for (const sc of ['all', 'mc']) { state.kec = sc === 'mc' ? V.dses[0].mc : ''; state.vgTab = tab;
+    for (const d of V.metadata.days) { state.vgDay = d; check('vanguard/' + tab + '/' + sc + '/' + d, VIEWS.mb_vanguard); }
+    for (const lv of ['area', 'mc', 'dso', 'dse']) { state.vgLevel = lv; check('vanguard/' + tab + '/' + sc + '/' + lv, VIEWS.mb_vanguard); }
+    for (const sp of ['all', '1', '3', '5', 'lengkap']) { state.vgStep = sp; check('vanguard/' + tab + '/' + sc + '/step=' + sp, VIEWS.mb_vanguard); } }
+  const wa = require(path.join(root, 'website', 'vanguard.js')).waText(state, V, V.dses[0].mc); if (!/VANGUARD 5G/.test(wa)) { console.log('FAIL vanguard waText'); failures++; }
+  state.vgTab = 'brief'; state.vgDay = ''; state.vgStep = 'all'; state.branch = sv.b; state.hoa = sv.h; state.kec = sv.k; }
 // Stok Outlet (mb_stock): every level x product mix x tab, filtered and unfiltered
 { state.view = 'mb_stock'; const sv = { b: state.branch, h: state.hoa, k: state.kec };
   for (const tab of ['ringkasan', 'peta']) for (const lv of ['area', 'mc', 'kec', 'site', 'outlet']) for (const pr of ['sp', 'vc', 'sa', 'sp,vc,sa']) { state.stTab = tab; state.stLevel = lv; state.stProd = pr; state.stStat = 'all'; check('stock/' + tab + '/' + lv + '/' + pr, VIEWS.mb_stock); }

@@ -19,6 +19,7 @@ Refreshes, in dependency order:
 Files are handed to the builders through MOBII_SRC / MOBO_SRC / VISIT_ZIPS, so a new
 download folder needs no code change. Pure stdlib; run from anywhere.
 """
+import glob
 import hashlib
 import os
 import re
@@ -228,6 +229,8 @@ def main():
             steps.append(("GA · Site aktivasi vs outlet tagging (kemasukan / pengiriman)", [py, "scripts/build_ga_site_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
         steps.append(("STOCK · Stok Outlet Over / Par / Low (KRO + ENDBAL)", [py, "scripts/build_stock_feed.py"]))
+    if glob.glob(os.path.join("raw", "Vanguard", "*Flag*Step1-5*.xlsx")) and glob.glob(os.path.join("raw", "Vanguard", "*OutletMapping*Step1-5*.xlsx")):   # Vanguard 5G: needs territory master + weekly PJP feed
+        steps.append(("VANGUARD · 5G site Step 1-5, site -> DSE and the 3-site daily plan", [py, "scripts/build_vanguard_feed.py"]))
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
         steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))

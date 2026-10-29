@@ -66,6 +66,7 @@
       mb_overall: 'Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P + ' · GA ' + G,
       mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution ' + cutDist() + ' ' + Y,
       mb_endbal: 'ENDBAL ' + cutEndbal() + ' · Sell-In saldo ' + S + ' ' + Y,
+      mb_vanguard: 'Vanguard ' + ((window.VANGUARD && window.VANGUARD.metadata) ? window.VANGUARD.metadata.snapshot_date : 'n/a') + ' · PJP ' + pjpPeriod('end'),
       mb_stock: 'Sell-In ' + S + ' · Demand ' + D + ' · GA ' + G + ' · ENDBAL ' + cutEndbal(),
       cfg_target: 'Target Oktober ' + Y + ' · pencapaian cut ' + S,
       cfg_pjp: 'Template PJP mingguan · mapping permanen',
@@ -119,6 +120,7 @@
     mb_grossadd: ['Morning DSE Briefing · Gross Add', 'Gross Add dan SSO (SIM Selling Outlet) dari RGUGA per outlet: Oktober vs September, per Area, MC, DSE dan outlet (basis tagging) atau per site / kecamatan (basis lokasi dari data RGUGA), harian, dan slab SSO.'],
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
     cfg_target: ['Konfigurasi · Target Setting', 'Target resmi per DSE untuk dua KPI, Sell-In SP dan OSA (IM3, 3ID, IOH), diagregasi ke MC, Area dan Region, dibandingkan dengan pencapaian MTD.'],
+    mb_vanguard: ['Morning DSE Briefing · Vanguard 5G', 'Briefing pagi DSO ke DSE: 3 site 5G per hari di sela PJP, Step 1 Speed test 5G, 2 Outlet engagement, 3 Outlet branding, 4 Outlet advocacy, 5 Street branding, sinkron dengan file Vanguard.'],
     mb_stock: ['Morning DSE Briefing · Stok Outlet · Over / Par / Low', 'Sell-in dan sell-out SP, Voucher dan Saldo (September penuh, Oktober MTD) dengan estimasi sisa stok per Outlet, Site, Kecamatan, MC, Area dan Region, plus peta poligon Over (hijau), Par (kuning) dan Low (merah).'],
     mb_endbal: ['Morning DSE Briefing · END BALANCE Outlet', 'Stok saldo penutupan outlet (ENDBAL) per outlet, site, MC, DSO dan DSE: outlet zero stock, slab balance, inventory days, dan sell-in saldo hari kerja terakhir.'],
     mb_ringkasan: ['Morning DSE Briefing · Ringkasan Performance', 'DSE Productivity (KPI DSE Oct 2026: OSA, SP Data Sell In, compliance), ringkasan PJP, penjualan, demand, dan heat map teritori.'],
@@ -234,6 +236,7 @@
 
   /* ---------- state and aggregation ---------- */
   var state = {
+    vgTab: 'brief', vgDay: '', vgLevel: 'mc', vgStep: 'all', vgSearch: '',
     stTab: 'ringkasan', stProd: 'sp,vc,sa', stLevel: 'area', stStat: 'all', stSearch: '', stTh: null, stSaOther: false,
     view: 'mb_ringkasan',
     branch: '',
@@ -10679,8 +10682,10 @@
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
   function stockApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, dkTag: dkTag, scopeText: scopeText, grpBody: grpBody, grpBar: grpBar }; }
+  function vanguardApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
+  function viewVanguard() { return (typeof window !== 'undefined' && window.IJVanguard) ? window.IJVanguard.view(vanguardApi()) : card('Vanguard 5G', '<p class="note">Modul vanguard.js belum dimuat.</p>'); }
   function viewStock() { return (typeof window !== 'undefined' && window.IJStock) ? window.IJStock.view(stockApi()) : card('Stok Outlet', '<p class="note">Modul stock.js belum dimuat.</p>'); }
-  var VIEWS = { brief: viewBrief, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
@@ -11485,6 +11490,7 @@
     else if (t.getAttribute('data-act') === 'clear-pj-dse') { state.pjDse = null; state.pjPage = 1; }
     else if (t.hasAttribute('data-pj-out-toggle')) { var ok_ = t.getAttribute('data-pj-out-toggle'); state.pjOutOpen = state.pjOutOpen || {}; state.pjOutOpen[ok_] = !pjOutOpen(ok_, ok_.charAt(0)); }
     else if (t.hasAttribute('data-grp-toggle')) { var gk_ = t.getAttribute('data-grp-toggle'); state.grpOpen = state.grpOpen || {}; state.grpOpen[gk_] = t.getAttribute('aria-expanded') !== 'true'; }
+    else if (t.hasAttribute('data-vg')) { if (window.IJVanguard) window.IJVanguard.click(t.getAttribute('data-vg'), vanguardApi()); }
     else if (t.hasAttribute('data-st')) { if (window.IJStock) window.IJStock.click(t.getAttribute('data-st'), stockApi()); }
     else if (t.getAttribute('data-act') === 'grp-all') { var gt_ = t.getAttribute('data-t'); state.grpAll = state.grpAll || {}; state.grpAll[gt_] = t.getAttribute('data-v'); Object.keys(state.grpOpen || {}).forEach(function (k) { if (k.indexOf(gt_ + '|') === 0) delete state.grpOpen[k]; }); }
     else if (t.getAttribute('data-act') === 'pj-out-all') { state.pjOutAll = t.getAttribute('data-v'); state.pjOutOpen = {}; }
@@ -11572,6 +11578,7 @@
     render();
   }
   function onChange(e) {
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-vg-in') && window.IJVanguard) { window.IJVanguard.change(e.target, vanguardApi()); render(); return; }
     if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-st-in') && window.IJStock) { window.IJStock.change(e.target, stockApi()); render(); return; }
     if (e.target && e.target.id === 'prDateInput') { state.prDate = e.target.value; render(); return; }
     if (e.target && e.target.id === 'gtDaySelect') { state.gtDay = parseInt(e.target.value, 10) || 0; render(); return; }
@@ -11824,7 +11831,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_vanguard: ['vgTab', 'vgDay', 'vgLevel', 'vgStep'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab', 'sellinUar']
   };
