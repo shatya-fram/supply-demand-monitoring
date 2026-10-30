@@ -2,6 +2,18 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 30 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 29 Oct; Vanguard file of 29 Oct
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__29_29.zip` (29 Oct 22:56) | Cut 28 -> **29 Oct**, 25 business days. Planned 171,414 -> **180,801**, executed 136,014 -> **144,772**, hit rate 79.3 -> **80.1%**, coverage 99.3% (not visited MTD 110 -> 100). |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (30 Oct 06:40) | Cut 28 -> **29 Oct**. MTD SP Rp 2.54 B, Voucher isi 5.50 B, Voucher blank 0.84 B, Saldo 19.95 B. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (29 Oct 22:55) | Cut 28 -> **29 Oct**. Total demand (RLD+VCI+CVM+PKT) MTD Rp 106.90 -> **110.81 B**. |
+| MOBO_SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (29 Oct 22:55) | Saldo Mobo MTD Rp 137.04 -> **143.10 B**, 13,553 outlets, last day 29 Oct. |
+| ENDBAL | snapshot 29 Oct (`endbal_20261029.zip`) | Snapshot 28 -> **29 Oct**: 129,703 rows, 18,246 outlets. |
+| Vanguard 5G | `Vanguard_InnerJKT_*_Step1-5_LIVE_29Okt2026.xlsx` | First file read by `build_vanguard_feed.py`; steps done 1,222 / 708 / 866 / 785 / 1,069, 491 sites complete. |
+| Not updated | GA by Outlet, GA per site, Fav Locs | No new file: GA stays at 27 Oct. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,629), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment: `docs/assessments/daily_update_2026-10-30.md`. |
+
 ## 29 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 28 Oct; GA to 27 Oct
 | Scope | Source | Change |
 |---|---|---|
