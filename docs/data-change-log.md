@@ -2,6 +2,17 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 31 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 30 Oct; visits builder reads Inner Jakarta only
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__30_30.zip` (31 Oct 00:43) | Cut 29 -> **30 Oct**, 26 business days. Planned 180,801 -> **188,537**, executed 144,772 -> **151,721**, hit rate 80.1 -> **80.5%**, coverage 99.3 -> **99.1%** (not visited MTD 100 -> 130). The 30 Oct export is Circle-wide (OUTER JAKARTA, WEST JAVA included), so `generate_dse_visits_feed.py` now keeps only `REGIONAL = INNER JAKARTA` rows (owner, 31 Oct 2026). Days 1-29 Oct lose 729 non-Inner Jakarta / test stops (-0.4%, e.g. 29 Oct 9,387 -> 9,355). A covered day with no Inner Jakarta stop (Sun 18 Oct) stays as a 0 / 0 day. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` (31 Oct 00:42) | Cut 29 -> **30 Oct**. MTD SP Rp 2.72 B, Voucher isi 5.63 B, Voucher blank 0.89 B, Saldo 21.19 B. |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (31 Oct 00:42) | Cut 29 -> **30 Oct**. Total demand (RLD+VCI+CVM+PKT) MTD Rp 110.81 -> **115.21 B**. |
+| MOBO_SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` (31 Oct 00:42) | Saldo Mobo MTD Rp 143.10 -> **150.89 B**, 13,674 outlets, last day 30 Oct. |
+| ENDBAL | snapshot 30 Oct (`endbal_20261030.zip`) | Snapshot 29 -> **30 Oct**: 129,769 rows, 18,281 outlets. |
+| Not updated | GA by Outlet, GA per site, Fav Locs, Vanguard | No new file: GA stays at 27 Oct, Vanguard at 29 Oct. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,629), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment: `docs/assessments/daily_update_2026-10-31.md`. |
+
 ## 30 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 29 Oct; Vanguard file of 29 Oct
 | Scope | Source | Change |
 |---|---|---|

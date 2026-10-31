@@ -439,6 +439,7 @@ outside_rows = Counter()                     # (raw branch, raw mc) -> planned
 outlet_visit_dates = defaultdict(set)
 outlet_visit_brands = defaultdict(set)
 outlet_checkin_count = Counter()
+skipped_region = Counter()                   # rows of other regionals in a Circle-wide export, dropped (Inner Jakarta only)
 
 for brand, zpath in FILES:
     print(f"  Reading {brand} from {zpath}...")
@@ -463,10 +464,14 @@ for brand, zpath in FILES:
             c_act, c_st, c_dev, c_dur = col["ACTIVITY NAME"], col["ACTIVITY STATUS"], col["DEVIATION DISTANCE(IN KM)"], col["VISIT DURATION"]
             c_name = col["ORG NAME"]
             c_sp, c_vc, c_oth = col["TOTAL SALES SP QTY"], col["TOTAL SALES VC  QTY"], col["TOTAL SALES OTHER PRODUCT"]
-            need = max(c_sched, c_br, c_mc, c_bp, c_org, c_mobo, c_optype, c_op, c_act, c_st)
+            c_reg = col.get("REGIONAL")             # a Circle-wide export (30 Oct 2026) also holds OUTER JAKARTA / WEST JAVA rows
+            need = max(c_sched, c_br, c_mc, c_bp, c_org, c_mobo, c_optype, c_op, c_act, c_st, c_reg if c_reg is not None else 0)
             for line in text:
                 r = line.rstrip("\n").split("|")
                 if len(r) <= need:
+                    continue
+                if c_reg is not None and r[c_reg].strip().upper() != "INNER JAKARTA":
+                    skipped_region[r[c_reg].strip() or "(blank)"] += 1
                     continue
                 sched = r[c_sched].strip()
                 if not parse_d(sched):
@@ -589,6 +594,8 @@ for brand, zpath in FILES:
                     s["saldo"] += num(r[c_oth] if len(r) > c_oth else "")
 
 # Productivity is decided per stop once all its activity rows are in.
+if skipped_region:
+    print(f"  Rows of other regionals skipped (Inner Jakarta only): {sum(skipped_region.values()):,} {dict(skipped_region)}")
 prod_without_ci = 0
 for (brand, sched, _bp, _org), s in stops.items():
     phys = s["sp"] > 0 or s["vc"] > 0
@@ -729,6 +736,9 @@ def coverage_block(outs, mc_for_site=None):
 # --------------------------------------------------------------------------------------
 print("Step 4: Daily timeline, Area (branch) and Micro Cluster views...")
 daily_timeline = []
+for _d in DAYS:                      # a covered day with no Inner Jakarta stop (a Sunday) is a 0 / 0 day, not a vanished one
+    if _d not in MISSING_DAYS:
+        daily_stats[_d]
 for d in sorted(daily_stats, key=lambda x: parse_d(x)):
     row = {"date": d, "day": parse_d(d).strftime("%a"), "available": True}
     sb = stat_block(daily_stats[d])

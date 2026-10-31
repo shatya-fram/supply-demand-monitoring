@@ -53,6 +53,13 @@ def main():
 
     html = re.sub(r'<link rel="stylesheet" href="([^"]+)">', css_repl, html)
     html = re.sub(r'<script src="([^"]+)"></script>', js_repl, html)
+    # data/kro_slim.js (outlets below the KRO slab = Retail) is loaded on demand by app.js through a relative <script src>, which cannot work from
+    # a single file or from the portal blob; inline it before app.js so the Retail slabs and counts are filled (it defines window.KRO_SLIM)
+    slim = read("data/kro_slim.js")
+    sizes.append(("data/kro_slim.js", len(slim)))
+    tag = '<script data-src="app.js">'
+    assert tag in html, "app.js script tag not found"
+    html = html.replace(tag, '<script data-src="data/kro_slim.js">\n%s\n</script>\n%s' % (inline_js(slim), tag), 1)
     stamp = date.today().strftime("%Y%m%d")
     banner = ("<!-- Inner Jakarta Supply & Demand Monitoring · offline bundle built %s from website/ at git HEAD. "
               "Open directly in a browser; no server needed. Map tiles and the Archivo font need internet. -->\n" % stamp)
