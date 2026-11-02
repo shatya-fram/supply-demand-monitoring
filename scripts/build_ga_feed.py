@@ -162,8 +162,8 @@ def pick(pattern):
     return sorted(hits, key=os.path.getmtime, reverse=True)
 
 
-sep_files = pick(r"Daily_RGUGA_OUTLET_202609\.xlsb$")
-oct_files = pick(r"Daily_RGUGA_OUTLET_202610\.xlsb$")
+sep_files = pick(r"Daily_RGUGA_OUTLET_202609( \(\d+\))?\.xlsb$")
+oct_files = pick(r"Daily_RGUGA_OUTLET_202610( \(\d+\))?\.xlsb$")   # a browser re-download is named "... (1).xlsb"
 if not sep_files or not oct_files:
     raise SystemExit("Perlu Daily_RGUGA_OUTLET_202609.xlsb dan Daily_RGUGA_OUTLET_202610.xlsb di " + GA_DIR)
 SEP_SRC, OCT_SRC = sep_files[0], oct_files[0]

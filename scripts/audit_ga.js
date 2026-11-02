@@ -79,8 +79,8 @@ for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID'
     // the per-kecamatan figures use the territory chosen by branch / MC through the target list; the located GA must equal the scope's GA minus outlets without kecamatan only when the scopes coincide (region)
     c = R('GA VS TARGET OKTOBER'); if (c) { eq(tag, 'target Okt', num((c.delta.match(/dari target ([\d,]+)/) || [, 0])[1]), T, 1); eq(tag, 'GA di kecamatan target', num(c.value), Q);
       const pro = T * cut / days; eq(tag, '% pro-rata', num((c.delta.match(/pro-rata (\d+)%/) || [, 0])[1]), pro ? Q / pro * 100 : 0, 0.51); eq(tag, 'target pro-rata', num((c.note.match(/pro-rata ([\d,]+)/) || [, 0])[1]), pro, 0.51); }
-    c = R('PROYEKSI VS TARGET'); if (c) { eq(tag, 'proyeksi vs target', num((c.delta.match(/proyeksi ([\d,]+)/) || [, 0])[1]), Q / cut * days, 0.6); eq(tag, 'perlu per hari', num((c.note.match(/perlu ([\d,]+)\//) || [, 0])[1]), Math.max(0, T - Q) / (days - cut), 0.6); }
-    c = R('GAP MTD VS LAST FM'); eq(tag, 'perlu/hari menyamai September', num((c.note.match(/= ([\d,]+)\/hari/) || [, 0])[1]), Math.max(0, A.f - A.q) / (days - cut), 0.6);
+    c = R('PROYEKSI VS TARGET'); if (c) { eq(tag, 'proyeksi vs target', num((c.delta.match(/proyeksi ([\d,]+)/) || [, 0])[1]), Q / cut * days, 0.6); eq(tag, 'perlu per hari', num((c.note.match(/perlu ([\d,]+)\//) || [, 0])[1]), days > cut ? Math.max(0, T - Q) / (days - cut) : 0, 0.6); }
+    c = R('GAP MTD VS LAST FM'); eq(tag, 'perlu/hari menyamai September', num((c.note.match(/= ([\d,]+)\/hari/) || [, 0])[1]), days > cut ? Math.max(0, A.f - A.q) / (days - cut) : 0, 0.6);
     if (basis === 'site') { c = R('KECAMATAN / SITE AKTIF'); eq(tag, 'kecamatan aktif', num(c.value.split('/')[0]), act); eq(tag, 'kecamatan total', num(c.value.split('/')[1]), rowsT.length); eq(tag, 'kecamatan aktif LMTD', num((c.delta.match(/LMTD ([\d,]+)/) || [, 0])[1]), prevAct);
       c = R('GA PER KECAMATAN AKTIF'); if (act) eq(tag, 'GA per kecamatan aktif', num(c.value), Q / act, 0.6);
       c = R('KONSENTRASI 10'); qs.sort((x, y) => y - x); if (Q) eq(tag, 'konsentrasi 10 teratas %', num(c.value), qs.slice(0, 10).reduce((x, y) => x + y, 0) / Q * 100, 0.06); } }
@@ -115,7 +115,7 @@ state.gaBasis = 'outlet'; state.gaBrand = 'all'; state.gaSg = 'all'; state.gaCov
 for (const basis of ['outlet', 'site']) for (const brand of ['all', 'IM3', '3ID']) for (const [pn, f] of probes) for (const [sg, onlyM] of [['all', false], ['PJP', false], ['all', true]]) for (const day of [0, 10]) {
   const tag = 'trend/' + basis + '/' + brand + '/' + pn + '/' + sg + (onlyM ? '/master' : '') + '/d' + (day || 'cut');
   Object.assign(state, { view: 'mb_gatrend', gaTab: 'ringkasan', gaBasis: basis, gaBrand: brand, gaSg: sg, gaCover: onlyM ? 'master' : 'all', branch: f.branch || '', hoa: '', kec: f.kec || '', dse: '', gtDay: day });
-  const html = VIEWS.mb_gatrend(), C = cards(html), R = k => C[Object.keys(C).find(x => x.startsWith(k))], ne = day || cut;
+  const html = VIEWS.mb_gatrend(), C = cards(html), R = k => C[Object.keys(C).find(x => x.startsWith(k))], ne = day || (basis === 'site' ? Math.min(cut, (global.GA_SITE_FEED || {}).cut || cut) : cut);   // the site file can end before the outlet file
   const inScope = o => basis === 'site' ? ((!state.branch || (o.la || (mi[o.lm] || {}).br || o.br) === state.branch) && (!state.kec || o.lm === state.kec)) : ((!state.branch || o.br === state.branch) && (!state.kec || o.mc === state.kec));
   const { A, list } = model(basis, brand, sg, onlyM, inScope), tag2 = basis === 'site' ? 'BASIS SITE' : 'BASIS OUTLET';
   let mtd = 0, lmtd = 0, dayQ = 0, w7 = 0; list.forEach(o => { mtd += sum(o.o, 1, ne); lmtd += sum(o.s, 1, ne); dayQ += o.o[ne]; w7 += sum(o.o, Math.max(1, ne - 6), ne); });

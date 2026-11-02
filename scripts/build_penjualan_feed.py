@@ -449,7 +449,8 @@ mc_daily_rows += [{"mc": k[0], "b": k[1], "cat": "SPI", "m": SPI_MTD_DAYS.get(k)
 tiers_out = [{"period": k[0], "b": k[1], "cat": k[2], "tier": k[3], "q": int(v[0]), "v": int(v[1]), "rows": v[2], "ids": v[3]} for k, v in sorted(tier_tot.items())]
 
 days_mtd = [date(MTD_MONTH[0], MTD_MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)]
-days_lmtd = [date(LMTD_MONTH[0], LMTD_MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)]
+import calendar
+days_lmtd = [date(LMTD_MONTH[0], LMTD_MONTH[1], d).isoformat() for d in range(1, min(CUT_DAY, calendar.monthrange(*LMTD_MONTH)[1]) + 1)]   # a 31-day cut against a 30-day month: LMTD = full month (30 days)
 feed = {
     "metadata": {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": SRC, "contract": "docs/assessments/daily_data_mobii_sellin.md",

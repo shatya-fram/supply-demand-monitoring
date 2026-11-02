@@ -2,6 +2,19 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 2 Nov 2026 · PJP, MOBII, SALMO and GA by Outlet to 31 Oct (October closed); ENDBAL snapshot 1 Nov; MOBO demand to 31 Oct (re-upload 08:50)
+| Scope | Source | Change |
+|---|---|---|
+| PJP visits | `*_visit_dse_202610__31_31.zip` (2 Nov 00:23) | Cut 30 -> **31 Oct**, 27 business days (1 Nov is a Sunday, no file). Planned 188,537 -> **197,617**, executed 151,721 -> **159,340**, hit rate 80.5 -> **80.6%**. |
+| MOBII (Sell-In) | `DAILY_DATA_MOBII_202610.xlsb` | Cut 30 -> **31 Oct**. Full October: SP Rp 3.26 B, Voucher isi 5.75 B, Voucher blank 0.93 B, Saldo 22.13 B. |
+| MOBO_SALMO | `DAILY_DATA_MOBO_SALMO_202610.xlsb` | Full October Rp **155.38 B**, 13,708 outlets (September Rp 143.39 B). |
+| MOBO (Demand) | `DAILY_DATA_MOBO_202610.xlsb` (2 Nov 08:50, re-upload) | Day 31 now complete for all categories. October total demand (RLD+VCI+CVM+PKT) Rp 115.21 -> **119.63 B** vs September Rp 106.50 B (+12.3%); the first 2 Nov file stopped at 30 Oct. |
+| GA by Outlet | `Daily_RGUGA_OUTLET_202610 (1).xlsb` (2 Nov 07:28) | Cut 27 -> **31 Oct**. IM3 156,019 -> **195,556**, 3ID 92,128 -> **128,334**. |
+| ENDBAL | snapshot 1 Nov (`endbal_20261101.zip`) | Snapshot 30 Oct -> **1 Nov**: 129,807 rows, 18,282 outlets; sell-in cut 31 Oct. |
+| Builders / audits | `build_penjualan_feed.py`, `build_ga_feed.py`, `audit_ga.js` | LMTD days clipped to the 30 days of September (cut 31 failed the refresh); GA file accepted with a browser-copy suffix ` (1)`; GA audit handles zero remaining days and a site feed that ends before the outlet file. |
+| Not updated | GA per site (MSISDN CSV), Fav Locs, Vanguard | GA site basis stays at 27 Oct, Fav Locs 26 Oct, Vanguard 29 Oct. |
+| Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,629), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment (incl. September / October / November readiness): `docs/assessments/daily_update_2026-11-02.md`. |
+
 ## 31 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 30 Oct; visits builder reads Inner Jakarta only
 | Scope | Source | Change |
 |---|---|---|
