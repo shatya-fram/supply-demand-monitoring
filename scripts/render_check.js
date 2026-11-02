@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
+for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
   require(path.join(root, 'website', 'data', f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -33,6 +33,8 @@ if (typeof global.dseVisitsFeed === 'undefined') {
 
 require(path.join(root, 'website', 'stock.js'));
 require(path.join(root, 'website', 'vanguard.js'));
+require(path.join(root, 'website', 'outlet_profile.js'));
+require(path.join(root, 'website', 'period_review.js'));
 const app = require(path.join(root, 'website', 'app.js'));
 const { VIEWS, state } = app;
 let failures = 0;
@@ -446,6 +448,41 @@ state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringk
     for (const sp of ['all', '1', '3', '5', 'lengkap']) { state.vgStep = sp; check('vanguard/' + tab + '/' + sc + '/step=' + sp, VIEWS.mb_vanguard); } }
   const wa = require(path.join(root, 'website', 'vanguard.js')).waText(state, V, V.dses[0].mc); if (!/VANGUARD 5G/.test(wa)) { console.log('FAIL vanguard waText'); failures++; }
   state.vgTab = 'brief'; state.vgDay = ''; state.vgStep = 'all'; state.branch = sv.b; state.hoa = sv.h; state.kec = sv.k; }
+// Review Periode (mb_periods): every metric x territory x trend mode renders; the shown MTD equals the archive; a simulated November (MTD Nov vs LMTD Oct vs FM Oct vs FM Sep) renders and compares like-for-like days
+{ state.view = 'mb_periods'; const PR = global.window.IJPeriods, H0 = global.window.PERIOD_HISTORY; const fm = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const brs = [...new Set(Object.values(H0.metadata.mc_area).filter(Boolean))], mcs = Object.keys(H0.metadata.mc_area);
+  const scopes = ['ALL', 'BR:' + brs[0], mcs[0]];
+  for (const mid of PR.metricsInStore(H0)) for (const sc of scopes) for (const mode of ['daily', 'cum']) { state.prMetric = mid; state.prScope = sc; state.prView = mode; state.prMonth = ''; check('periods/' + mid + '/' + sc + '/' + mode, VIEWS.mb_periods); }
+  // figure: SP pcs MTD of the latest month equals the archive sum
+  state.prMetric = 'si.SP.q'; state.prScope = 'ALL'; state.prView = 'daily'; state.prMonth = '';
+  { const ms = PR.monthsFor(H0, 'si.SP.q'), C = ms[ms.length - 1], arr = PR.dailyArr(H0, C, 'si.SP.q', 'ALL'), cut = H0.months[C].groups.sellin.cut, tot = arr.slice(0, cut).reduce((a, b) => a + (b || 0), 0);
+    const txt = VIEWS.mb_periods().replace(/<[^>]+>/g, ' '); if (txt.indexOf(fm(tot)) < 0) { console.log('✗ periods: MTD ' + fm(tot) + ' not shown'); failures++; } }
+  // a branch is the sum of its MCs
+  { const b = brs[0], ks = mcs.filter(k => H0.metadata.mc_area[k] === b), C = PR.monthsFor(H0, 'si.SP.q').slice(-1)[0], a = PR.dailyArr(H0, C, 'si.SP.q', 'BR:' + b).reduce((x, y) => x + (y || 0), 0), s2 = ks.reduce((x, k) => x + PR.dailyArr(H0, C, 'si.SP.q', k).reduce((u, v) => u + (v || 0), 0), 0);
+    if (Math.abs(a - s2) > 0.5) { console.log('✗ periods: branch ' + b + ' ' + a + ' != sum of MCs ' + s2); failures++; } }
+  // simulated November: cut 2, 30-day month after a 31-day month; LMTD = Oct 1-2, FM Oct 31 days, FM Sep from the daily series
+  { const sim = JSON.parse(JSON.stringify(H0)), oct = sim.months['2026-10'], nov = { days: 30, groups: {}, series: {}, totals: {} };
+    for (const g of Object.keys(oct.groups)) nov.groups[g] = { cut: 2, source: 'simulasi', updated: '2026-11-03' };
+    for (const mid of Object.keys(oct.series)) { nov.series[mid] = {}; for (const sc of Object.keys(oct.series[mid])) { const a = oct.series[mid][sc]; nov.series[mid][sc] = [a[0] == null ? null : a[0] * 1.1, a[1] == null ? null : a[1] * 1.1].concat(new Array(28).fill(null)); } }
+    sim.months['2026-11'] = nov; global.window.PERIOD_HISTORY = sim;
+    for (const mid of PR.metricsInStore(sim)) for (const sc of ['ALL', mcs[0]]) { state.prMetric = mid; state.prScope = sc; state.prMonth = ''; state.prView = 'daily'; check('periods/sim-nov/' + mid + '/' + sc, VIEWS.mb_periods); }
+    state.prMetric = 'si.SP.q'; state.prScope = 'ALL'; state.prMonth = ''; const html = VIEWS.mb_periods(), txt = html.replace(/<[^>]+>/g, ' ');
+    for (const w of ['MTD Nov', 'LMTD Okt', 'Full Month Okt', 'Full Month Sep']) if (txt.toLowerCase().indexOf(w.toLowerCase()) < 0) { console.log('✗ periods sim-nov: missing "' + w + '"'); failures++; }
+    const o2 = oct.series['si.SP.q'].ALL.slice(0, 2).reduce((a, b) => a + b, 0); if (txt.indexOf(fm(o2)) < 0) { console.log('✗ periods sim-nov: LMTD Oct 1-2 (' + fm(o2) + ') not shown'); failures++; }
+    global.window.PERIOD_HISTORY = H0; }
+  state.prMetric = ''; state.prScope = ''; state.prMonth = ''; state.prView = ''; }
+// Profil Outlet (mb_outlet): search by name / id, then the profile of master, hybrid and non-master outlets; the shown MTD figures equal the feeds
+{ state.view = 'mb_outlet'; const OP = global.window && global.window.IJOutletProfile || require(path.join(root, 'website', 'outlet_profile.js')); const PF = global.PENJUALAN_FEED, GF = global.GA_FEED, TF = global.TERRITORY_FEED;
+  state.opQ = ''; state.opSel = ''; check('outlet/empty', VIEWS.mb_outlet);
+  state.opQ = 'cell'; check('outlet/search-name', VIEWS.mb_outlet);
+  const hy = TF.outlets.find(o => o.brand_flag === 'HYBRID'), im = TF.outlets.find(o => o.brand_flag === 'IM3_ONLY'), nm = PF.outlets.find(o => o.tier === 'A'), ga0 = GF.outlets.find(o => o.t === 'G');
+  const picks = [hy && hy.outlet_key, im && im.outlet_key, nm && nm.k, ga0 && ga0.k, '__none__'].filter(Boolean);
+  for (const k of picks) { state.opQ = k; state.opSel = k; check('outlet/profile/' + k, VIEWS.mb_outlet); }
+  for (const o of [hy, im].filter(Boolean)) { state.opQ = o.outlet_id_im3 || o.outlet_id_3id; check('outlet/search-id/' + (o.outlet_id_im3 || o.outlet_id_3id), VIEWS.mb_outlet); if (!OP.search(state.opQ).some(x => x.r.k === o.outlet_key)) { console.log('✗ search by id does not find ' + o.outlet_key); failures++; } }
+  // figures: SP semua MOBII MTD and GA MTD on the profile equal the feed rows
+  const row = PF.outlets.find(o => o.tier === 'M' && o.c && o.c.SP && o.c.SP[0] > 0); if (row) { state.opQ = row.k; state.opSel = row.k; const html = VIEWS.mb_outlet(); const txt = html.replace(/<[^>]+>/g, ' '); const fm = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); if (txt.indexOf(fm(row.c.SP[0]) + ' pcs') < 0) { console.log('✗ outlet profile: SP MTD ' + row.c.SP[0] + ' not shown for ' + row.k); failures++; } }
+  const gr = GF.outlets.find(o => o.t === 'M' && o.o && o.o.length); if (gr) { const all = GF.outlets.filter(o => o.k === gr.k); let q = 0; all.forEach(o => { for (let i = 0; i < o.o.length; i += 2) q += o.o[i + 1]; }); state.opQ = gr.k; state.opSel = gr.k; const txt = VIEWS.mb_outlet().replace(/<[^>]+>/g, ' '); const fm = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); if (txt.indexOf('GA MTD') < 0 || txt.indexOf(fm(q) + ' pcs') < 0) { console.log('✗ outlet profile: GA MTD ' + q + ' not shown for ' + gr.k); failures++; } }
+  state.opQ = ''; state.opSel = ''; }
 // Stok Outlet (mb_stock): every level x product mix x tab, filtered and unfiltered
 { state.view = 'mb_stock'; const sv = { b: state.branch, h: state.hoa, k: state.kec };
   for (const tab of ['ringkasan', 'peta']) for (const lv of ['area', 'mc', 'kec', 'site', 'outlet']) for (const pr of ['sp', 'vc', 'sa', 'sp,vc,sa']) { state.stTab = tab; state.stLevel = lv; state.stProd = pr; state.stStat = 'all'; check('stock/' + tab + '/' + lv + '/' + pr, VIEWS.mb_stock); }

@@ -21,6 +21,7 @@ download folder needs no code change. Pure stdlib; run from anywhere.
 """
 import glob
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -98,6 +99,22 @@ def content_period(path):
     return None
 
 
+def newest_month_visits(visits):
+    """Month roll: PJP files of an earlier month stay out of the feed (the feed covers the running month; the closed month lives in data/archive and data/history)."""
+    months = {}
+    for p in visits:
+        per = content_period(p)
+        months[p] = (per[1].year, per[1].month) if per else None
+    known = [m for m in months.values() if m]
+    if not known:
+        return visits
+    newest = max(known)
+    keep = [p for p in visits if months[p] in (newest, None)]
+    if len(keep) != len(visits):
+        print(f"  PJP month roll: {len(visits) - len(keep)} visit file(s) of earlier months left out; the feed covers {newest[0]}-{newest[1]:02d} only (closed month: data/archive, data/history).")
+    return keep
+
+
 def visit_coverage(zips, warn=None):
     """Day numbers covered, taken from each report's PERIOD line (file names can be wrong); falls back to the name."""
     days = set()
@@ -143,6 +160,7 @@ def main():
     check_only = "--check" in sys.argv
     unpack_endbal_zips()
     mobii, visits = find(r"^DAILY_DATA_MOBII_.*\.xlsb$"), pick_visits()
+    visits = newest_month_visits(visits)
     mobo_all = find(r"^DAILY_DATA_MOBO_\d{6}.*\.xlsb$")      # SALMO files do not match (no month right after MOBO_)
     tags = sorted({re.match(r"^DAILY_DATA_MOBO_(\d{6})", os.path.basename(p)).group(1) for p in mobo_all})
     cur_tag = tags[-1] if tags else None                      # the newest month in the file names is the running month, the one before it is the closed month
@@ -205,6 +223,15 @@ def main():
         return 1
 
     py = sys.executable
+    try:   # month roll: freeze the closing month before any builder overwrites it
+        _m = re.search(r"_(\d{4})(\d{2})", os.path.basename(mobii[0]))
+        _feed = json.load(open("data/processed/penjualan_feed.json"))["metadata"]["cut"][:7]
+        if _m and f"{_m.group(1)}-{_m.group(2)}" > _feed:
+            print(f"\nMonth roll detected ({_feed} -> {_m.group(1)}-{_m.group(2)}): archiving {_feed} first")
+            subprocess.run([py, "scripts/build_period_history.py"], check=False)
+            subprocess.run([py, "scripts/archive_month_close.py", _feed], check=False)
+    except Exception as e:  # noqa: BLE001
+        print("  month-roll archive skipped:", e)
     env = {"MOBII_SRC": mobii[0], "MOBO_SRC": mobo[0], "VISIT_ZIPS": os.pathsep.join(visits)}
     if mobo_lm:
         env["MOBO_LM_SRC"] = mobo_lm[0]
@@ -231,6 +258,8 @@ def main():
         steps.append(("STOCK · Stok Outlet Over / Par / Low (KRO + ENDBAL)", [py, "scripts/build_stock_feed.py"]))
     if glob.glob(os.path.join("raw", "Vanguard", "*Flag*Step1-5*.xlsx")) and glob.glob(os.path.join("raw", "Vanguard", "*OutletMapping*Step1-5*.xlsx")):   # Vanguard 5G: needs territory master + weekly PJP feed
         steps.append(("VANGUARD · 5G site Step 1-5, site -> DSE and the 3-site daily plan", [py, "scripts/build_vanguard_feed.py"]))
+    steps.append(("PERIOD · history archive (daily series per month, MTD / LMTD / FM review)", [py, "scripts/build_period_history.py"]))
+    steps.append(("Audit · period history vs feeds", [py, "scripts/audit_period_history.py"]))
     if "--no-render" not in sys.argv and shutil.which("node"):
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
         steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))

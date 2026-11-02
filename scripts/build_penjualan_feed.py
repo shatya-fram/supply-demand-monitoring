@@ -41,8 +41,16 @@ OUT_JS = "website/data/penjualan_feed.js"
 OUT_JSON = "data/processed/penjualan_feed.json"
 
 CUT_DAY = None                     # ditentukan otomatis: hari MTD terakhir yang punya data (12 pada ekspor 13 Okt, 13 pada refresh 14 Okt)
-MTD_MONTH, LMTD_MONTH = (2026, 10), (2026, 9)
-LMTD_FULL_DAYS = 30
+def _month_of(path, default):   # DAILY_DATA_MOBII_YYYYMM.xlsb names its month; the workbook carries that month (MTD) and the one before (LMTD / FM)
+    m = re.search(r"_(\d{4})(\d{2})(?!\d)", os.path.basename(path))
+    return (int(m.group(1)), int(m.group(2))) if m and 1 <= int(m.group(2)) <= 12 else default
+
+
+MTD_MONTH = _month_of(SRC, (2026, 10))
+LMTD_MONTH = (MTD_MONTH[0], MTD_MONTH[1] - 1) if MTD_MONTH[1] > 1 else (MTD_MONTH[0] - 1, 12)
+import calendar
+LMTD_FULL_DAYS = calendar.monthrange(*LMTD_MONTH)[1]   # 30 for Sep, 31 for Oct
+MTD_MONTH_DAYS = calendar.monthrange(*MTD_MONTH)[1]
 BLANK_PRICE = {"IM3": 500, "3ID": 300}
 CATS = {"SP": "Starter Pack", "VCF": "Voucher isi", "VCB": "Voucher blank", "SALMO": "Saldo Mobo"}
 OUTSIDE = "OUTSIDE MASTER TERRITORY"
@@ -454,7 +462,7 @@ days_lmtd = [date(LMTD_MONTH[0], LMTD_MONTH[1], d).isoformat() for d in range(1,
 feed = {
     "metadata": {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": SRC, "contract": "docs/assessments/daily_data_mobii_sellin.md",
-        "cut": days_mtd[-1], "cut_day": CUT_DAY, "days_mtd": days_mtd, "days_lmtd": days_lmtd, "lmtd_full_days": LMTD_FULL_DAYS, "mtd_month_days": 31,
+        "cut": days_mtd[-1], "cut_day": CUT_DAY, "days_mtd": days_mtd, "days_lmtd": days_lmtd, "lmtd_full_days": LMTD_FULL_DAYS, "mtd_month_days": MTD_MONTH_DAYS,
         "blank_price": BLANK_PRICE, "categories": dict(CATS, SPI="SP Injection"), "spi": spi_meta,
         "blank_file": {f"{k[0]}|{k[1]}": {kk: int(vv) for kk, vv in v.items()} for k, v in blank_file.items()},
         "sanity_note": "Sheet Sanity_Check di file yang sama menjumlahkan SEMUA baris (outlet + node alokasi + node lain) dengan nilai blank apa adanya; tab Ringkasan memuat rekonsiliasinya.",

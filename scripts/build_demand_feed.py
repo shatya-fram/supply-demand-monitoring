@@ -55,7 +55,10 @@ TERRITORY = "website/data/territory_feed.js"
 PENJUALAN_JSON = "data/processed/penjualan_feed.json"
 OUT_JS = "website/data/demand_feed.js"
 OUT_JSON = "data/processed/demand_feed.json"
-MONTH = (2026, 10)
+_MM = re.search(r"DAILY_DATA_MOBO_(\d{4})(\d{2})", os.path.basename(next((c for c in SRC_CANDIDATES if os.path.exists(c)), SRC_CANDIDATES[0])))
+MONTH = (int(_MM.group(1)), int(_MM.group(2))) if _MM and 1 <= int(_MM.group(2)) <= 12 else (2026, 10)   # the running month is the one named by the MOBO file
+import calendar
+MONTH_DAYS = calendar.monthrange(*MONTH)[1]
 _PY, _PM = (MONTH[0], MONTH[1] - 1) if MONTH[1] > 1 else (MONTH[0] - 1, 12)
 LM_TAG = f"{_PY}{_PM:02d}"
 LM_SRC = os.environ.get("MOBO_LM_SRC") or next(iter(sorted(
@@ -586,7 +589,7 @@ feed = {
     "metadata": {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": src, "contract": "docs/assessments/daily_data_mobo_demand.md",
         "cut": date(MONTH[0], MONTH[1], CUT_DAY).isoformat(), "cut_day": CUT_DAY,
-        "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": 31,
+        "days": [date(MONTH[0], MONTH[1], d).isoformat() for d in range(1, CUT_DAY + 1)], "mtd_month_days": MONTH_DAYS,
         "categories": {**CATS, "SAL": "Saldo Mobo (SALMO)"}, "salmo": sal_meta, "spi_dedup": {"source": SPI_DUP["source"], "mtd_pcs": SPI_DUP["mtd"]["pcs"], "mtd_value": SPI_DUP["mtd"]["value"], "mtd_rows": SPI_DUP["mtd"]["rows"], "lm_pcs": SPI_DUP["lm"]["pcs"], "lm_value": SPI_DUP["lm"]["value"], "rule": "same outlet id + product + day in MOBII SP and MOBO SP_INJECTION with equal qty (|diff| <= max(3, 1%)) = one movement recorded twice; MOBII sell-in kept, MOBO injection dropped (owner, 27 Oct 2026)"}, "lm": {**lm_meta, "spi_mc_daily": {f"{k[0]}|{k[1]}": [[int(x[0]), int(x[1])] for x in v[1:31]] for k, v in spi_lm_mc.items()}, "daily": {c: [int(x) for x in lm_daily[c][1:31]] for c in list(CATS) + ["SAL"]}, "daily_hits": {c: [int(x) for x in lm_dailyq[c][1:31]] for c in CATS}, "salmo": lm_sal_meta}, "value_categories": [v[0] for v in SHEETS.values() if v[2]],
         "row_fields": {"bv": "[Rp IM3, Rp 3ID] nilai demand per brand id outlet (outlet master yang punya kedua id tidak lagi dikaitkan ke satu brand saja)"},
         "fact_columns": ["mq (hits)", "mv (Rp)", "last_day", "active_days", "md [[day, value, qty]]"],

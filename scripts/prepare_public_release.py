@@ -25,7 +25,7 @@ OUT = os.path.join(ROOT, 'dist-public')
 
 INCLUDE_DIRS = ['website', 'data', 'scripts', 'docs']
 INCLUDE_FILES = ['CLAUDE.md', '.gitignore']
-EXCLUDE_PREFIXES = ('.claude/', '.agents/', 'Brand Guide/', 'dist/', 'raw/')
+EXCLUDE_PREFIXES = ('.claude/', '.agents/', 'Brand Guide/', 'dist/', 'raw/', 'data/archive/')   # data/archive = outlet-level month closes (internal)
 EXCLUDE_FILES = {'GEMINI.md', 'Performance_Sell_In_GA_Dashboard(2).html'}
 TEXT_EXT = ('.json', '.js', '.csv', '.md', '.html', '.py', '.txt', '.yml', '.yaml', '.css')
 

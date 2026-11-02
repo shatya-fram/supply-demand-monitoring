@@ -67,6 +67,8 @@
       mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution ' + cutDist() + ' ' + Y,
       mb_endbal: 'ENDBAL ' + cutEndbal() + ' · Sell-In saldo ' + S + ' ' + Y,
       mb_vanguard: 'Vanguard ' + ((window.VANGUARD && window.VANGUARD.metadata) ? window.VANGUARD.metadata.snapshot_date : 'n/a') + ' · PJP ' + pjpPeriod('end'),
+      mb_outlet: 'Sell-In ' + S + ' · GA ' + G + ' · PJP ' + P,
+      mb_periods: 'Arsip performa harian · Sell-In ' + S + ' · GA ' + G + ' · PJP ' + P,
       mb_stock: 'Sell-In ' + S + ' · Demand ' + D + ' · GA ' + G + ' · ENDBAL ' + cutEndbal(),
       cfg_target: 'Target Oktober ' + Y + ' · pencapaian cut ' + S,
       cfg_pjp: 'Template PJP mingguan · mapping permanen',
@@ -121,6 +123,8 @@
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
     cfg_target: ['Konfigurasi · Target Setting', 'Target resmi per DSE untuk dua KPI, Sell-In SP dan OSA (IM3, 3ID, IOH), diagregasi ke MC, Area dan Region, dibandingkan dengan pencapaian MTD.'],
     mb_vanguard: ['Morning DSE Briefing · Vanguard 5G', 'Briefing pagi DSO ke DSE: 3 site 5G per hari di sela PJP, Step 1 Speed test 5G, 2 Outlet engagement, 3 Outlet branding, 4 Outlet advocacy, 5 Street branding, sinkron dengan file Vanguard.'],
+    mb_periods: ['Morning DSE Briefing · Review Periode', 'MTD bulan berjalan vs LMTD bulan lalu vs Full Month dua bulan terakhir, dengan tren harian dan kumulatif dari arsip performa bulanan (Sell-In, Demand, GA, PJP).'],
+    mb_outlet: ['Morning DSE Briefing · Profil Outlet', 'Cari outlet berdasarkan ID (IM3, 3ID, IOH) atau nama: profil Sell-In (qty dan produk teratas), GA dan kunjungan PJP dalam satu halaman.'],
     mb_stock: ['Morning DSE Briefing · Stok Outlet · Over / Par / Low', 'Sell-in dan sell-out SP, Voucher dan Saldo (September penuh, Oktober MTD) dengan estimasi sisa stok per Outlet, Site, Kecamatan, MC, Area dan Region, plus peta poligon Over (hijau), Par (kuning) dan Low (merah).'],
     mb_endbal: ['Morning DSE Briefing · END BALANCE Outlet', 'Stok saldo penutupan outlet (ENDBAL) per outlet, site, MC, DSO dan DSE: outlet zero stock, slab balance, inventory days, dan sell-in saldo hari kerja terakhir.'],
     mb_ringkasan: ['Morning DSE Briefing · Ringkasan Performance', 'DSE Productivity (KPI DSE Oct 2026: OSA, SP Data Sell In, compliance), ringkasan PJP, penjualan, demand, dan heat map teritori.'],
@@ -301,6 +305,8 @@
     pjSlabCom: 'SP',
     pjSlabEntity: 'outlet',
     opTab: 'program',
+    opQ: '',
+    opSel: '',
     opProgram: 'uar',
     opPage: 1,
     opZeroCat: 'all',
@@ -10682,10 +10688,12 @@
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
   function stockApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, dkTag: dkTag, scopeText: scopeText, grpBody: grpBody, grpBar: grpBar }; }
-  function vanguardApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
+  function vanguardApi() { return { render: render, state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
   function viewVanguard() { return (typeof window !== 'undefined' && window.IJVanguard) ? window.IJVanguard.view(vanguardApi()) : card('Vanguard 5G', '<p class="note">Modul vanguard.js belum dimuat.</p>'); }
+  function outletProfileApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount }; }
+  function viewOutletProfile() { return (typeof window !== 'undefined' && window.IJOutletProfile) ? window.IJOutletProfile.view(outletProfileApi()) : card('Profil Outlet', '<p class="note">Modul outlet_profile.js belum dimuat.</p>'); }
   function viewStock() { return (typeof window !== 'undefined' && window.IJStock) ? window.IJStock.view(stockApi()) : card('Stok Outlet', '<p class="note">Modul stock.js belum dimuat.</p>'); }
-  var VIEWS = { brief: viewBrief, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
@@ -10694,6 +10702,8 @@
   /* ================= Global DSE filter (header): MC -> DSE with code, plus search by DSE name or code ================= */
   var DSE_DIR = null;
   function dseNorm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
+  function periodsApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, toggleHtml: toggle }; }
+  function viewPeriods() { return (typeof window !== 'undefined' && window.IJPeriods) ? window.IJPeriods.view(periodsApi()) : card('Review Periode', '<p class="note">Modul period_review.js belum dimuat.</p>'); }
   function dseDir() {
     if (DSE_DIR) return DSE_DIR;
     var map = {}, T = (typeof window !== 'undefined') ? window.TERRITORY_FEED : null, K = (typeof window !== 'undefined') ? window.DSE_KPI_FEED : null, V = mbVisitsFeed();
@@ -11491,6 +11501,7 @@
     else if (t.hasAttribute('data-pj-out-toggle')) { var ok_ = t.getAttribute('data-pj-out-toggle'); state.pjOutOpen = state.pjOutOpen || {}; state.pjOutOpen[ok_] = !pjOutOpen(ok_, ok_.charAt(0)); }
     else if (t.hasAttribute('data-grp-toggle')) { var gk_ = t.getAttribute('data-grp-toggle'); state.grpOpen = state.grpOpen || {}; state.grpOpen[gk_] = t.getAttribute('aria-expanded') !== 'true'; }
     else if (t.hasAttribute('data-vg')) { if (window.IJVanguard) window.IJVanguard.click(t.getAttribute('data-vg'), vanguardApi()); }
+    else if (t.hasAttribute('data-opf')) { if (window.IJOutletProfile) window.IJOutletProfile.click(t.getAttribute('data-opf'), outletProfileApi()); }
     else if (t.hasAttribute('data-st')) { if (window.IJStock) window.IJStock.click(t.getAttribute('data-st'), stockApi()); }
     else if (t.getAttribute('data-act') === 'grp-all') { var gt_ = t.getAttribute('data-t'); state.grpAll = state.grpAll || {}; state.grpAll[gt_] = t.getAttribute('data-v'); Object.keys(state.grpOpen || {}).forEach(function (k) { if (k.indexOf(gt_ + '|') === 0) delete state.grpOpen[k]; }); }
     else if (t.getAttribute('data-act') === 'pj-out-all') { state.pjOutAll = t.getAttribute('data-v'); state.pjOutOpen = {}; }
@@ -11529,6 +11540,7 @@
     else if (t.hasAttribute('data-visits-level')) {
       state.visitsLevel = t.getAttribute('data-visits-level');
       state.visitsPage = 1;
+    else if (t.hasAttribute('data-prv')) { if (window.IJPeriods) window.IJPeriods.click(t.getAttribute('data-prv'), periodsApi()); }
     }
     else if (t.getAttribute('data-act') === 'clear-visits-dse') {
       state.visitsDse = null;
@@ -11618,6 +11630,7 @@
     if (e.target && e.target.getAttribute && e.target.hasAttribute('data-map-layer')) {
       var ml = e.target.getAttribute('data-map-layer');
       if (ml === 'branch') state.mapShowBranches = e.target.checked;
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-prv-in') && window.IJPeriods) { window.IJPeriods.change(e.target, periodsApi()); render(); return; }
       else if (ml === 'mc') state.mapShowMcs = e.target.checked;
       else if (ml === 'kec') state.mapShowKec = e.target.checked;
       else if (ml === 'site') state.mapShowSites = e.target.checked;
@@ -11676,6 +11689,11 @@
     if (e.target && e.target.id === 'pmSearchInput') {
       state.pmSearch = e.target.value; render();
       var pmi = document.getElementById('pmSearchInput'); if (pmi) { pmi.focus(); pmi.setSelectionRange(pmi.value.length, pmi.value.length); }
+      return;
+    }
+    if (e.target && e.target.id === 'opfSearchInput' && window.IJOutletProfile) {
+      window.IJOutletProfile.input(e.target, outletProfileApi()); render();
+      var opi = document.getElementById('opfSearchInput'); if (opi) { opi.focus(); opi.setSelectionRange(opi.value.length, opi.value.length); }
       return;
     }
     if (e.target && e.target.id === 'kroWlInput') { state.kroWlText = e.target.value; return; }
@@ -11833,7 +11851,7 @@
   var RT_VIEW_TABS = {
     territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_vanguard: ['vgTab', 'vgDay', 'vgLevel', 'vgStep'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
-    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], sellin: ['sellinTab', 'sellinUar']
+    mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], mb_outlet: ['opQ', 'opSel'], mb_periods: ['prMetric', 'prScope', 'prMonth', 'prView'], sellin: ['sellinTab', 'sellinUar']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];
   var RT_DEFAULTS = null, RT_LAST_VIEW = null;
