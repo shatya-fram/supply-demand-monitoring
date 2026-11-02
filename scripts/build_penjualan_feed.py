@@ -198,6 +198,28 @@ print("   sumber:", SRC)
 print("   sheet:", list(sheets))
 
 
+def _prev_mobii():
+    """The workbook of the month before (e.g. DAILY_DATA_MOBII_202610.xlsb): from November 2026 the running month's workbook carries MTD_* sheets only,
+    so LMTD / Full Month come from the closed month's own MTD_* sheets (MOBII_LM_SRC overrides; newest copy wins)."""
+    if os.environ.get("MOBII_LM_SRC"):
+        return os.environ["MOBII_LM_SRC"]
+    tag = "%04d%02d" % LMTD_MONTH
+    hits = [os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBII_" + tag + r"[^A-Za-z]*\.xlsb$", f, re.I)]
+    return next(iter(sorted(hits, key=os.path.getmtime, reverse=True)), None)
+
+
+if not any(k.startswith("LMTD_") for k in sheets):
+    _lm = _prev_mobii()
+    if _lm and os.path.abspath(_lm) != os.path.abspath(SRC):
+        print("   workbook has no LMTD_* sheets; LMTD / FM taken from the MTD_* sheets of", _lm)
+        for _k, _v in read_xlsb(_lm).items():
+            if _k.startswith("MTD_"):
+                sheets["LMTD_" + _k[4:]] = _v
+        LMTD_SRC_USED = _lm
+    else:
+        print("   WARNING: no LMTD_* sheets and no", "%04d%02d" % LMTD_MONTH, "workbook: LMTD and Full Month are empty (n/a)")
+
+
 def day_cols(hdr):
     """qty/hits per day: HITS_xx (ekspor lama) atau DT_xx (refresh 14 Okt); amount per day: AMOUNT_xx."""
     hits = {d: (hdr.get(f"HITS_{d:02d}") if hdr.get(f"HITS_{d:02d}") is not None else hdr.get(f"DT_{d:02d}")) for d in range(1, 32)}
@@ -462,7 +484,7 @@ days_lmtd = [date(LMTD_MONTH[0], LMTD_MONTH[1], d).isoformat() for d in range(1,
 feed = {
     "metadata": {
         "generated_at": datetime.now().isoformat(timespec="seconds"), "source": SRC, "contract": "docs/assessments/daily_data_mobii_sellin.md",
-        "cut": days_mtd[-1], "cut_day": CUT_DAY, "days_mtd": days_mtd, "days_lmtd": days_lmtd, "lmtd_full_days": LMTD_FULL_DAYS, "mtd_month_days": MTD_MONTH_DAYS,
+        "lm_source": globals().get("LMTD_SRC_USED"), "cut": days_mtd[-1], "cut_day": CUT_DAY, "days_mtd": days_mtd, "days_lmtd": days_lmtd, "lmtd_full_days": LMTD_FULL_DAYS, "mtd_month_days": MTD_MONTH_DAYS,
         "blank_price": BLANK_PRICE, "categories": dict(CATS, SPI="SP Injection"), "spi": spi_meta,
         "blank_file": {f"{k[0]}|{k[1]}": {kk: int(vv) for kk, vv in v.items()} for k, v in blank_file.items()},
         "sanity_note": "Sheet Sanity_Check di file yang sama menjumlahkan SEMUA baris (outlet + node alokasi + node lain) dengan nilai blank apa adanya; tab Ringkasan memuat rekonsiliasinya.",

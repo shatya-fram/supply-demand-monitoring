@@ -41,7 +41,7 @@ for cat in ("RLD", "VCI", "CVM", "PKT", "SAL", "SPI"):
     fv = sum(((o.get("l") or {}).get(cat) or [0, 0, 0, 0])[3] for o in d["outlets"])
     chk("demand %s Rp FM %s" % (cat, pk), t.get("fm", 0), fv)
 g = json.load(open("data/processed/ga_feed.json"))
-for key, fld in ((ck, "o"), (pk, "s")):
+for key, fld in ((g["metadata"]["months"]["cur"], "o"), (g["metadata"]["months"]["prev"], "s")):   # the GA feed can sit on an earlier month than Sell-In (GA builder is not month-aware yet)
     chk("ga %s" % key, tot(key, "ga.q"), sum(sum(o.get(fld, [])[1::2]) for o in g["outlets"]))
 # the MC series add up to ALL for rows that have an MC; ALL is never smaller
 for key, m in S["months"].items():
@@ -68,7 +68,7 @@ n += 1
 if store2["months"]["2026-10"]["groups"]["sellin"]["cut"] != 31 or abs(sum(x or 0 for x in store2["months"]["2026-10"]["series"]["si.SP.q"]["ALL"]) - tot("2026-10", "si.SP.q")) > 0.5:
     fails.append("roll: October sell-in changed or shrank")
 n += 1
-if abs(sum(x or 0 for x in store2["months"]["2026-11"]["series"]["si.SP.q"]["ALL"]) - 1.1 * sum((x or 0) for x in S["months"]["2026-10"]["series"]["si.SP.q"]["ALL"][:2])) > 1:
+if abs(sum(x or 0 for x in store2["months"]["2026-11"]["series"]["si.SP.q"]["ALL"]) - sum(r["m"][d][0] for r in fake["mc_daily"] if r["cat"] == "SP" for d in range(2))) > 1:
     fails.append("roll: November MTD not as in the feed")
 n += 1   # a partial feed must not shrink an archived month
 fake["metadata"]["cut"], fake["metadata"]["cut_day"] = "2026-10-20", 20

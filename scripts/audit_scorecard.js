@@ -70,9 +70,9 @@ function audit(scope) {
   near(scope, 'sp_mtd', 'SP MTD', num(D.sp_mtd.value), sum(rows, 'SP', 0), 0.0001);
   near(scope, 'sal_mtd', 'SALMO MTD (Rp)', rp(D.sal_mtd.value), sum(rows, 'SALMO', 1), 0.006);
   s = D.sal_mtd.delta.match(/vs LMTD (Rp [\d.,]+ \w+)/); near(scope, 'sal_mtd', 'SALMO LMTD (Rp)', rp(s[1]), sum(rows, 'SALMO', 3), 0.006);
-  { const dl = P.metadata.days_mtd, nsun = dl.map((d, i) => [d, i]).filter(x => new Date(x[0] + 'T00:00:00Z').getUTCDay() !== 0), w = nsun[nsun.length - 1][0], prev = nsun[nsun.length - 2][0];
+  { const dl = P.metadata.days_mtd, nsun = dl.map((d, i) => [d, i]).filter(x => new Date(x[0] + 'T00:00:00Z').getUTCDay() !== 0), w = nsun[nsun.length - 1][0], prev = (nsun[nsun.length - 2] || [null])[0];   // the first working day of a month has no previous working day: the Δ check is skipped
     const day = (arr, cat, d, ix) => arr.reduce((a, o) => a + (((o.c[cat] || [])[10] || []).filter(e => e[0] === +d.slice(8)).reduce((p, e) => p + e[ix], 0)), 0);
-    near(scope, 'sp_d1', 'SP D-1 pcs', num(D.sp_d1.value), day(rows, 'SP', w, 2), 0.0001); s = D.sp_d1.delta.match(/Δ ([+\-−]?[\d,]+)/); near(scope, 'sp_d1', 'Δ vs hari kerja sebelumnya', num(s[1].replace('−', '-')), day(rows, 'SP', w, 2) - day(rows, 'SP', prev, 2), 0.0001); }
+    if (prev) { near(scope, 'sp_d1', 'SP D-1 pcs', num(D.sp_d1.value), day(rows, 'SP', w, 2), 0.0001); s = D.sp_d1.delta.match(/Δ ([+\-−]?[\d,]+)/); near(scope, 'sp_d1', 'Δ vs hari kerja sebelumnya', num(s[1].replace('−', '-')), day(rows, 'SP', w, 2) - day(rows, 'SP', prev, 2), 0.0001); } }
   // ---- GA
   const gl = G.outlets.filter(r => inS(r.br, r.mc, (G.metadata.mc_info[r.mc] || {}).hoa));
   const tot = a => a.reduce((x, r) => x + (r.o ? r.o.filter((v, i) => i % 2).reduce((p, q) => p + q, 0) : 0), 0), gaCut = G.metadata.cut_day;

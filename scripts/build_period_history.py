@@ -121,7 +121,7 @@ def from_penjualan():
     cur, prev = M(cur_key), M(pk)
     cut = md["cut_day"]
     cur.cut["sellin"] = cut
-    prev.cut["sellin"] = prev.days   # last month is closed
+    prev.cut["sellin"] = min(cut, prev.days)   # the feed carries last month as LMTD only (days 1..cut); the full month is the stored one, never replaced by a shorter LMTD
     cur.src["sellin"] = prev.src["sellin"] = md.get("source", "")
     mcs = set()
     for r in p["mc_daily"]:
@@ -145,8 +145,8 @@ def from_penjualan():
     mids = [m for m in METRICS if m.startswith("si.")]
     scopes = ["ALL"] + sorted(s for s in mcs if s)
     cur.fill_zero(mids, scopes, cut)
-    prev.fill_zero(mids, scopes, prev.days)
-    for mo, upto in ((cur, cut), (prev, prev.days)):   # days after the cut are not data yet
+    prev.fill_zero(mids, scopes, prev.cut["sellin"])
+    for mo, upto in ((cur, cut), (prev, prev.cut["sellin"])):   # days after the cut are not data yet
         for mid in mids:
             for sc in scopes:
                 row = mo.series[mid][sc]

@@ -179,10 +179,14 @@ print("[2/4] Membaca", src)
 sheets = read_xlsb(src)
 print("   sheet:", {k: max(len(v) - 1, 0) for k, v in sheets.items()})
 
+ID_COLS = ("id_outlet", "organization_id")      # the November 2026 MOBO / SALMO workbooks name the outlet column organization_id (same ids as id_outlet: 98.8% of October ids)
+PN_COLS = ("productname", "product_name")
+
+
 def _sig_rows(rows):
     """{(id_outlet, productname): tuple of all day values} for one MOBO sheet."""
     hdr = {c: str(v).strip().lower() for c, v in rows[0].items()}
-    c_id = next(c for c, v in hdr.items() if v == "id_outlet"); c_pn = next(c for c, v in hdr.items() if v == "productname")
+    c_id = next(c for c, v in hdr.items() if v in ID_COLS); c_pn = next(c for c, v in hdr.items() if v in PN_COLS)
     vc = [c for c, v in sorted(hdr.items()) if re.match(r"^(hits|dt|amount)_\d+$", v)]
     return c_id, c_pn, vc
 
@@ -296,6 +300,11 @@ _msrc = _mobii_src()
 if _msrc:
     SPI_DUP["source"] = _msrc
     _ms = read_xlsb(_msrc)
+    if "LMTD_SP" not in _ms:   # from November 2026 the MOBII workbook has MTD_* sheets only: last month's own MTD_SP is the LMTD / Full Month side of the de-duplication
+        _lmw = os.environ.get("MOBII_LM_SRC") or next(iter(sorted((os.path.join(dp, f) for dp, _d, fn in os.walk("raw") for f in fn if re.match(r"^DAILY_DATA_MOBII_" + LM_TAG + r"[^A-Za-z]*\.xlsb$", f, re.I)), key=os.path.getmtime, reverse=True)), None)
+        if _lmw and os.path.abspath(_lmw) != os.path.abspath(_msrc):
+            print("   SP Injection de-duplication LMTD side from", _lmw)
+            _ms["LMTD_SP"] = read_xlsb(_lmw).get("MTD_SP")
     for _sh, _key in (("MTD_SP", "MTD"), ("LMTD_SP", "LMTD")):
         _rows = _ms.get(_sh)
         if not _rows or len(_rows) < 2:
@@ -327,8 +336,8 @@ for sname, (code, label, has_val) in SHEETS.items():
         print(f"   lewati {sname} (kosong)")
         continue
     hdr = {c: str(v).strip() for c, v in rows[0].items()}
-    c_id = next(c for c, v in hdr.items() if v.lower() == "id_outlet")
-    c_pn = next(c for c, v in hdr.items() if v.lower() == "productname")
+    c_id = next(c for c, v in hdr.items() if v.lower() in ID_COLS)
+    c_pn = next(c for c, v in hdr.items() if v.lower() in PN_COLS)
     hits, amts = day_cols(hdr, "hits"), day_cols(hdr, "amt")
     for r in rows[1:]:
         oid = norm_id(r.get(c_id))
@@ -379,7 +388,7 @@ if SALMO_SRC and os.path.exists(SALMO_SRC):
     print("   MOBO_SALMO:", SALMO_SRC)
     srows = next(iter(read_xlsb(SALMO_SRC).values()))
     hdr = {c: str(v).strip() for c, v in srows[0].items()}
-    c_id = next(c for c, v in hdr.items() if v.lower() == "id_outlet")
+    c_id = next(c for c, v in hdr.items() if v.lower() in ID_COLS)
     dcols = {int(m.group(1)): c for c, v in hdr.items() for m in [re.match(r"^DT_(\d{1,2})$", v, re.I)] if m}
     for r in srows[1:]:
         oid = norm_id(r.get(c_id))
@@ -442,8 +451,8 @@ if LM_SRC and os.path.exists(LM_SRC):
             print(f"   lewati {sname} bulan lalu (kosong)")
             continue
         hdr = {c: str(v).strip() for c, v in rows[0].items()}
-        c_id = next(c for c, v in hdr.items() if v.lower() == "id_outlet")
-        c_pn = next(c for c, v in hdr.items() if v.lower() == "productname")
+        c_id = next(c for c, v in hdr.items() if v.lower() in ID_COLS)
+        c_pn = next(c for c, v in hdr.items() if v.lower() in PN_COLS)
         hits, amts = day_cols(hdr, "hits"), day_cols(hdr, "amt")
         for r in rows[1:]:
             oid = norm_id(r.get(c_id))
@@ -509,7 +518,7 @@ if SALMO_LM_SRC and os.path.exists(SALMO_LM_SRC):
     print("   MOBO_SALMO bulan lalu:", SALMO_LM_SRC)
     _sr = next(iter(read_xlsb(SALMO_LM_SRC).values()))
     _h = {c: str(v).strip() for c, v in _sr[0].items()}
-    _cid = next(c for c, v in _h.items() if v.lower() == "id_outlet")
+    _cid = next(c for c, v in _h.items() if v.lower() in ID_COLS)
     _dc = {int(m.group(1)): c for c, v in _h.items() for m in [re.match(r"^DT_(\d{1,2})$", v, re.I)] if m}
     _seen = defaultdict(int)
     for r in _sr[1:]:

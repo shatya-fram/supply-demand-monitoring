@@ -64,7 +64,7 @@
       var s = 0, got = false; scopeKeys(h, scope).forEach(function (k) { var x = mo.totals[mid][k]; if (x && x.fm != null) { s += x.fm; got = true; } });
       if (got) return { v: s, nulls: 0, totalsOnly: true };
     }
-    return { v: null, note: 'hanya total, tanpa seri harian' };
+    return { v: null, note: mo.totals[mid] ? 'hanya total, tanpa seri harian' : 'tidak ada data untuk metrik ini di bulan itu' };
   }
 
   /* ---- period model: MTD (C), LMTD (C-1, same days), FM (C-1), FM (C-2) ---- */
@@ -171,7 +171,7 @@
     var proj = (m.v != null && !p.closed && p.cut > 0) ? m.v / p.cut * p.cDays : null;
     var perDay = function (v, d) { return (v != null && d > 0) ? F(v / d) + ' / hari' : 'n/a'; };
     var c1 = api.kpi('MTD ' + mShort(p.C) + ' (1–' + p.cut + ')', F(m.v),
-      gTag(growth(m.v, l.v)) + ' vs LMTD ' + mShort(p.P) + ' · ' + gTag(growth(m.v, f1.v != null ? f1.v : null)) + ' vs FM ' + mShort(p.P),
+      gTag(growth(m.v, l.v)) + ' vs LMTD ' + mShort(p.P) + ' · ' + (p.closed ? gTag(growth(m.v, f1.v != null ? f1.v : null)) + ' vs FM ' : gTag(growth(m.v != null && p.cut - m.nulls > 0 ? m.v / (p.cut - m.nulls) : null, f1.v != null ? f1.v / nDays(p.P) : null)) + ' per hari vs FM ') + mShort(p.P),
       growth(m.v, l.v) == null || growth(m.v, l.v) >= 0 ? 'up' : 'down',
       perDay(m.v, p.cut - m.nulls) + (m.nulls ? ' · ' + m.nulls + ' hari tanpa data' : '') +
       (p.cut !== p.lcut && m.v != null && l.v != null ? ' · per hari vs LMTD ' + gTag(growth(m.v / p.cut, l.v / p.lcut)) + ' (' + p.cut + ' vs ' + p.lcut + ' hari)' : '') + (p.closed ? ' · bulan penuh' : ' · proyeksi akhir bulan ' + F(proj) + ' (× ' + p.cDays + ' hari)'));
