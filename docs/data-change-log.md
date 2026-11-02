@@ -12,7 +12,8 @@ One entry per data refresh: what arrived in `raw/`, what changed in the feeds, w
 | GA by Outlet | `Daily_RGUGA_OUTLET_202610 (1).xlsb` (2 Nov 07:28) | Cut 27 -> **31 Oct**. IM3 156,019 -> **195,556**, 3ID 92,128 -> **128,334**. |
 | ENDBAL | snapshot 1 Nov (`endbal_20261101.zip`) | Snapshot 30 Oct -> **1 Nov**: 129,807 rows, 18,282 outlets; sell-in cut 31 Oct. |
 | Builders / audits | `build_penjualan_feed.py`, `build_ga_feed.py`, `audit_ga.js` | LMTD days clipped to the 30 days of September (cut 31 failed the refresh); GA file accepted with a browser-copy suffix ` (1)`; GA audit handles zero remaining days and a site feed that ends before the outlet file. |
-| Not updated | GA per site (MSISDN CSV), Fav Locs, Vanguard | GA site basis stays at 27 Oct, Fav Locs 26 Oct, Vanguard 29 Oct. |
+| GA per site | `rguga_daily_outlet_202610.csv` (2 Nov 09:12) | Cut 27 -> **31 Oct**, 2,684,853 MSISDN rows. GA at Inner Jakarta sites 212,541 -> **287,550**, 5,606 sites. 30-31 Oct daily GA is lower in both GA files (outlet file 18,152 and 13,009 vs about 22,000): confirm with Victor that these days are final. |
+| Not updated | Fav Locs, Vanguard | Fav Locs 26 Oct, Vanguard 29 Oct. |
 | Checks | | `render_check`, `audit_scorecard` (164), `audit_ga` (3,629), `audit_consistency` (278), `audit_kro`, `audit_sp` (16), `audit_dse_catalogue`, `audit_entity` pass. Assessment (incl. September / October / November readiness): `docs/assessments/daily_update_2026-11-02.md`. |
 
 ## 31 Oct 2026 · PJP visits, MOBII, MOBO, SALMO and ENDBAL to 30 Oct; visits builder reads Inner Jakarta only

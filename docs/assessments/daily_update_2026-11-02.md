@@ -93,3 +93,12 @@ PJP tidak punya baseline September di aplikasi; ini bukan kehilangan data melain
 - Semua audit lolos lagi: `audit_scorecard` 164, `audit_ga` 3.629, `audit_consistency` 278, `audit_kro`, `audit_sp` 16, `audit_dse_catalogue`, `audit_entity`, `render_check`.
 - File lain tidak berubah sejak commit `e92fcac`: GA site CSV masih 27 Okt, Fav Locs 26 Okt, Vanguard 29 Okt.
 - Perubahan feed sejak commit `e92fcac` hanya feed yang memuat demand (25 file); belum di-commit.
+
+## 7. Tambahan (2 Nov 09:15): CSV GA site (MSISDN) sampai 31 Okt
+
+`rguga_daily_outlet_202610.csv` diunggah ulang (09:12, 476 MB, 2.684.853 baris, 1–31 Okt; IM3 1.772.974, 3ID 911.879). `build_ga_site_feed.py` dan `daily_update.py` dijalankan ulang, **RESULT: OK**; `render_check`, `audit_scorecard` 164, `audit_ga` 3.629, `audit_consistency` 278, `audit_kro`, `audit_sp` 16, `audit_dse_catalogue` dan `audit_entity` lolos.
+
+- **GA di site Inner Jakarta**: 212.541 (cut 27) → **287.550**, 5.606 site, 120 kecamatan. Basis site dan basis outlet kini sama-sama cut 31 Okt (outlet 323.890); selisih 36.340 adalah GA yang diaktivasi di luar 120 kecamatan IJ atau tanpa site.
+- Hari 1–27 Okt di file baru berisi 2.147.572 baris vs 2.146.334 di file lama (+1.238, +0,06%): angka hari lama ikut sedikit bergeser.
+- **Hari terakhir lebih rendah, pantau**: baris MSISDN per hari 29 Okt 152.405, 30 Okt 123.147, **31 Okt 108.895**. File outlet menunjukkan pola sama; GA harian 28 Okt 22.168, 29 Okt 22.213, 30 Okt **18.152**, 31 Okt **13.009**. Penurunan 30–31 Okt bisa berupa aktivasi yang belum lengkap dicatat (keterlambatan biometrik) atau akhir bulan yang memang turun; konfirmasi ke Victor apakah 30–31 Okt sudah final sebelum dibaca sebagai tren.
+- Fav Locs tetap 26 Okt; Vanguard 29 Okt.
