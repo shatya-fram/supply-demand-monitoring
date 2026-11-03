@@ -84,9 +84,12 @@
     var gm = moMonthOf((G.months || {}).cur); if (gm == null) gm = 9;
     var tm = moMonthOf(T.period); if (tm == null) tm = 9;
     var y = parseInt(String(P.cut || '2026').slice(0, 4), 10) || 2026;
-    _moMemo = { s: sm - 9, ga: gm - 9, tg: tm - 9, sm: sm, gm: gm, tm: tm, y: y,
+    /* period toggle (docs/assessments/period_toggle.md): a target file of an earlier month is carried forward to the running month
+       (Target Nov = distribusi Target Okt), so the target clock follows the running month and achievement is never n/a for that reason */
+    var tmReal = tm, carry = tm !== sm && ((sm - tm + 12) % 12) <= 2; if (carry) tm = sm;
+    _moMemo = { s: sm - 9, ga: gm - 9, tg: tm - 9, sm: sm, gm: gm, tm: tm, tmReal: tmReal, carry: carry, y: y,
       days: P.mtd_month_days || moDaysIn(sm, y), prevDays: P.lmtd_full_days || moDaysIn((sm + 11) % 12, sm === 0 ? y - 1 : y),
-      gaDays: (G.cur_days) || moDaysIn(gm, y), targetMatches: tm === sm };
+      gaDays: (G.cur_days) || moDaysIn(gm, y), targetMatches: tm === sm };   /* true when carried forward too */
     _moKey = key; return _moMemo;
   }
   var MO_RX = /\b(Okt|Oktober|Sep|September)\b(?!\u200B)/g;   /* Indonesian words only: English month names in this file come from dates (MON_EN) and are already right */
@@ -125,7 +128,7 @@
       var before = str.slice(Math.max(0, off - 40), off), after = str.slice(off + w.length, off + w.length + 80), clock = b;
       var mk = (typeof window !== 'undefined' && window.__MO_MARK) ? '\u2064' : '';   /* render_check marks every word kept on purpose */
       if (MO_KEEP.test(before.slice(-26) + w + after.slice(0, 12)) || MO_KEEP_A.test(after)) return w + mk;
-      if (MO_TG_B.test(before.slice(-16))) clock = 'tg'; else if (MO_GA_B.test(before)) clock = 'ga';
+      if (MO_TG_B.test(before.slice(-16))) clock = (b === 'ga' || _moGa) ? 'ga' : 'tg';   /* the M2S GA target belongs to the GA month */ else if (MO_GA_B.test(before)) clock = 'ga';
       if (clock === 'ga' || clock === 'tg') return moName(w, clock === 'ga' ? C.ga : C.tg) + mk;
       return moName(w, C.s);
     });
@@ -147,26 +150,22 @@
     days: function () { return moClocks().days; }, prevDays: function () { return moClocks().prevDays; },
     lit: function (w) { return w + '\u200B'; }
   };
-  /* SP / OSA targets are October targets: when the running month is another month, the KPI rows carry no target
-     (achievement, pro-rata and incentive read n/a) instead of a November actual against an October target. */
+  /* SP / OSA targets: the KPI feed carries the target file of the month it was published for (October). While the running month is
+     a later one the same distribution is used for it (Region, Area, MC / DSO, DSE and every KPI; owner, 4 Nov 2026): Target Nov = distribusi Target Okt
+     (carry-forward). Pro-rata uses the days of the running month. Nothing is zeroed any more; the banner below says it. */
   function moNeutraliseTargets() {
-    var K = (typeof window !== 'undefined') ? window.DSE_KPI_FEED : null, C = moClocks();
-    if (!K || !K.dses || C.targetMatches || (K.metadata && K.metadata.targets_na)) return;
-    K.dses.forEach(function (r) {
-      ['sp_tgt', 'sp_tgt_im3', 'sp_tgt_3id', 'osa_tgt', 'osa_tgt_im3', 'osa_tgt_3id'].forEach(function (k) { if (r[k] != null) r[k] = 0; });
-      r.osa_tgt_src = 'official';
-    });
-    K.metadata = K.metadata || {}; K.metadata.targets_na = true;
+    var K = (typeof window !== 'undefined') ? window.DSE_KPI_FEED : null;
+    if (K && K.metadata && moClocks().carry) K.metadata.target_carry = { from: MON_FULL_ID[moClocks().tmReal], to: MON_FULL_ID[moClocks().sm] };
   }
   moNeutraliseTargets();
   function moTargetBanner() {
     var t = moTargetNote();
-    return t ? '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Target n/a.</b> ' + esc(t) + ' Aktual tetap ditampilkan; insentif butuh target ' + MON_FULL_ID[moClocks().sm] + '.</p>' : '';
+    return t ? '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Target ' + MON_ID[moClocks().sm] + ' = distribusi Target ' + MO.lit(MON_ID[moClocks().tmReal]) + ' (carry-forward).</b> ' + esc(t) + '</p>' : '';
   }
   if (typeof window !== 'undefined') window.IJMonth = MO;   /* read by outlet_profile.js and stock.js */
-  function moTargetNote() {   /* one line when the target month is not the running month */
+  function moTargetNote() {   /* one line when the target of an earlier month is carried forward to the running month */
     var C = moClocks();
-    return C.targetMatches ? '' : 'Target ' + MON_FULL_ID[C.tm] + ' belum diganti target ' + MON_FULL_ID[C.sm] + ': pencapaian terhadap target n/a bulan ini.';
+    return C.carry ? 'Target ' + MON_FULL_ID[C.sm] + ' belum terbit; dipakai distribusi Target ' + MO.lit(MON_FULL_ID[C.tmReal]) + ' (Region, Area, MC / DSO, DSE, semua KPI) dengan pro-rata ' + C.days + ' hari ' + MON_FULL_ID[C.sm] + '.' : '';
   }
   function cutByView() {
     var P = pjpPeriod('end') + ' ' + pjpPeriod('year'), S = cutSellIn(), D = cutDemand(), G = cutGa(), Y = cutYear();
@@ -4148,7 +4147,7 @@
         a.mq += f[0]; a.mv += f[1]; a.lq += f[2]; a.lv += f[3]; a.fq += f[4]; a.fv += f[5];
         if (f[1] > 0) { a.om++; anyM = true; if (o.tier === 'M') a.omM++; } if (f[3] > 0) { a.ol++; anyL = true; if (o.tier === 'M') a.olM++; }
         A.tot.mq += f[0]; A.tot.mv += f[1]; A.tot.lq += f[2]; A.tot.lv += f[3]; A.tot.fq += f[4]; A.tot.fv += f[5];
-        if (cat !== 'SPI' || pjSpiBase()) { A.tot.mvx += f[1]; A.tot.mqx += f[0]; }
+        if (cat !== 'SPI' || pjSpiBase()) { A.tot.mvx += f[1]; A.tot.mqx += f[0]; a.mvx += f[1]; a.mqx += f[0]; }   // per-category like-for-like MTD too, otherwise growth / gap of a single category read -100%
       });
       if (anyM) { A.tot.om++; if (o.tier === 'M') A.tot.omM++; } if (anyL) { A.tot.ol++; if (o.tier === 'M') A.tot.olM++; }
     });
@@ -4167,6 +4166,14 @@
     rows.forEach(function (o) { Object.keys(o.c).forEach(function (c) { if (cat !== 'all' && c !== cat) return; (o.c[c][10] || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[1]; }); }); });
     return s;
   }
+  /* quantity (pcs) beside the Rp value for the categories that have units: Starter Pack, SP Injection, Voucher isi, Voucher blank */
+  function pjQtyOk(cat) { return cat === 'SP' || cat === 'SPI' || cat === 'VCF' || cat === 'VCB'; }
+  function pjDailyQty(rows, cat, n) {
+    var s = []; for (var i = 0; i < n; i++) s.push(0);
+    rows.forEach(function (o) { var f = o.c[cat]; if (f) (f[10] || []).forEach(function (p) { if (p[0] <= n) s[p[0] - 1] += p[2] || 0; }); });
+    return s;
+  }
+  function pjQtyLine(v) { return '<br><span class="note" style="font-size:11px; font-weight:600;">' + (v ? fmtCount(v) + ' pcs' : '0 pcs') + '</span>'; }
   function pjDailyMc(F, cat, n) {
     var l = [], m = []; for (var i = 0; i < n; i++) { l.push(0); m.push(0); }
     var b = state.pjBrand || 'all', mi = F.metadata.mc_info || {};
@@ -4216,10 +4223,12 @@
       return '<th class="num" style="text-align:center; min-width:58px;">' + d.slice(8) + '<br><span style="font-weight:500;">' + wd + '</span></th>';
     }).join('');
   }
-  function pjHeatCell(v, max) {
-    if (!v) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
-    var a = 0.1 + 0.6 * Math.min(1, v / (max || 1));
-    return '<td class="num" title="' + pjRp(v) + '" style="background:rgba(22,163,74,' + a.toFixed(2) + '); color:#111; text-align:center; font-weight:700; font-size:11.5px;">' + pjRp(v).replace('Rp ', '') + '</td>';
+  function pjHeatCell(v, max, q, qtyOnly) {      // q = pcs that day (shown under the value, or alone when qtyOnly)
+    var shade = qtyOnly ? q : v;
+    if (!shade) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
+    var a = 0.1 + 0.6 * Math.min(1, shade / (max || 1));
+    var main = qtyOnly ? fmtCount(q) : pjRp(v).replace('Rp ', ''), sub = q !== undefined && !qtyOnly ? '<br><span style="font-weight:600; font-size:10.5px;">' + fmtCount(q) + ' pcs</span>' : '';
+    return '<td class="num" title="' + pjRp(v) + (q !== undefined ? ' · ' + fmtCount(q) + ' pcs' : '') + '" style="background:rgba(22,163,74,' + a.toFixed(2) + '); color:#111; text-align:center; font-weight:700; font-size:11.5px;">' + main + sub + '</td>';
   }
   function pjLevelBar(F) {
     return state.pjDse ? '<div class="map-toolbar" style="margin-top:8px;"><div class="map-toolbar-group"><span class="map-label">DSE:</span><span class="good-tag" style="font-weight:800;">' + esc(state.pjDse) + '</span> <button type="button" class="btn" data-act="clear-pj-dse" style="font-size:11.5px; padding:5px 9px;">&#10005; Semua DSE</button></div></div>' : '';
@@ -4648,11 +4657,12 @@
   function pjPerfHead(withParent, parentLabel) { return withParent ? th(parentLabel) : ''; }   // the performance block itself is a period-group set: pjPerfGroups() with pgHead
   function pjPerfGroups() { return [{ id: 'fm', cols: ['Sep penuh'] }, { id: 'lm', cols: ['LMTD'] }, { id: 'mt', cols: ['MTD'] }, { id: 'gg', cols: ['Growth vs LMTD', 'Gap ke Sep penuh'] }]; }
   function pjPerfCells(a, tid) {
-    var gap = pjMx(a) - a.fv, c = '';
-    if (pgOn(tid, 'fm')) c += '<td class="num">' + pjRp(a.fv) + '</td>';
-    if (pgOn(tid, 'lm')) c += '<td class="num">' + pjRp(a.lv) + '</td>';
-    if (pgOn(tid, 'mt')) c += '<td class="num cur"><b>' + pjRp(a.mv) + '</b></td>';
-    if (pgOn(tid, 'gg')) c += '<td class="num">' + pjGrowth(pjMx(a), a.lv) + '</td><td class="num" style="color:' + (gap < 0 ? 'var(--ij-red, #c00)' : 'var(--ij-green, #0a7a3b)') + ';">' + (gap > 0 ? '+' : '') + pjRp(gap) + '</td>';
+    var gap = pjMx(a) - a.fv, c = '', cat = pjCat(), qo = pjQtyOk(cat) && a.mq !== undefined, nb = cat === 'SPI' && !pjSpiBase();
+    var qg = qo ? a.mq - a.fq : 0;
+    if (pgOn(tid, 'fm')) c += '<td class="num">' + pjRp(a.fv) + (qo ? pjQtyLine(a.fq) : '') + '</td>';
+    if (pgOn(tid, 'lm')) c += '<td class="num">' + pjRp(a.lv) + (qo ? pjQtyLine(a.lq) : '') + '</td>';
+    if (pgOn(tid, 'mt')) c += '<td class="num cur"><b>' + pjRp(a.mv) + '</b>' + (qo ? pjQtyLine(a.mq) : '') + '</td>';
+    if (pgOn(tid, 'gg')) c += '<td class="num">' + pjGrowth(pjMx(a), a.lv) + (qo ? '<br><span style="font-size:11px;">' + (nb ? '<span class="note">n/a</span>' : pjGrowth(a.mq, a.lq)) + '</span>' : '') + '</td><td class="num" style="color:' + (gap < 0 ? 'var(--ij-red, #c00)' : 'var(--ij-green, #0a7a3b)') + ';">' + (gap > 0 ? '+' : '') + pjRp(gap) + (qo ? '<br><span style="font-size:11px; font-weight:600;">' + (nb ? 'n/a' : (qg > 0 ? '+' : '') + fmtCount(qg) + ' pcs') + '</span>' : '') + '</td>';
     return c;
   }
   function pjAggFor(G) { var cat = pjCat(); return cat === 'all' ? G.agg.tot : G.agg[cat]; }
@@ -4728,27 +4738,27 @@
   function pjHeat(F) {
     var level = pjLevel(), groups = pjRowsAt(F, level), n = F.metadata.cut_day, cat = pjCat(), showParent = pjParentVaries(groups);
     var paged = level === 'dse' || level === 'outlet', pg = paged ? pjPager(groups.length, 50) : { start: 0, end: groups.length, html: '' };
-    var wantAch = state.pjHeatMode === 'ach', canAch = wantAch && (cat === 'all' || cat === 'SP') && level !== 'outlet' && !!cfFeed(), toggle = '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + [['val', 'Nilai (Rp)'], ['ach', '% vs target harian']].map(function (m) { return '<button type="button" class="map-btn' + ((canAch ? 'ach' : 'val') === m[0] ? ' active' : '') + '" data-pj-heatmode="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (wantAch && !canAch ? '<span class="note">Target tersedia untuk Semua kategori (OSA) dan Starter Pack, di tingkat Area, MC atau DSE.</span>' : '') + '</div>';
+    var wantAch = state.pjHeatMode === 'ach', canAch = wantAch && (cat === 'all' || cat === 'SP') && level !== 'outlet' && !!cfFeed(), toggle = '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + [['val', 'Nilai (Rp)' + (pjQtyOk(cat) ? ' + pcs' : '')]].concat(pjQtyOk(cat) ? [['qty', 'Qty (pcs)']] : []).concat([['ach', '% vs target harian']]).map(function (m) { return '<button type="button" class="map-btn' + ((canAch ? 'ach' : (state.pjHeatMode === 'qty' && pjQtyOk(cat) ? 'qty' : 'val')) === m[0] ? ' active' : '') + '" data-pj-heatmode="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (wantAch && !canAch ? '<span class="note">Target tersedia untuk Semua kategori (OSA) dan Starter Pack, di tingkat Area, MC atau DSE.</span>' : '') + '</div>';
     if (canAch) {
       var H = pjHeatAch(F, level, groups, cat, showParent, pg);
       return pjLevelBar(F) + card('Heatmap penjualan harian · % vs target harian · ' + PJ_LEVEL_LABEL[level] + ' · ' + PJ_CAT_LABEL[cat],
         '<div class="map-toolbar" style="margin-bottom:8px;">' + pjCatBar(true) + toggle + '</div><div class="tbl-wrap"><table class="tbl"><thead><tr>' + H.head + '</tr></thead><tbody>' + H.body + '</tbody></table></div>' + pg.html + '<p class="note">' + H.note + '</p>');
     }
-    var slice = groups.slice(pg.start, pg.end);
-    var series = slice.map(function (G) { return pjDailyMtd(G.items, cat, n); });
-    var tot = []; for (var i = 0; i < n; i++) tot.push(0);
-    groups.forEach(function (G) { pjDailyMtd(G.items, cat, n).forEach(function (v, i) { tot[i] += v; }); });
-    var max = 0; series.forEach(function (s) { s.forEach(function (v) { if (v > max) max = v; }); });
-    var TA = { mv: 0, lv: 0, fv: 0 }; groups.forEach(function (G) { var a = pjAggFor(G); TA.mv += a.mv; TA.lv += a.lv; TA.fv += a.fv; });
+    var slice = groups.slice(pg.start, pg.end), qo = pjQtyOk(cat), qOnly = qo && state.pjHeatMode === 'qty';
+    var series = slice.map(function (G) { return pjDailyMtd(G.items, cat, n); }), qser = qo ? slice.map(function (G) { return pjDailyQty(G.items, cat, n); }) : null;
+    var tot = [], qtot = []; for (var i = 0; i < n; i++) { tot.push(0); qtot.push(0); }
+    groups.forEach(function (G) { pjDailyMtd(G.items, cat, n).forEach(function (v, i) { tot[i] += v; }); if (qo) pjDailyQty(G.items, cat, n).forEach(function (v, i) { qtot[i] += v; }); });
+    var max = 0, qmax = 0; series.forEach(function (s) { s.forEach(function (v) { if (v > max) max = v; }); }); if (qser) qser.forEach(function (s) { s.forEach(function (v) { if (v > qmax) qmax = v; }); });
+    var TA = { mv: 0, lv: 0, fv: 0, mq: 0, lq: 0, fq: 0 }; groups.forEach(function (G) { var a = pjAggFor(G); TA.mv += a.mv; TA.lv += a.lv; TA.fv += a.fv; TA.mq += a.mq || 0; TA.lq += a.lq || 0; TA.fq += a.fq || 0; });
     var totalRow = groups.length < 2 ? '' : '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur">Semua dalam lingkup (' + fmtCount(groups.length) + ' baris)</td>' + (showParent ? '<td></td>' : '') + pjPerfCells(TA, 'pj_heat') +
-      tot.map(function (v) { return pjHeatCell(v, Math.max.apply(null, tot) || 1); }).join('') + '<td></td></tr>';
+      tot.map(function (v, i) { return qOnly ? pjHeatCell(v, Math.max.apply(null, qtot) || 1, qtot[i], true) : pjHeatCell(v, Math.max.apply(null, tot) || 1, qo ? qtot[i] : undefined); }).join('') + '<td></td></tr>';
     var body = slice.map(function (G, i) {
-      return '<tr>' + pjNameCell(G) + (showParent ? '<td>' + esc(G.parent) + '</td>' : '') + pjPerfCells(pjAggFor(G), 'pj_heat') + series[i].map(function (v) { return pjHeatCell(v, max); }).join('') + '<td>' + pjDetailBtn(level, G) + '</td></tr>';
+      return '<tr>' + pjNameCell(G) + (showParent ? '<td>' + esc(G.parent) + '</td>' : '') + pjPerfCells(pjAggFor(G), 'pj_heat') + series[i].map(function (v, d) { return qOnly ? pjHeatCell(v, qmax, qser[i][d], true) : pjHeatCell(v, max, qo ? qser[i][d] : undefined); }).join('') + '<td>' + pjDetailBtn(level, G) + '</td></tr>';
     }).join('');
     return pjLevelBar(F) + card('Heatmap penjualan harian · ' + PJ_LEVEL_LABEL[level] + ' · ' + PJ_CAT_LABEL[cat],
       '<div class="map-toolbar" style="margin-bottom:8px;">' + pjCatBar(true) + toggle + '</div>' +
       pgBar('pj_heat', pjPerfGroups()) + '<div class="tbl-wrap"><table class="tbl"><thead>' + pgHead('pj_heat', th(pjEntityHead(level)) + pjPerfHead(showParent, pjParentHead(level)), pjPerfGroups(), pjDayHead(F) + th('Detail')) + '</thead><tbody>' + totalRow + body + '</tbody></table></div>' + pg.html +
-      '<p class="note">Kolom performa (Sep penuh, MTD, LMTD, growth) ada di depan sebelum harian. Sel = nilai Sell-In ke outlet pada tanggal itu; makin hijau makin besar relatif terhadap sel terbesar; · tidak ada transaksi. Pilih "% vs target harian" untuk melihat pencapaian terhadap laju harian yang dibutuhkan. Teritori yang sudah dipilih tidak diulang per baris.</p>');
+      '<p class="note">Kolom performa (Sep penuh, MTD, LMTD, growth) ada di depan sebelum harian. Sel = nilai Sell-In ke outlet pada tanggal itu' + (pjQtyOk(cat) ? ' dengan jumlah pcs di bawahnya (pilih "Qty (pcs)" untuk menampilkan pcs saja; SP = semua Starter Pack MOBII, Voucher = unit, SP Injection = pcs MOBO)' : '') + '; makin hijau makin besar relatif terhadap sel terbesar; · tidak ada transaksi. Pilih "% vs target harian" untuk melihat pencapaian terhadap laju harian yang dibutuhkan. Teritori yang sudah dipilih tidak diulang per baris.</p>');
   }
 
   /* expand / collapse state for the Area > MC grouping of long outlet tables: explicit click wins, then "Buka/Tutup semua", then a filter-based default */
@@ -4816,8 +4826,8 @@
     var lastVisit = (vf && vf.last_visit) || {};
     var rows = pjOutlets(F).filter(function (o) {
       if (cat !== 'all' && !o.c[cat]) return false;
-      var mv = 0, lv = 0, fv = 0; Object.keys(o.c).forEach(function (c) { if (cat === 'all' || c === cat) { mv += o.c[c][1]; lv += o.c[c][3]; fv += o.c[c][5]; } });
-      o._mv = mv; o._lv = lv; o._fv = fv;
+      var mv = 0, lv = 0, fv = 0, mq = 0, lq = 0, fq = 0; Object.keys(o.c).forEach(function (c) { if (cat === 'all' || c === cat) { mv += o.c[c][1]; lv += o.c[c][3]; fv += o.c[c][5]; mq += o.c[c][0]; lq += o.c[c][2]; fq += o.c[c][4]; } });
+      o._mv = mv; o._lv = lv; o._fv = fv; o._mq = mq; o._lq = lq; o._fq = fq;
       if (state.pjOnlyNoMtd && mv > 0) return false;
       if (q && (o.n + ' ' + o.id + ' ' + o.mc + ' ' + o.dse + ' ' + o.kec + ' ' + o.site).toLowerCase().indexOf(q) === -1) return false;
       return true;
@@ -4834,7 +4844,7 @@
     function ok(o, c) { return (cat === 'all' || c === cat) ? o.c[c] : null; }
     function groupCells(items) {
       var g = pjAgg(items), a = cat === 'all' ? g.tot : g[cat];
-      return pjPerfCells({ fv: a.fv, mv: a.mv, lv: a.lv, mvx: cat === 'all' ? g.tot.mvx : a.mv }, 'pj_out') +
+      return pjPerfCells({ fv: a.fv, mv: a.mv, lv: a.lv, fq: a.fq, mq: a.mq, lq: a.lq, mvx: cat === 'all' ? g.tot.mvx : a.mv }, 'pj_out') +
         pjCats().map(function (c) { var x = g[c[0]]; return '<td class="num">' + (x.mv ? pjRp(x.mv) : '·') + '</td>'; }).join('');
     }
     function outletRow(o, indent) {
@@ -4845,7 +4855,7 @@
       var flag = o.tier === 'M' ? (o._mv > 0 && !lastVisit[o.k] ? 'Beli tanpa visit' : (!o._mv && lastVisit[o.k] ? 'Divisit, belum beli' : '')) : '';
       return '<tr><td class="cur" style="padding-left:' + indent + 'px;"><b>' + esc(o.n || o.id) + '</b><br><span style="font-size:11px;"><span class="' + (o.b === 'IM3' ? 'badge-im3' : 'badge-3id') + '">' + esc(o.b) + '</span> <code>' + esc(o.id) + '</code>' + (o.tier === 'A' ? ' <span class="note">(non-PJP)</span>' : '') + '</span></td>' +
         '<td>' + esc(o.dse) + '</td><td>' + esc(o.kec) + '<br><code style="font-size:11px;">' + esc(o.site || '—') + '</code></td>' +
-        pjPerfCells({ fv: o._fv, mv: o._mv, lv: o._lv }, 'pj_out') +
+        pjPerfCells({ fv: o._fv, mv: o._mv, lv: o._lv, fq: o._fq, mq: o._mq, lq: o._lq }, 'pj_out') +
         pjCats().map(function (c) { var f = o.c[c[0]]; return '<td class="num">' + (f && f[1] ? pjRp(f[1]) : '·') + '</td>'; }).join('') +
         '<td>' + (last != null ? last + ' Okt' : (o._lv ? 'Sep' : '—')) + '</td><td>' + slab + '</td><td>' + visited + (flag ? '<br><span class="note">' + flag + '</span>' : '') + '</td></tr>';
     }
@@ -7926,7 +7936,7 @@
     if (window.KRO_SLIM) return window.KRO_SLIM;
     if (!state._kroSlimLoading && typeof document !== 'undefined' && document.createElement && (document.head || document.body)) {
       state._kroSlimLoading = true;
-      var s = document.createElement('script'); s.src = 'data/kro_slim.js'; s.onload = function () { render(); }; s.onerror = function () { state._kroSlimError = true; render(); };
+      var s = document.createElement('script'); s.src = (typeof window !== 'undefined' && window.IJ_PERIOD && window.IJ_PERIOD.slim) || 'data/kro_slim.js'; s.onload = function () { render(); }; s.onerror = function () { state._kroSlimError = true; render(); };
       (document.head || document.body).appendChild(s);
     }
     return null;
@@ -10817,6 +10827,34 @@
   function moGaWrap(f) { return function () { var r = f.apply(this, arguments); return typeof r === 'string' ? moGa(r) : r; }; }
   var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
+  /* Frozen headers and first column (owner, 2 Nov 2026): every table inside .tbl-wrap keeps its header rows (top) and its first column (left)
+     visible while the wrapper scrolls. Offsets of multi-row headers are measured, so grouped two-row headers stack correctly. */
+  function stickyTable(wrap) {
+    var tb = wrap.querySelector('table'); if (!tb || tb.hasAttribute('data-nostk') || !tb.offsetHeight) return;   // not laid out (hidden tab / pane): retry on the next scan
+    var heads = tb.tHead ? [].slice.call(tb.tHead.rows) : [], top = 0;
+    heads.forEach(function (tr, ri) {
+      var h = tr.offsetHeight;
+      [].forEach.call(tr.cells, function (c, ci) {
+        c.classList.add('stk-h'); c.style.top = top + 'px';
+        var covered = ri > 0 && heads[0].cells[0] && heads[0].cells[0].rowSpan > 1;
+        if (ci === 0 && !covered) c.classList.add('stk-c');
+      });
+      top += h;
+    });
+    [].forEach.call(tb.tBodies, function (bd) { [].forEach.call(bd.rows, function (tr) { var c = tr.cells[0]; if (c && !c.classList.contains('stk-c')) c.classList.add('stk-c'); }); });
+    wrap.setAttribute('data-stk', '1');
+  }
+  var stkQueued = false;
+  function stickyScan() {
+    stkQueued = false;
+    [].forEach.call(document.querySelectorAll('.tbl-wrap:not([data-stk])'), stickyTable);
+  }
+  if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.body) {
+    var stkQ = function () { if (!stkQueued) { stkQueued = true; setTimeout(stickyScan, 60); } };   // timer, not rAF: rAF is paused while the page is hidden
+    new MutationObserver(stkQ).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', stkQ); document.addEventListener('visibilitychange', stkQ);
+    stkQ();
+  }
   Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
   /* ---------- shell: filters, header, events ---------- */
@@ -11169,7 +11207,26 @@
     });
   }
   function brRelabelHtml(html) { _moBase = moBaseFor(state.view); _moGa = 0; return moAttrs(String(html).replace(/(<[^>]*>)|([^<]+)/g, function (m, tag, tx) { return tag || brRelabelText(tx); })); }
+  /* Period toggle (owner, 4 Nov 2026): A = MTD running month vs LMTD month before (live feeds), B = Full Month October vs Full Month September
+     (frozen October close, website/archive/2026-10). The choice reloads the page with per=oct / none (period_feeds.js), so every cache starts clean. */
+  function perLabels() {
+    var A = (typeof window !== 'undefined' && window.IJ_PERIOD && window.IJ_PERIOD.archive) || { cur: 'Okt', prev: 'Sep' }, oct = typeof window !== 'undefined' && window.IJ_PER === 'oct', live = null;
+    if (oct) {   /* live month is not in the swapped feeds: the period history (not swapped) names the running month */
+      var H = typeof window !== 'undefined' && window.PERIOD_HISTORY && window.PERIOD_HISTORY.months, ks = H ? Object.keys(H).sort() : [];
+      if (ks.length) { var m = parseInt(ks[ks.length - 1].slice(5, 7), 10) - 1; live = { cur: MON_ID[m], prev: MON_ID[(m + 11) % 12] }; }
+    } else live = { cur: MO.cur(), prev: MO.prev() };
+    live = live || { cur: 'Nov', prev: 'Okt' };
+    return { oct: oct, a: 'MTD ' + live.cur + ' vs LMTD ' + live.prev, b: 'FM ' + A.cur + ' vs FM ' + A.prev };
+  }
+  function perToggleRender() {
+    var el = typeof document !== 'undefined' && document.getElementById('perToggle');
+    if (!el) return;
+    var L = perLabels();
+    el.innerHTML = '<span class="per-lbl">Periode</span><span class="toggle"><button type="button" data-per="nov" aria-pressed="' + (!L.oct) + '" title="MTD bulan berjalan dibanding LMTD bulan sebelumnya (feed terbaru)">' + esc(L.a) + '</button><button type="button" data-per="oct" aria-pressed="' + L.oct + '" title="Bulan penuh Oktober dibanding bulan penuh September (penutupan Oktober, target Oktober)">' + esc(L.b) + '</button></span>';
+    if (!el._perBound) { el._perBound = true; el.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button[data-per]'); if (b && window.IJ_SET_PERIOD && (b.getAttribute('data-per') === 'oct') !== (window.IJ_PER === 'oct')) window.IJ_SET_PERIOD(b.getAttribute('data-per')); }); }
+  }
   function render() {
+    perToggleRender();
     cleanupStaleMaps();
     dseSync();
     renderFilters();
@@ -11341,7 +11398,7 @@
     else if (t.hasAttribute('data-pj-prodview')) { state.pjProdView = t.getAttribute('data-pj-prodview'); }
     else if (t.hasAttribute('data-pj-topby')) { state.pjTopBy = t.getAttribute('data-pj-topby'); }
     else if (t.hasAttribute('data-pjp-basis')) { state.pjpBasis = t.getAttribute('data-pjp-basis'); state.visitsPage = 1; }
-    else if (t.hasAttribute('data-pjp-metric')) { state.pjpMetric = t.getAttribute('data-pjp-metric'); }
+    else if (t.hasAttribute('data-pjp-metric')) { state.pjpMetric = t.getAttribute('data-pjp-metric'); if (state.pjpMetric === 'ec') { state.pjpBasis = 'stop'; state.visitsBrandFilter = 'all'; } }   // Eff Call needs the stop basis and all brands: switch them instead of leaving the button looking dead
     else if (t.hasAttribute('data-pj-heatmode')) { state.pjHeatMode = t.getAttribute('data-pj-heatmode'); }
     else if (t.hasAttribute('data-kro-tab')) { state.kroTab = t.getAttribute('data-kro-tab'); state.kroPage = 1; state.kroFlag = 'all'; }
     else if (t.hasAttribute('data-kro-prod')) { state.kroProd = t.getAttribute('data-kro-prod'); state.kroPage = 1; state.kroFlag = 'all'; state.kroClass = 'all'; }
@@ -11982,6 +12039,7 @@
     var p = [];
     (RT_VIEW_TABS[state.view] || []).forEach(function (k) { if ((typeof state[k] === 'string' || k === 'gtDay') && state[k] !== RT_DEFAULTS[k]) p.push(k + '=' + encodeURIComponent(state[k])); });
     RT_FILTERS.forEach(function (f) { if (state[f[1]]) p.push(f[0] + '=' + encodeURIComponent(state[f[1]])); });
+    if (typeof window !== 'undefined' && window.IJ_PER === 'oct') p.push('per=oct');
     return '#/' + state.view + (p.length ? '?' + p.join('&') : '');
   }
   function rtApply(hash) {
@@ -12016,7 +12074,7 @@
     document.addEventListener('keydown', onKey);
     rtSnapshot();
     rtApply(window.location.hash);
-    window.addEventListener('hashchange', function () { if (window.location.hash !== rtBuild() && rtApply(window.location.hash)) render(); });
+    window.addEventListener('hashchange', function () { if (/[?&]per=oct(?:&|$)/.test(window.location.hash) !== (window.IJ_PER === 'oct')) { window.location.reload(); return; } if (window.location.hash !== rtBuild() && rtApply(window.location.hash)) render(); });
     render();
   }
 

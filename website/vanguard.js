@@ -7,7 +7,7 @@
   var TABS = [['brief', '☀️ Briefing Pagi'], ['progres', '📊 Progres Step 1-5'], ['site', '📡 Daftar Site'], ['dq', '🔎 Kualitas Data']];
   var LEVELS = [['area', 'Area'], ['mc', 'MC'], ['dso', 'DSO'], ['dse', 'DSE']];
   var COL = { D: ['#dcfce7', '#166534'], P: ['#fef3c7', '#92400e'], B: ['#f3f4f6', '#6b7280'] };
-  var flash = '';
+  var flash = '', cp = { mc: '', ok: false, txt: '' };   // cp: state of the last WhatsApp copy (shown at the button, not at the top of the page)
 
   function F() { return typeof window !== 'undefined' ? window.VANGUARD : null; }
   var WD = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'], MN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -135,7 +135,8 @@
         var cells = ''; for (var i = 0; i < f.metadata.sites_per_day; i++) cells += '<td style="vertical-align:top;">' + (r.p.s[i] ? siteBlock(api, f, r.p.s[i]) : '<span style="color:var(--ij-muted)">tidak ada site lagi</span>') + '</td>';
         return '<tr><td style="vertical-align:top;white-space:nowrap;"><b>' + api.esc(r.d.n) + '</b><div class="dse-login">IM3 ' + api.esc(r.d.l3 || '—') + ' · 3ID ' + api.esc(r.d.li || '—') + '</div></td><td class="num" style="vertical-align:top;">' + r.p.pjp + '</td>' + cells + '</tr>';
       }).join('') + '</tbody></table></div>';
-      return api.card(api.esc(m) + ' · DSO ' + api.esc(mi.dso || '—') + ' · ' + rows.length + ' DSE <button type="button" class="map-btn" data-vg="wa:' + api.esc(m) + '" style="float:right;font-size:12px;">📋 Salin teks WhatsApp</button>', body);
+      var mine = cp.mc === m, fb = mine && !cp.ok ? '<div class="note" role="alert"><b>Browser memblokir penyalinan otomatis.</b> Teks di bawah sudah siap: klik kotaknya, tekan Ctrl+A lalu Ctrl+C (Cmd di Mac).</div><textarea readonly rows="12" onfocus="this.select()" onclick="this.select()" style="width:100%;font:13px/1.4 monospace;margin-bottom:10px;">' + api.esc(cp.txt) + '</textarea>' : '';
+      return api.card(api.esc(m) + ' · DSO ' + api.esc(mi.dso || '—') + ' · ' + rows.length + ' DSE <button type="button" class="map-btn' + (mine && cp.ok ? ' active' : '') + '" data-vg="wa:' + api.esc(m) + '" style="float:right;font-size:12px;">' + (mine && cp.ok ? '✓ Tersalin' : '📋 Salin teks WhatsApp') + '</button>', fb + body);
     }).join('');
     return kp + html;
   }
@@ -160,12 +161,16 @@
     });
     return t;
   }
-  function copyText(txt) {
-    flash = 'Teks WhatsApp tersalin.';
+  function copyText(txt, mc, api) {   // checked copy: execCommand inside the click, then the Clipboard API; when both fail the card shows the text to copy by hand
+    cp = { mc: mc, ok: false, txt: txt };
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt); return; }
-      var ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    } catch (e) { flash = 'Salin ditolak oleh browser.'; }
+      var ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length);
+      cp.ok = !!document.execCommand('copy'); document.body.removeChild(ta);
+    } catch (e) { cp.ok = false; }
+    if (!cp.ok && typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { if (cp.mc === mc) { cp.ok = true; if (api && api.render) api.render(); } }, function () { /* the textarea fallback stays */ });
+    }
   }
 
   /* ---- Progres ---- */
@@ -252,13 +257,13 @@
     },
     click: function (cmd, api) {
       var s = api.state, a = cmd.split(':'), k = a[0], v = a.slice(1).join(':'), f = F();
-      flash = '';
+      flash = ''; if (k !== 'wa') cp = { mc: '', ok: false, txt: '' };
       if (k === 'tab') s.vgTab = v;
       else if (k === 'dstep' && f) s.vgDay = stepDay(dayOf(s, f), +v, f);
       else if (k === 'today' && f) s.vgDay = '';
       else if (k === 'lvl') s.vgLevel = v;
       else if (k === 'step') s.vgStep = v;
-      else if (k === 'wa' && f) copyText(waText(s, f, v));
+      else if (k === 'wa' && f) copyText(waText(s, f, v), v, api);
     },
     change: function (el, api) { var k = el.getAttribute('data-vg-in'); if (k === 'search') api.state.vgSearch = el.value; else if (k === 'date' && el.value) api.state.vgDay = el.value; },
     waText: function (state, f, mc) { return waText(state, f, mc); }

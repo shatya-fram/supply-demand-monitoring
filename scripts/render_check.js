@@ -21,12 +21,12 @@ global.document = {
 };
 
 for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
-  require(path.join(root, 'website', 'data', f));
+  require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
 // Node; expose it the way a browser would.
 if (typeof global.dseVisitsFeed === 'undefined') {
-  const src = require('fs').readFileSync(path.join(root, 'website', 'data', 'dse_visits_feed.js'), 'utf8');
+  const src = require('fs').readFileSync(require('./feed_dir')(root, 'dse_visits_feed.js'), 'utf8');
   const m = src.match(/var dseVisitsFeed = (\{[\s\S]*\});?\s*$/);
   if (m) global.dseVisitsFeed = JSON.parse(m[1]);
 }
@@ -651,6 +651,24 @@ if (MONTH_SCAN) {
     console.log('✗ stale month words on a December-simulated feed (outside GA / target / history text): ' + n + ' in ' + scanned + ' pages');
     for (const [v, a] of Object.entries(bad)) { console.log('  ' + v + ' (' + a.length + ')'); a.slice(0, +process.env.MONTH_SHOW || 6).forEach((c) => console.log('     … ' + c)); }
   } else console.log('✓ month-aware labels: no stale Okt / Sep wording on ' + scanned + ' pages re-labelled for a December feed (GA, target and history text excluded)');
+}
+// Period toggle (docs/assessments/period_toggle.md): `PER=oct node scripts/render_check.js` renders the October close (the feeds the toggle swaps in),
+// the default run the live feeds. A few figures shown on screen are compared with the feed / the archive manifest.
+{
+  const strip = (h) => h.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const text = (v) => { state.view = v; state.branch = ''; state.hoa = ''; state.kec = ''; state.dse = ''; state.pjDse = null; state.poDse = null; state.visitsDse = null; return strip(VIEWS[v]()); };
+  const oct = process.env.PER === 'oct', K = global.DSE_KPI_FEED, pm = global.PENJUALAN_FEED.metadata;
+  const spT = K.dses.reduce((a, d) => a + (d.sp_tgt || 0), 0), osaT = K.dses.reduce((a, d) => a + (d.osa_tgt || 0), 0), n0 = (n) => Math.round(n).toLocaleString('en-US');
+  const expect = oct
+    ? [['mb_penjualan', ['235,947', 'Rp 22.13 M', 'MTD 1–31 Okt vs LMTD 1–31 Sep']], ['visits', ['159,340']], ['mb_gatrend', ['323,890']], ['mb_performance', ['119.63']], ['mb_overall', ['266,765', 'Okt']], ['cfg_target', [n0(spT), 'Okt']]]
+    : [['cfg_target', [n0(spT), 'carry-forward', 'Target November', 'Target Nov = distribusi Target Okt']], ['mb_partner_perf', [n0(spT * pm.cut_day / pm.mtd_month_days), 'carry-forward']], ['mb_overall', [n0(spT)]]];
+  const bad = [];
+  if (!!oct !== (pm.cut.slice(0, 7) === '2026-10')) bad.push('period feeds do not match PER: cut ' + pm.cut);
+  if (Math.round(spT) !== 266765) bad.push('SP target total ' + spT);
+  for (const [v, needles] of expect) { const t = text(v); needles.forEach((n) => { if (!t.includes(n)) bad.push(v + ' misses "' + n + '"'); }); }
+  if (!oct) for (const v of ['cfg_target', 'mb_partner_perf', 'mb_ringkasan']) if (/Target n\/a|belum diganti target/.test(text(v))) bad.push(v + ' still shows targets n/a');
+  console.log(bad.length ? '✗ period figures: ' + bad.join(' | ') : '✓ period figures (' + (oct ? 'October close: SP 235,947 · Saldo Rp 22.13 M · PJP 159,340 · GA 323,890 · demand Rp 119.63 M' : 'live feeds: targets carried forward ' + n0(spT) + ' pcs, Rp ' + (osaT / 1e9).toFixed(1) + ' B, pro-rata ' + pm.cut_day + '/' + pm.mtd_month_days) + ')');
+  if (bad.length) failures++;
 }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);

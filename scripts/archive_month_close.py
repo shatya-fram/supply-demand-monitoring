@@ -5,7 +5,8 @@ data/archive/<YYYY-MM>/ with a MANIFEST.json, so an outlet-level month close sta
 Usage: python3 scripts/archive_month_close.py [YYYY-MM] [--force]
 Default month = the month of the current data/processed/penjualan_feed.json (the month about to be closed).
 daily_update.py runs it by itself when the newest MOBII file names a later month than the feeds. Never overwrites without --force.
-data/archive/ is kept out of the public release (scripts/prepare_public_release.py)."""
+data/archive/ is kept out of the public release (scripts/prepare_public_release.py); scripts/stage_period_archive.py turns it into website/archive/<month>/ for the period toggle.
+kro_slim (Retail records) is part of kro_feed.json (key slim), so the archive holds it."""
 import gzip, hashlib, json, os, shutil, sys
 from datetime import datetime
 
@@ -18,7 +19,7 @@ dst = os.path.join("data", "archive", month)
 if os.path.exists(os.path.join(dst, "MANIFEST.json")) and not force:
     print("archive %s already exists (use --force to replace)" % month); sys.exit(0)
 os.makedirs(dst, exist_ok=True)
-files = sorted("data/processed/" + f for f in os.listdir("data/processed") if f.endswith(".json")) + [p for p in ("website/data/dse_visits_feed.js", "website/data/ga_site_feed.js") if os.path.exists(p)]
+files = sorted("data/processed/" + f for f in os.listdir("data/processed") if f.endswith(".json")) + [p for p in ("website/data/dse_visits_feed.js", "website/data/ga_site_feed.js", "data/catalogues/kro_outlet_catalogue.csv") if os.path.exists(p)]
 man = {"month": month, "archived_at": datetime.now().isoformat(timespec="seconds"), "penjualan_cut": pj["cut"], "files": {}}
 for f in files:
     raw = open(f, "rb").read()

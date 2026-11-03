@@ -21,12 +21,12 @@ global.document = {
 };
 
 for (const f of ['feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js']) {
-  require(path.join(root, 'website', 'data', f));
+  require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
 // Node; expose it the way a browser would.
 if (typeof global.dseVisitsFeed === 'undefined') {
-  const src = require('fs').readFileSync(path.join(root, 'website', 'data', 'dse_visits_feed.js'), 'utf8');
+  const src = require('fs').readFileSync(require('./feed_dir')(root, 'dse_visits_feed.js'), 'utf8');
   const m = src.match(/var dseVisitsFeed = (\{[\s\S]*\});?\s*$/);
   if (m) global.dseVisitsFeed = JSON.parse(m[1]);
 }
