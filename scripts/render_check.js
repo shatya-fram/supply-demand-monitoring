@@ -58,9 +58,12 @@ function audit(label, html) {
     if (!total && !auditSeen.has(key)) { auditSeen.add(key); console.log('NO-TOTAL  ' + label + '  ·  ' + key + '  (' + terr + ' territory rows)'); }
   });
 }
+// Month-aware labels (3 Nov 2026): every rendered page is kept so the simulated-month scan at the end can look at it
+const MONTH_SCAN = process.env.MONTH_SCAN !== '0', MONTH_PAGES = [];
 function check(label, fn) {
   try {
     const html = fn();
+    if (MONTH_SCAN) MONTH_PAGES.push({ label, view: state.view, kroProd: state.kroProd, html });
     if (AUDIT) audit(label, html);
     // period-grouped tables: every plain body row must be as wide as the two-row header (cells moved by pgPost must not be lost or duplicated)
     for (const tm of html.matchAll(/<table[^>]*>([\s\S]*?)<\/table>/g)) {
@@ -602,6 +605,52 @@ state.view = 'mb_pjp'; state.pjpTab = 'map'; check('mb_pjp/tab=map', VIEWS.mb_pj
   console.log(bad.length ? '✗ cut labels do not follow the feeds: ' + JSON.stringify(bad) : '✓ cut labels and default PJP date follow the feeds (simulated cut 25 Oct)');
   if (bad.length) failures++;
   meta('PENJUALAN_FEED').cut = keep[0]; meta('DEMAND_FEED').cut = keep[1]; meta('ENDBAL_FEED').snapshot = keep[2]; meta('GA_FEED').cut_day = keep[3]; global.dseVisitsFeed.metadata.period_end = keep[4];
+}
+// Month-aware labels: re-label every collected page as if the sell-in feeds were one month further (cut 2 Dec 2026).
+// A correctly derived label then reads Des / Nov; any Okt / Sep / Oktober / September left over must belong to GA
+// (October data), to a target (October target) or to a historical note (migration, policy file names).
+if (process.env.MONTH_DUMP) {   // review aid: every month word as printed on the real feeds (no simulation)
+  const seen = new Map();
+  for (const pg of MONTH_PAGES) {
+    state.view = pg.view; state.kroProd = pg.kroProd;
+    const text = app.brRelabelHtml(pg.html).replace(/<style[\s\S]*?<\/style>/g, ' ');
+    for (const m of text.matchAll(/\b(Okt|Oktober|Sep|September|Nov|November)\b(?!\u200B)/g)) {
+      const ctx = text.slice(Math.max(0, m.index - 22), m.index + m[0].length + 14).replace(/<[^>]+>/g, '·').replace(/\s+/g, ' ');
+      const k = pg.view + (pg.kroProd ? '/' + pg.kroProd : '') + ' | ' + ctx.replace(/\d+/g, '#');
+      if (!seen.has(k)) seen.set(k, ctx);
+    }
+  }
+  require('fs').writeFileSync(process.env.MONTH_DUMP, [...seen.entries()].map(([k, c]) => k.split(' | ')[0] + ' | ' + c).sort().join('\n'));
+}
+if (MONTH_SCAN) {
+  const meta = (n) => (global[n] && global[n].metadata) || {};
+  const keep = [meta('PENJUALAN_FEED').cut, meta('DEMAND_FEED').cut, meta('PENJUALAN_FEED').mtd_month_days];
+  const realMon = (keep[0] || '').slice(5, 7);
+  meta('PENJUALAN_FEED').cut = '2026-12-02'; meta('DEMAND_FEED').cut = '2026-12-02';
+  const WORD = /\b(Okt|Oktober|Sep|September)\b(?![\u200B\u2064])/g;
+  global.__MO_MARK = true;   // the app marks every month word it keeps on purpose (GA month, target month, history notes); an unmarked one escaped the month shift
+  const bad = {}, seenCtx = new Set();
+  let scanned = 0;
+  for (const pg of MONTH_PAGES) {
+    if (pg.view === 'mb_periods' || pg.view === 'mb_grossadd' || pg.view === 'mb_gatrend' || pg.view === 'cfg_target' || ((pg.view === 'mb_kro' || pg.view === 'mb_program') && pg.kroProd === 'ga')) continue;   // GA pages keep the GA month (October)
+    state.view = pg.view; state.kroProd = pg.kroProd;
+    const out = app.brRelabelHtml(pg.html);
+    const text = out.replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<script[\s\S]*?<\/script>/g, ' ');
+    scanned++;
+    for (const m of text.matchAll(WORD)) {
+      const ctx = text.slice(Math.max(0, m.index - 60), m.index + m[0].length + 90).replace(/<[^>]+>/g, '·').replace(/\s+/g, ' ');
+      const k = pg.view + ' | ' + ctx.slice(30, 100);
+      if (seenCtx.has(k)) continue;
+      seenCtx.add(k); (bad[pg.view] = bad[pg.view] || []).push(ctx);
+    }
+  }
+  meta('PENJUALAN_FEED').cut = keep[0]; meta('DEMAND_FEED').cut = keep[1]; global.__MO_MARK = false;
+  const n = Object.values(bad).reduce((t, a) => t + a.length, 0);
+  if (n) {
+    failures++;
+    console.log('✗ stale month words on a December-simulated feed (outside GA / target / history text): ' + n + ' in ' + scanned + ' pages');
+    for (const [v, a] of Object.entries(bad)) { console.log('  ' + v + ' (' + a.length + ')'); a.slice(0, +process.env.MONTH_SHOW || 6).forEach((c) => console.log('     … ' + c)); }
+  } else console.log('✓ month-aware labels: no stale Okt / Sep wording on ' + scanned + ' pages re-labelled for a December feed (GA, target and history text excluded)');
 }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);

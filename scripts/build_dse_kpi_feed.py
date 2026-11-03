@@ -307,7 +307,7 @@ def main():
     feed = {
         'metadata': {
             'generated_at': datetime.now().isoformat(timespec='seconds'),
-            'period': 'MTD Oktober 2026', 'cut_day': M['cut_day'], 'cut': M['cut'], 'month_days': M.get('mtd_month_days', 31),
+            'period': 'MTD %s %s' % (['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][int(str(M['cut'])[5:7]) - 1], str(M['cut'])[:4]), 'cut_day': M['cut_day'], 'cut': M['cut'], 'month_days': M.get('mtd_month_days', 31),
             'visits_cut_day': len((vf.get('metadata') or {}).get('days') or []), 'visits_cut': ((vf.get('metadata') or {}).get('period_end')),
             'dses': len(rows), 'dses_with_visits': sum(1 for r in rows if r['vis']),
             'target_audit': {'target_rows': tgt_rows, 'placed': len(tgt), 'orphan_rows': tgt_orphans, 'placed_via_temporary_login': tgt_via_login, 'roster_without_official_target': [r['n'] for r in rows if r['osa_tgt_src'] != 'official']}, 'sources': {
