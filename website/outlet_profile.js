@@ -84,11 +84,12 @@
     for (d = 1; d <= 31; d++) mx = Math.max(mx, mtd[d] || 0, lm[d] || 0);
     function Y(v) { return H - 14 - (v / mx) * (H - 22); }
     for (d = 1; d <= 31; d++) if (d <= cut && mtd[d]) out += '<rect x="' + (ml + (d - 0.8) * bw).toFixed(1) + '" y="' + Y(mtd[d]).toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + (H - 14 - Y(mtd[d])).toFixed(1) + '" style="fill:var(--ij-ink);"><title>' + d + ': ' + api.fmtCount(mtd[d]) + '</title></rect>';
-    var pts = []; for (d = 1; d <= 30; d++) pts.push((ml + (d - 0.5) * bw).toFixed(1) + ',' + Y(lm[d] || 0).toFixed(1));
+    var pts = []; for (d = 1; d <= prevDaysN(); d++) pts.push((ml + (d - 0.5) * bw).toFixed(1) + ',' + Y(lm[d] || 0).toFixed(1));
     out += '<polyline points="' + pts.join(' ') + '" style="fill:none; stroke:var(--ij-muted); stroke-width:1.5;"/>';
     [1, 5, 10, 15, 20, 25, 30].forEach(function (x) { out += '<text x="' + (ml + (x - 0.5) * bw).toFixed(1) + '" y="' + (H - 2) + '" text-anchor="middle" style="font:10px var(--ij-font); fill:var(--ij-muted);">' + x + '</text>'; });
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + api.esc(title) + '" style="max-width:' + W + 'px; display:block;">' + out + '</svg>';
   }
+  function prevDaysN() { return (window.IJMonth && window.IJMonth.prevDays()) || 30; }   /* days of the month before the running month (Okt 31 for a Nov feed) */
   function perDay(pairs, qi) { var a = [], d; for (d = 0; d <= 31; d++) a.push(0); for (var i = 0; pairs && i < pairs.length; i++) { if (qi == null) { a[pairs[i][0]] += pairs[i][1]; } else { a[pairs[i][0]] += pairs[i][qi]; } } return a; }
   function gaDays(rows, key) { var a = [], d, i, r; for (d = 0; d <= 31; d++) a.push(0); rows.forEach(function (x) { r = x[key] || []; for (i = 0; i < r.length; i += 2) a[r[i]] += r[i + 1]; }); return a; }
 
@@ -155,8 +156,8 @@
     if (!rows.length) return api.card('Profil GA · Daily_RGUGA (outlet tagging)', '<p class="note">Tidak ada GA tagging untuk outlet ini di Oktober maupun September.</p>');
     var mtd = gaDays(rows, 'o'), sep = gaDays(rows, 's'), q = 0, p = 0, f = 0, days = 0, best = 0, bd = 0, d, byB = {};
     for (d = 1; d <= 31; d++) { q += mtd[d]; if (mtd[d] > 0) days++; if (mtd[d] > best) { best = mtd[d]; bd = d; } }
-    for (d = 1; d <= 30; d++) { f += sep[d]; if (d <= cut) p += sep[d]; }
-    rows.forEach(function (r) { var b = byB[r.b] || (byB[r.b] = [0, 0, 0]); b[0] += sumPairs(r.o, 1, 31); b[1] += sumPairs(r.s, 1, cut); b[2] += sumPairs(r.s, 1, 30); });
+    for (d = 1; d <= prevDaysN(); d++) { f += sep[d]; if (d <= cut) p += sep[d]; }
+    rows.forEach(function (r) { var b = byB[r.b] || (byB[r.b] = [0, 0, 0]); b[0] += sumPairs(r.o, 1, 31); b[1] += sumPairs(r.s, 1, cut); b[2] += sumPairs(r.s, 1, prevDaysN()); });
     var kp = '<div class="kpis" style="margin-top:6px;">' +
       api.kpi('GA MTD (D1–D' + cut + ')', fc(q) + ' pcs', growth(api, q, p) + ' vs LMTD ' + fc(p) + ' · FM Sep ' + fc(f), q >= p ? 'up' : 'down', 'gross add (MSISDN) pada outlet tagging ini') +
       api.kpi('GA per brand', 'IM3 ' + fc((byB.IM3 || [0])[0]) + ' · 3ID ' + fc((byB['3ID'] || [0])[0]), 'LMTD IM3 ' + fc((byB.IM3 || [0, 0])[1]) + ' · 3ID ' + fc((byB['3ID'] || [0, 0])[1]), 'up', 'hybrid: kedua brand dijumlahkan di outlet fisik yang sama') +

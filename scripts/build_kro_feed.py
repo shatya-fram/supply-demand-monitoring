@@ -16,7 +16,7 @@ Six measures ("keys"), each with its own ladder, per outlet per month:
 pcs ladder (owner, 18 Oct 2026):   RETAIL 0 | 1-10 | 11-30   KRO 31-60 | 61-100   WHOLESALER 101-200 | 201-500 | 501-1000 | > 1000
 value ladder (owner, 20 Oct 2026): RETAIL 0-5 jt | 5-10 jt   KRO 10-30 | 30-60 | 60-90 jt   WHOLESALER 90-200 | 200-400 | > 400 jt
 The upper bound belongs to the lower slab (10 jt exactly = Retail 5-10 jt).
-October projection: GA = MTD / cut x 31; all other keys = last 7 cut days x 31 / 7 (MOBII / MOBO migration dip on 1-9 Oct).
+Projection of the running month: GA = MTD / cut x days of the GA month; all other keys = last min(7, cut) cut days x days of the running sell-in month / min(7, cut) (MOBII / MOBO migration dip on 1-9 Oct 2026 shapes the October baseline).
 
 Output: data/processed/kro_feed.json, website/data/kro_feed.js (KRO_FEED),
         data/catalogues/kro_outlet_catalogue.csv (governed catalogue, base = last full month),
@@ -100,6 +100,11 @@ def main():
     KEYS["sso"] = ("val", has_sal_lm, KEYS["sso"][2])
     ga_cut, sup_cut, dem_cut = int(gm["cut_day"]), int(pm["cut_day"]), int(dm["cut_day"])
     vis_cut = len(vm["days"])
+    # month lengths follow each feed (3 Nov 2026): sell-in / demand project to the running month, GA to its own month (GA builder is not month-aware yet)
+    SUP_DAYS = int(pm.get("mtd_month_days") or 31)
+    BASE_DAYS = int(pm.get("lmtd_full_days") or 30)
+    GA_DAYS = int(gm.get("cur_days") or 31)
+    GA_BASE_DAYS = int(gm.get("prev_days") or 30)
     mi = gm.get("mc_info", {})
 
     # ---- master attributes
@@ -296,6 +301,10 @@ def main():
     def d7(dd, cut):
         return sum(q for d, q in dd.items() if d > cut - 7)
 
+    def proj7(dd, cut):
+        # run-rate of the last 7 cut days (fewer while the month is younger than 7 days) x days of the running month
+        return d7(dd, cut) / max(1, min(7, cut)) * SUP_DAYS
+
     def rnd(key, v):
         if v is None:
             return None
@@ -311,20 +320,20 @@ def main():
         ga_fm = sum(o["s"][1:31])
         ga_mtd = sum(o["o"][1:ga_cut + 1])
         ga_lm = sum(o["s"][1:ga_cut + 1])
-        ga_pr = ga_mtd / ga_cut * 31 if ga_cut else 0
+        ga_pr = ga_mtd / ga_cut * GA_DAYS if ga_cut else 0
         sp = supply_of(k, o["ids"])
         dmd = demand_of(k, o["ids"])
         da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}, "vcn": [0, 0, 0], "spiv": [0, 0, 0], "salf": [0, 0]}
         sp_mtd, sp_lm, sp_fm = (sp["sp"][0], sp["sp"][1], sp["sp"][2]) if sp else (0, 0, 0)
-        sp_pr7 = d7(sp["spd"], sup_cut) / 7 * 31 if sp else 0
+        sp_pr7 = proj7(sp["spd"], sup_cut) if sp else 0
         sal_mtd = sum(v for _, v in (dmd and dmd["_a"]["sald"].items() or []))
         q = {
             "ga": [ga_fm, ga_lm, ga_mtd, ga_pr],
-            "sp": [sp_fm + da["spi"][2], sp_lm + da["spi"][1], sp_mtd + da["spi"][0], (d7(sp["spd"], sup_cut) if sp else 0) / 7 * 31 + d7(da["spid"], dem_cut) / 7 * 31],
-            "vsi": [sp["vcv"][2], sp["vcv"][1], sp["vcv"][0], d7(sp["vcd"], sup_cut) / 7 * 31] if sp else [0, 0, 0, 0],
-            "vso": [da["vci"][2], da["vci"][1], da["vci"][0], d7(da["vcid"], dem_cut) / 7 * 31],
-            "ssi": [sp["sal"][2], sp["sal"][1], sp["sal"][0], d7(sp["sald"], sup_cut) / 7 * 31] if sp else [0, 0, 0, 0],
-            "sso": [da["salf"][1] if has_sal_lm else None, da["salf"][0] if has_sal_lm else None, sal_mtd, d7(da["sald"], dem_cut) / 7 * 31],
+            "sp": [sp_fm + da["spi"][2], sp_lm + da["spi"][1], sp_mtd + da["spi"][0], (proj7(sp["spd"], sup_cut) if sp else 0) + proj7(da["spid"], dem_cut)],
+            "vsi": [sp["vcv"][2], sp["vcv"][1], sp["vcv"][0], proj7(sp["vcd"], sup_cut)] if sp else [0, 0, 0, 0],
+            "vso": [da["vci"][2], da["vci"][1], da["vci"][0], proj7(da["vcid"], dem_cut)],
+            "ssi": [sp["sal"][2], sp["sal"][1], sp["sal"][0], proj7(sp["sald"], sup_cut)] if sp else [0, 0, 0, 0],
+            "sso": [da["salf"][1] if has_sal_lm else None, da["salf"][0] if has_sal_lm else None, sal_mtd, proj7(da["sald"], dem_cut)],
         }
         q = {key: [rnd(key, x) for x in v] for key, v in q.items()}
         # counterpart of each measure for the popups: value (Rp) for the pcs keys, quantity for the Rp keys; [fm, lm, mtd], None = not available (never 0)
@@ -381,7 +390,7 @@ def main():
             "lat": m.get("lat"), "lon": m.get("long"),
             "ga": {"fm": ga_fm, "lm": ga_lm, "mtd": ga_mtd, "pr": round(ga_pr, 1), "im3": [o["bs"]["IM3"][0], o["bs"]["IM3"][1]], "3id": [o["bs"]["3ID"][0], o["bs"]["3ID"][1]],
                    "max": maxday, "day": o["o"][1:ga_cut + 1]},
-            "sp": {"fm": sp_fm, "lm": sp_lm, "mtd": sp_mtd, "pr": round(sp_mtd / sup_cut * 31, 1) if sup_cut else 0, "d7": d7(sp["spd"], sup_cut) if sp else 0, "pr7": round(sp_pr7, 1), "spi": da["spi"][0]} if sp else None,
+            "sp": {"fm": sp_fm, "lm": sp_lm, "mtd": sp_mtd, "pr": round(sp_mtd / sup_cut * SUP_DAYS, 1) if sup_cut else 0, "d7": d7(sp["spd"], sup_cut) if sp else 0, "pr7": round(sp_pr7, 1), "spi": da["spi"][0]} if sp else None,
             "vc": sp["vc"] if sp else None, "sal": sp["sal"] if sp else None,
             "dm": {k2: dmd[k2] for k2 in ("v", "rld", "pkt", "sal")} if dmd else None,
             "v": vv,
@@ -472,7 +481,7 @@ def main():
         "slim_columns": ["k", "t", "n", "id_im3", "id_3id", "mc", "dse", "visit_x", "visit_p", "q: per key " + ",".join(KEYORDER) + " x [fm, lm, mtd, pr]"],
         "key_order": KEYORDER,
         "thresholds": {"kro_min": 30, "wholesaler_min": 100, "kro_min_value": 10e6, "wholesaler_min_value": 90e6},
-        "cuts": {"ga": ga_cut, "supply": sup_cut, "demand": dem_cut, "visits": vis_cut, "ga_month_days": 31, "base_days": 30},
+        "cuts": {"ga": ga_cut, "supply": sup_cut, "demand": dem_cut, "visits": vis_cut, "ga_month_days": GA_DAYS, "ga_base_days": GA_BASE_DAYS, "month_days": SUP_DAYS, "base_days": BASE_DAYS},
         "visit_days": vm["days"][:vis_cut],
         "totals": {key: {k2: {c_: (round(v_, 1) if isinstance(v_, float) else v_) for c_, v_ in t[k2].items()} for k2 in t} for key, t in tot.items()},
         "outlets_total": len(out), "rows": len(rows), "slim": len(slim), "visit_expected_min": wd_gate,
@@ -484,7 +493,7 @@ def main():
             "Voucher sell-out": "Voucher Injection (VCI, MOBO) value in Rp.",
             "Saldo sell-in": "Saldo Mobo transfer value (SALMO, MOBII) in Rp.",
             "Saldo sell-out": "Saldo Mobo transacted by the outlet (SAL, MOBO SALMO file) in Rp; October only, no Last FM / LMTD.",
-            "Projection": "GA = MTD / cut x 31; every other key = last 7 cut days x 31 / 7 (MOBII / MOBO migration: 1-9 Oct are depressed).",
+            "Projection": "GA = MTD / cut x days of the GA month; every other key = last min(7, cut) cut days / min(7, cut) x days of the running sell-in month (the 1-9 Oct 2026 migration dip depresses the October baseline).",
             "Visits": "Executed PJP stops (Check In completed) per outlet from all field operators; the MOBI journey-plan export has no DSO login, so DSO visits are shown through the DSE team of the DSO's MC.",
             "Flags": "NO_VISIT / LOW_VISIT (< 1 visit per full week), DOWN (class below September by a whole category), STOP (September KRO, nothing MTD), SUPPLY_NO_GA, GA_NO_SUPPLY (SP sell-in < 30% of GA), NO_DSE, SPIKE (GA: a day >= 300 or > 50% of the month), NO_DEMAND",
         },
