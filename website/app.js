@@ -10691,6 +10691,8 @@
   function vanguardApi() { return { render: render, state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
   function viewVanguard() { return (typeof window !== 'undefined' && window.IJVanguard) ? window.IJVanguard.view(vanguardApi()) : card('Vanguard 5G', '<p class="note">Modul vanguard.js belum dimuat.</p>'); }
   function outletProfileApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount }; }
+  function periodsApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, toggleHtml: toggle }; }
+  function viewPeriods() { return (typeof window !== 'undefined' && window.IJPeriods) ? window.IJPeriods.view(periodsApi()) : card('Review Periode', '<p class="note">Modul period_review.js belum dimuat.</p>'); }
   function viewOutletProfile() { return (typeof window !== 'undefined' && window.IJOutletProfile) ? window.IJOutletProfile.view(outletProfileApi()) : card('Profil Outlet', '<p class="note">Modul outlet_profile.js belum dimuat.</p>'); }
   function viewStock() { return (typeof window !== 'undefined' && window.IJStock) ? window.IJStock.view(stockApi()) : card('Stok Outlet', '<p class="note">Modul stock.js belum dimuat.</p>'); }
   var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
@@ -10702,8 +10704,6 @@
   /* ================= Global DSE filter (header): MC -> DSE with code, plus search by DSE name or code ================= */
   var DSE_DIR = null;
   function dseNorm(v) { return String(v == null ? '' : v).trim().toUpperCase(); }
-  function periodsApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, toggleHtml: toggle }; }
-  function viewPeriods() { return (typeof window !== 'undefined' && window.IJPeriods) ? window.IJPeriods.view(periodsApi()) : card('Review Periode', '<p class="note">Modul period_review.js belum dimuat.</p>'); }
   function dseDir() {
     if (DSE_DIR) return DSE_DIR;
     var map = {}, T = (typeof window !== 'undefined') ? window.TERRITORY_FEED : null, K = (typeof window !== 'undefined') ? window.DSE_KPI_FEED : null, V = mbVisitsFeed();
@@ -11501,6 +11501,7 @@
     else if (t.hasAttribute('data-pj-out-toggle')) { var ok_ = t.getAttribute('data-pj-out-toggle'); state.pjOutOpen = state.pjOutOpen || {}; state.pjOutOpen[ok_] = !pjOutOpen(ok_, ok_.charAt(0)); }
     else if (t.hasAttribute('data-grp-toggle')) { var gk_ = t.getAttribute('data-grp-toggle'); state.grpOpen = state.grpOpen || {}; state.grpOpen[gk_] = t.getAttribute('aria-expanded') !== 'true'; }
     else if (t.hasAttribute('data-vg')) { if (window.IJVanguard) window.IJVanguard.click(t.getAttribute('data-vg'), vanguardApi()); }
+    else if (t.hasAttribute('data-prv')) { if (window.IJPeriods) window.IJPeriods.click(t.getAttribute('data-prv'), periodsApi()); }
     else if (t.hasAttribute('data-opf')) { if (window.IJOutletProfile) window.IJOutletProfile.click(t.getAttribute('data-opf'), outletProfileApi()); }
     else if (t.hasAttribute('data-st')) { if (window.IJStock) window.IJStock.click(t.getAttribute('data-st'), stockApi()); }
     else if (t.getAttribute('data-act') === 'grp-all') { var gt_ = t.getAttribute('data-t'); state.grpAll = state.grpAll || {}; state.grpAll[gt_] = t.getAttribute('data-v'); Object.keys(state.grpOpen || {}).forEach(function (k) { if (k.indexOf(gt_ + '|') === 0) delete state.grpOpen[k]; }); }
@@ -11540,7 +11541,6 @@
     else if (t.hasAttribute('data-visits-level')) {
       state.visitsLevel = t.getAttribute('data-visits-level');
       state.visitsPage = 1;
-    else if (t.hasAttribute('data-prv')) { if (window.IJPeriods) window.IJPeriods.click(t.getAttribute('data-prv'), periodsApi()); }
     }
     else if (t.getAttribute('data-act') === 'clear-visits-dse') {
       state.visitsDse = null;
@@ -11591,6 +11591,7 @@
   }
   function onChange(e) {
     if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-vg-in') && window.IJVanguard) { window.IJVanguard.change(e.target, vanguardApi()); render(); return; }
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-prv-in') && window.IJPeriods) { window.IJPeriods.change(e.target, periodsApi()); render(); return; }
     if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-st-in') && window.IJStock) { window.IJStock.change(e.target, stockApi()); render(); return; }
     if (e.target && e.target.id === 'prDateInput') { state.prDate = e.target.value; render(); return; }
     if (e.target && e.target.id === 'gtDaySelect') { state.gtDay = parseInt(e.target.value, 10) || 0; render(); return; }
@@ -11630,7 +11631,6 @@
     if (e.target && e.target.getAttribute && e.target.hasAttribute('data-map-layer')) {
       var ml = e.target.getAttribute('data-map-layer');
       if (ml === 'branch') state.mapShowBranches = e.target.checked;
-    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-prv-in') && window.IJPeriods) { window.IJPeriods.change(e.target, periodsApi()); render(); return; }
       else if (ml === 'mc') state.mapShowMcs = e.target.checked;
       else if (ml === 'kec') state.mapShowKec = e.target.checked;
       else if (ml === 'site') state.mapShowSites = e.target.checked;
