@@ -3930,7 +3930,14 @@
   }
 
   var SELLIN_TABS = [['all', '📋 Summary (all)'], ['SALDO', '💳 Saldo'], ['SP', '📱 SP / SIM'], ['VC', '🎫 Vouchers']];
+  function sellinStaleNote() {
+    var f = sellinFeed(), m = f && f.metadata; if (!m) return '';
+    return '<p class="note" style="border-left:3px solid var(--ij-accent); padding-left:8px; margin:8px 0;"><b>Menu lama, tidak lagi diperbarui.</b> Isinya laporan Sell-In ' + esc(m.period_start || '') + ' s.d. ' + esc(m.period_end || '') + ' (dibuat ' + esc(String(m.generated_at || '').slice(0, 10)) + ') dan sama di semua periode. Gunakan <b>Penjualan ke Outlet</b> untuk Sell-In terkini (MOBII, MTD / LMTD / FM).</p>';
+  }
   function viewSellin() {
+    return sellinStaleNote() + viewSellin0();
+  }
+  function viewSellin0() {
     var feed = sellinFeed();
     if (!feed) return card('Sell-In Monitoring', '<p class="note">Feed not loaded. Run <code>python3 scripts/build_sellin_feed.py</code> and reload.</p>');
     var tab = state.sellinTab || 'all';
@@ -7828,7 +7835,7 @@
           [['W', 'Wholesaler'], ['K', 'KRO']].forEach(function (t) { var L = c.rows.filter(function (r) { return kroIsKro(r, key) && kroCat(kroTop(r, key)) === t[0]; }); if (L.length) trs += line(t[1], '', 'am', 'MT:' + mc + ':' + t[0], L, L, null, null, 'font-size:13px;', 48); });
         });
       });
-      trs += line('TOTAL ' + esc(scopeText()), '', 'T', 'T', allU, allR, tn, tr_, ink, 0);
+      trs += line('TOTAL ' + esc(scopeText()), '', 'T', 'T', allU, rows, tn, tr_, ink, 0);   // visits of the total use every in-scope KRO row (outlets whose MC is outside the 36 master MCs are in no area line but are in the popup list)
     } else {
       var G = {}, order = [], allR2 = [];
       gl = { type: 'Tipe KRO', perf: 'Performa September → Oktober' }[grp];
@@ -10855,7 +10862,14 @@
     window.addEventListener('resize', stkQ); document.addEventListener('visibilitychange', stkQ);
     stkQ();
   }
-  Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
+  /* GA is read from the Daily_RGUGA workbooks, which can sit on an earlier month than Sell-In / Demand / PJP (the GA builder follows its own file): say so on every page that shows GA */
+  function moGaBanner(view) {
+    var C = moClocks(); if (C.gm === C.sm) return '';
+    var uses = view === 'mb_grossadd' || view === 'mb_gatrend' || ((view === 'mb_kro' || view === 'mb_program') && state.kroProd === 'ga') || (view === 'mb_uar' && state.uarTab === 'spi');
+    if (!uses) return '';
+    return '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Data GA masih ' + MO.lit(MON_FULL_ID[C.gm]) + '.</b> File Daily_RGUGA ' + MON_FULL_ID[C.sm] + ' belum diterima, jadi angka GA di halaman ini berpatokan pada ' + MO.lit(MON_FULL_ID[C.gm]) + ' dan tidak sejajar dengan Sell-In, Demand dan PJP (' + MON_FULL_ID[C.sm] + ').</p>';
+  }
+  Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return moGaBanner(k) + pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
 
   /* ---------- shell: filters, header, events ---------- */
   function $(s) { return typeof document !== 'undefined' && document.querySelector ? document.querySelector(s) : null; }
@@ -12044,6 +12058,7 @@
   }
   function rtApply(hash) {
     var m = /^#\/?([A-Za-z0-9_]+)(?:\?(.*))?$/.exec(hash || '');
+    if (m && /^(brief|svd|sellin)$/.test(m[1])) m[1] = 'mb_overall';   /* menus removed 4 Nov 2026 (illustrative Brief / Supply vs Demand, legacy Sell-In Monitoring): old links open Overall Performance */
     if (!m || !VIEWS[m[1]]) return false;
     state.view = m[1]; state.sel = null;
     var q = {}; (m[2] || '').split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* ignore a malformed value */ } } });

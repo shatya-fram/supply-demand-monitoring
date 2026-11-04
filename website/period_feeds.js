@@ -9,7 +9,7 @@
 (function () {
   var ARCHIVE = { month: '2026-10', cur: 'Okt', prev: 'Sep', dir: 'archive/2026-10/' };
   var FEEDS = ['dse_visits_feed', 'sellin_feed', 'penjualan_feed', 'demand_feed', 'dse_kpi_feed', 'endbal_feed', 'target_feed', 'dse_coverage',
-    'ga_feed', 'ga_site_feed', 'kro_feed', 'pjp_mapping_feed', 'stock_feed'];
+    'ga_feed', 'ga_site_feed', 'kro_feed', 'stock_feed'];
   var hash = (typeof window !== 'undefined' && window.location && window.location.hash) || '';
   var per = /[?&]per=oct(?:&|$)/.test(hash) ? 'oct' : 'nov';
   window.IJ_PER = per;
@@ -17,6 +17,9 @@
   window.IJ_SET_PERIOD = function (p) {   /* keeps view, tabs and filters of the current link; only `per` changes */
     var h = (window.location.hash || '#/mb_overall').replace(/([?&])per=[^&]*&?/, '$1').replace(/[?&]$/, '');
     if (p === 'oct') h += (h.indexOf('?') >= 0 ? '&' : '?') + 'per=oct';
+    if (window.IJ_SPLIT && window.parent && window.parent !== window) {   /* portal build: the October feeds live in a second encrypted file the portal page fetches; it reloads this frame with them */
+      window.parent.postMessage({ type: 'ijp-period', per: p === 'oct' ? 'oct' : 'nov', hash: h }, '*'); return;
+    }
     try { window.history.replaceState(null, '', h); } catch (e) { window.location.hash = h; }
     window.location.reload();
   };

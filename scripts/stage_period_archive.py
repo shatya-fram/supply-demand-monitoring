@@ -17,7 +17,6 @@ JSON_FEEDS = {
     "demand_feed": ("DEMAND_FEED", "var", "Auto-generated Demand (sell-out) feed dari DAILY_DATA_MOBO. Kontrak: docs/assessments/daily_data_mobo_demand.md"),
     "ga_feed": ("GA_FEED", "var", "Auto-generated Gross Add (SSO) feed dari raw/GA. Kontrak: docs/assessments/ga_rguga_outlet.md"),
     "kro_feed": ("KRO_FEED", "var", "Auto-generated KRO / Wholesaler feed. Kontrak: docs/assessments/kro_product_ladders.md"),
-    "pjp_mapping_feed": ("PJP_MAP", "var", "Auto-generated PJP outlet mapping (weekly template). Kontrak: docs/assessments/pjp_weekly_mapping.md"),
     "dse_kpi_feed": ("DSE_KPI_FEED", "win", "DSE KPI feed, frozen month close"),
     "endbal_feed": ("ENDBAL_FEED", "win", "END BALANCE feed, frozen month close"),
     "target_feed": ("TARGET_FEED", "win", "DSE target setting, frozen month close"),
