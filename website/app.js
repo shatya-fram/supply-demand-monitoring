@@ -6712,7 +6712,7 @@
     var m = /^gs\|(\d+)\|(\d)\|(\d)$/.exec(pk), l = m && _gsLists[+m[1]]; if (!m || !l) return null;
     var p = +m[2], i = +m[3], L = l.filter(function (o) { var s = gaStat(o, _gsBrand); return gaSlabIdx(p === 0 ? s.cur : s.prev) === i; });
     L.sort(function (x, y) { return gaStat(y, _gsBrand)[p === 0 ? 'cur' : 'prev'] - gaStat(x, _gsBrand)[p === 0 ? 'cur' : 'prev']; });
-    return ovMeasEntry('Outlet slab ' + GA_SLABS[i][2] + ' GA · ' + (p === 0 ? 'MTD Oktober' : 'LMTD September'), ['Outlet', 'ID · brand', 'DSE', 'MC'], L.map(function (o) { var s = gaStat(o, _gsBrand); return { lead: [o.n || o.i, (o.i || '') + ' · ' + (o.b || ''), uarDse(o), o.mc || '—'], m: { mtd: [null, s.cur], lm: [null, s.prev], fm: [null, s.full] } }; }), ['Slab GA dihitung pada ' + (p === 0 ? 'MTD' : 'LMTD') + '; GA tidak punya nilai Rupiah (n/a).']);
+    return ovMeasEntry('Outlet slab ' + GA_SLABS[i][2] + ' GA · ' + (p === 0 ? 'MTD Oktober' : 'LMTD September'), ['Outlet', 'ID · brand', 'DSE', 'MC'], L.map(function (o) { var s = gaStat(o, _gsBrand); return { lead: [o.n || o.i || String(o.k || '').split(':').pop() || 'Unnamed Outlet', (o.i || String(o.k || '').split(':').pop() || '') + ' · ' + (o.b || ''), uarDse(o), o.mc || '—'], m: { mtd: [null, s.cur], lm: [null, s.prev], fm: [null, s.full] } }; }), ['Slab GA dihitung pada ' + (p === 0 ? 'MTD' : 'LMTD') + '; GA tidak punya nilai Rupiah (n/a).']);
   }
   function gaSlab(list, brand, siteMode) {
     _gsLists = []; _gsBrand = brand; ovLazy('gs', gsLazy); Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('gs|') === 0) delete _ovReg[k]; });
