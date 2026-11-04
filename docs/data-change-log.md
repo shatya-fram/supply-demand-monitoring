@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 5 Nov 2026 · Sell-In, Demand dan PJP sampai 4 Nov; ENDBAL snapshot 4 Nov
+- MOBII, MOBO dan SALMO November diperbarui 4 Nov 23:11, PJP 4 Nov, ENDBAL snapshot 4 Nov. Sell-In, Demand dan PJP sama-sama cut 4 Nov. Tidak ada file GA, Fav Locs atau Vanguard baru.
+- Detail: `docs/assessments/daily_update_2026-11-05.md`.
+
 ## 4 Nov 2026 · Sell-In, Demand dan PJP sampai 3 Nov; ENDBAL snapshot 3 Nov
 - Sell-In, Demand dan PJP cut 3 Nov. MOBO November sempat belum tersinkron ke `raw/`; runner kini melewati langkah Demand bila MOBO bulan berjalan belum ada agar feed tidak tertimpa data Oktober.
 - Detail: `docs/assessments/daily_update_2026-11-04.md`.
