@@ -50,11 +50,13 @@ for key, m in S["months"].items():
         n += 1
         if s > a + 1:
             fails.append("%s %s: MC sum %s above ALL %s" % (key, mid, s, a))
-# month roll simulation: a November feed (cut 2 Nov, LMTD = October) must create 2026-11, keep October intact and never shrink it
+# month roll simulation: a feed one month ahead (cut day 2, LMTD = the running month) must create that month, keep the stored months intact and never shrink them
 import copy, importlib.util
 spec = importlib.util.spec_from_file_location("bph", "scripts/build_period_history.py"); bph = importlib.util.module_from_spec(spec); spec.loader.exec_module(bph)
 fake = json.load(open("data/processed/penjualan_feed.json"))
-fake["metadata"]["cut"], fake["metadata"]["cut_day"] = "2026-11-02", 2
+_y, _m = int(ck[:4]), int(ck[5:])
+nk = "%04d-%02d" % ((_y, _m + 1) if _m < 12 else (_y + 1, 1))
+fake["metadata"]["cut"], fake["metadata"]["cut_day"] = nk + "-02", 2
 for r in fake["mc_daily"]:
     r["l"] = copy.deepcopy(r["m"]); r["m"] = [[a * 1.1, b * 1.1] for a, b in r["m"][:2]] + [[0, 0]] * 29
 real_load = bph.load
@@ -62,19 +64,19 @@ bph.load = lambda name: fake if name == "penjualan_feed.json" else None
 bph.MONTHS.clear(); bph.from_penjualan()
 store2 = copy.deepcopy(S); changed = bph.merge(store2)
 n += 1
-if "2026-11" not in store2["months"] or store2["months"]["2026-11"]["groups"].get("sellin", {}).get("cut") != 2:
-    fails.append("roll: 2026-11 sellin cut 2 not created")
+if nk not in store2["months"] or store2["months"][nk]["groups"].get("sellin", {}).get("cut") != 2:
+    fails.append("roll: %s sellin cut 2 not created" % nk)
 n += 1
-if store2["months"]["2026-10"]["groups"]["sellin"]["cut"] != 31 or abs(sum(x or 0 for x in store2["months"]["2026-10"]["series"]["si.SP.q"]["ALL"]) - tot("2026-10", "si.SP.q")) > 0.5:
-    fails.append("roll: October sell-in changed or shrank")
+if store2["months"][ck]["groups"]["sellin"]["cut"] != S["months"][ck]["groups"]["sellin"]["cut"] or abs(sum(x or 0 for x in store2["months"][ck]["series"]["si.SP.q"]["ALL"]) - tot(ck, "si.SP.q")) > 0.5:
+    fails.append("roll: %s sell-in changed or shrank" % ck)
 n += 1
-if abs(sum(x or 0 for x in store2["months"]["2026-11"]["series"]["si.SP.q"]["ALL"]) - sum(r["m"][d][0] for r in fake["mc_daily"] if r["cat"] == "SP" for d in range(2))) > 1:
-    fails.append("roll: November MTD not as in the feed")
-n += 1   # a partial feed must not shrink an archived month
-fake["metadata"]["cut"], fake["metadata"]["cut_day"] = "2026-10-20", 20
+if abs(sum(x or 0 for x in store2["months"][nk]["series"]["si.SP.q"]["ALL"]) - sum(r["m"][d][0] for r in fake["mc_daily"] if r["cat"] == "SP" for d in range(2))) > 1:
+    fails.append("roll: %s MTD not as in the feed" % nk)
+n += 1   # a partial feed (cut 1) must not shrink an archived month
+fake["metadata"]["cut"], fake["metadata"]["cut_day"] = ck + "-01", 1
 bph.MONTHS.clear(); bph.from_penjualan(); store3 = copy.deepcopy(S); bph.merge(store3)
-if store3["months"]["2026-10"]["groups"]["sellin"]["cut"] != 31:
-    fails.append("roll: a cut-20 October feed shrank the archived October")
+if store3["months"][ck]["groups"]["sellin"]["cut"] != S["months"][ck]["groups"]["sellin"]["cut"]:
+    fails.append("roll: a cut-1 feed shrank the archived %s" % ck)
 bph.load = real_load
 print("period history audit: %d checks, %d failed" % (n, len(fails)))
 for f in fails[:20]:

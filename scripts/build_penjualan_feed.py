@@ -422,6 +422,8 @@ if os.path.exists(DEMAND_JSON):
         if row is None:
             row = {k: o[k] for k in ("k", "n", "tier", "mc", "kec", "site", "dse")}
             row["b"] = o["b"]; row["id"] = o["id"]; row["c"] = {}
+            if o["k"].startswith("C:") and o.get("id2"):
+                row["id2"] = o["id2"]      # merged catalogue pair that only has SP Injection: keep the other brand's id (audit_entity)
             if o["mc"] not in mc_info and o.get("br"):
                 row["br"] = o["br"]
             outlet_rows.append(row); by_k[o["k"]] = row

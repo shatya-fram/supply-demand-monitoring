@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 4 Nov 2026 · Sell-In, Demand dan PJP sampai 3 Nov; ENDBAL snapshot 3 Nov
+- Sell-In, Demand dan PJP cut 3 Nov. MOBO November sempat belum tersinkron ke `raw/`; runner kini melewati langkah Demand bila MOBO bulan berjalan belum ada agar feed tidak tertimpa data Oktober.
+- Detail: `docs/assessments/daily_update_2026-11-04.md`.
+
 ## 3 Nov 2026 · file November pertama (MOBII, MOBO, SALMO, PJP 2 Nov, ENDBAL 2 Nov)
 - Sell-In, Demand dan PJP berganti ke November (cut 2 Nov). PJP November berdiri sendiri; Oktober ada di arsip periode. GA tetap Oktober (belum ada file November).
 - Format baru: MOBO memakai `organization_id` / `product_name`; MOBII hanya `MTD_*` (LMTD / FM dari workbook Oktober). Builder disesuaikan. Detail: `docs/assessments/daily_update_2026-11-03.md`.

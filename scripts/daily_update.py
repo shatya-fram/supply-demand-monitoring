@@ -218,7 +218,12 @@ def main():
             print(f"  - {w}")
     if check_only:
         return 0
-    if not (mobii and mobo and visits):
+    mobii_tag = (re.search(r"_(\d{6})", os.path.basename(mobii[0])) or [None, None])[1] if mobii else None
+    skip_demand = bool(mobii_tag and cur_tag and mobii_tag > cur_tag)   # the running month's MOBO workbook is not uploaded yet (the newest MOBO is last month's)
+    if skip_demand:
+        print(f"\n⚠ MOBII is {mobii_tag} but the newest MOBO is {cur_tag}: the {mobii_tag} MOBO workbook is not in raw/ yet.")
+        print("  The demand feed is NOT rebuilt (it keeps its last cut; rebuilding from last month's file would overwrite it); Sell-In, PJP, ENDBAL and the rest continue.")
+    if not (mobii and (mobo or skip_demand) and visits):
         print("\nAborted: a required raw file is missing.")
         return 1
 
@@ -232,7 +237,9 @@ def main():
             subprocess.run([py, "scripts/archive_month_close.py", _feed], check=False)
     except Exception as e:  # noqa: BLE001
         print("  month-roll archive skipped:", e)
-    env = {"MOBII_SRC": mobii[0], "MOBO_SRC": mobo[0], "VISIT_ZIPS": os.pathsep.join(visits)}
+    env = {"MOBII_SRC": mobii[0], "VISIT_ZIPS": os.pathsep.join(visits)}
+    if not skip_demand:
+        env["MOBO_SRC"] = mobo[0]
     if mobo_lm:
         env["MOBO_LM_SRC"] = mobo_lm[0]
     if salmo:
@@ -240,8 +247,10 @@ def main():
     if salmo_lm:
         env["MOBO_SALMO_LM_SRC"] = salmo_lm[0]
     ga_ok = bool(find(r"^Daily_RGUGA_OUTLET_\d{6}\.xlsb$"))
-    steps = [
+    steps = [("1/5 Demand · skipped (running month's MOBO not uploaded)", [py, "-c", "print('demand feed kept as is')"])] if skip_demand else [
         ("1/5 Demand · demand feed (MOBO)", [py, "scripts/build_demand_feed.py"]),   # first: Sell-In feed merges SP Injection from it
+    ]
+    steps += [
         ("2/5 Supply · penjualan feed (MOBII + SP Injection)", [py, "scripts/build_penjualan_feed.py"]),
         ("3/5 PJP · DSE visits feed", [py, "scripts/generate_dse_visits_feed.py"]),
         ("PJP · DSE catalogue (272 DSE of the master file, PROMOTOR TOKO)", [py, "scripts/build_dse_catalogue.py"]),
