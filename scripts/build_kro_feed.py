@@ -40,7 +40,7 @@ OUT_SLIM = "website/data/kro_slim.js"
 OUT_CSV = "data/catalogues/kro_outlet_catalogue.csv"
 PROG_CSV = "data/catalogues/kro_program_outlets.csv"
 PROG_TPL = "data/catalogues/kro_program_outlets_template.csv"
-PROGRAMS_DEFAULT = ["BOSS", "Tebus Murah"]     # names offered in the app even before a membership file exists
+PROGRAMS_DEFAULT = ["BOSS", "Tebus Murah", "DSF", "DSE"]     # names offered in the app even before a membership file exists (owner, 4 Nov 2026: Tebus Murah, DSF and DSE use the October list until a new one arrives)
 
 # (code, category, label, lower bound exclusive); ordered high to low
 PCS = [("W4", "W", "Wholesaler > 1000", 1000), ("W3", "W", "Wholesaler 500–1000", 500), ("W2", "W", "Wholesaler 200–500", 200),
@@ -105,6 +105,12 @@ def main():
     BASE_DAYS = int(pm.get("lmtd_full_days") or 30)
     GA_DAYS = int(gm.get("cur_days") or 31)
     GA_BASE_DAYS = int(gm.get("prev_days") or 30)
+    # GA month vs the running sell-in month (owner, 4 Nov 2026): while the Daily_RGUGA file of the running month is missing the GA data sit on the PREVIOUS month
+    # (October while Sell-In / Demand are November). GA then uses October in full as FM and 1..cut of October as LMTD, MTD and projection are n/a (never the October
+    # total in the MTD column); every other key keeps FM = previous month, so the class of the previous month is the same month on all four products.
+    GA_BEHIND = str((gm.get("months") or {}).get("cur") or "")[:7] != "" and str((gm.get("months") or {}).get("cur") or "")[:7] != str(pm.get("cut") or "")[:7]
+    if GA_BEHIND:
+        GA_BASE_DAYS = GA_DAYS
     mi = gm.get("mc_info", {})
 
     # ---- master attributes
@@ -125,8 +131,11 @@ def main():
         for d in range(1, 32):
             o["s"][d] += s[d]
             o["o"][d] += c[d]
-        o["bs"][r["b"]][0] += sum(s[1:31])
-        o["bs"][r["b"]][1] += sum(c[1:ga_cut + 1])
+        if GA_BEHIND:
+            o["bs"][r["b"]][0] += sum(c[1:32])
+        else:
+            o["bs"][r["b"]][0] += sum(s[1:31])
+            o["bs"][r["b"]][1] += sum(c[1:ga_cut + 1])
 
     # ---- SUPPLY (MOBII) by physical key, then by (brand, id)
     sup, sup_bid = {}, defaultdict(list)
@@ -317,10 +326,15 @@ def main():
     KEYORDER = list(KEYS)
 
     for k, o in out.items():
-        ga_fm = sum(o["s"][1:31])
-        ga_mtd = sum(o["o"][1:ga_cut + 1])
-        ga_lm = sum(o["s"][1:ga_cut + 1])
-        ga_pr = ga_mtd / ga_cut * GA_DAYS if ga_cut else 0
+        if GA_BEHIND:
+            ga_fm = sum(o["o"][1:32])
+            ga_lm = sum(o["o"][1:sup_cut + 1])
+            ga_mtd = ga_pr = None
+        else:
+            ga_fm = sum(o["s"][1:31])
+            ga_mtd = sum(o["o"][1:ga_cut + 1])
+            ga_lm = sum(o["s"][1:ga_cut + 1])
+            ga_pr = ga_mtd / ga_cut * GA_DAYS if ga_cut else 0
         sp = supply_of(k, o["ids"])
         dmd = demand_of(k, o["ids"])
         da = dmd["_a"] if dmd else {"vci": [0, 0, 0], "vcid": {}, "sald": {}, "spi": [0, 0, 0], "spid": {}, "vcn": [0, 0, 0], "spiv": [0, 0, 0], "salf": [0, 0]}
@@ -348,15 +362,16 @@ def main():
         c, qq, near = {}, q, False
         for key, (lad, hasfm, _lab) in KEYS.items():
             c[key + "_fm"] = cls(q[key][0], lad) if hasfm else None
-            c[key + "_pr"] = cls(q[key][3], lad)
+            c[key + "_pr"] = cls(q[key][3], lad) if q[key][3] is not None else "N"
             near = near or max(q[key][0] or 0, q[key][3] or 0) > NEAR[lad]
         for key in KEYS:
             t = tot[key]
             if c[key + "_fm"] is not None:
                 t["cf"][c[key + "_fm"]] += 1
                 t["qf"][c[key + "_fm"]] += q[key][0]
-            t["cp"][c[key + "_pr"]] += 1
-            t["qp"][c[key + "_pr"]] += q[key][3]
+            if q[key][3] is not None:
+                t["cp"][c[key + "_pr"]] += 1
+                t["qp"][c[key + "_pr"]] += q[key][3]
         mk = o["mc"] or "(tanpa MC)"
         ms = mc_sum.setdefault(mk, {"br": o["br"], "n": 0, "k": {key: {"cf": {}, "cp": {}, "qf": {}, "qp": {}} for key in KEYS}})
         ms["n"] += 1
@@ -365,8 +380,9 @@ def main():
             if c[key + "_fm"] is not None:
                 m["cf"][c[key + "_fm"]] = m["cf"].get(c[key + "_fm"], 0) + 1
                 m["qf"][c[key + "_fm"]] = m["qf"].get(c[key + "_fm"], 0) + q[key][0]
-            m["cp"][c[key + "_pr"]] = m["cp"].get(c[key + "_pr"], 0) + 1
-            m["qp"][c[key + "_pr"]] = m["qp"].get(c[key + "_pr"], 0) + q[key][3]
+            if q[key][3] is not None:
+                m["cp"][c[key + "_pr"]] = m["cp"].get(c[key + "_pr"], 0) + 1
+                m["qp"][c[key + "_pr"]] = m["qp"].get(c[key + "_pr"], 0) + q[key][3]
         top = max(RANK[v] for v in c.values() if v)
         for key, (lad, hasfm, _lab) in KEYS.items():        # an outlet that is KRO+ only on LMTD or MTD must be in rows too (period columns count them)
             for qi in (1, 2):
@@ -383,13 +399,13 @@ def main():
                 ids = o["ids"]
                 slim.append([k, o["t"], (o["n"] or m.get("outlet_name", ""))[:40], ids.get("IM3", ""), ids.get("3ID", ""), o["mc"], o["dse"], vv["x"], vv["p"], [0 if x is None else x for x in flat]])
             continue
-        maxday = max(o["o"][1:ga_cut + 1] + o["s"][1:31])
+        maxday = max(o["o"][1:32]) if GA_BEHIND else max(o["o"][1:ga_cut + 1] + o["s"][1:31])
         rows.append({
             "k": k, "t": o["t"], "n": o["n"] or m.get("outlet_name", ""), "id": o["ids"], "br": o["br"], "mc": o["mc"], "hoa": info.get("hoa", ""), "dso": info.get("dso", ""),
             "dse": o["dse"], "sg": o["sg"], "kec": m.get("kecamatan") or o["kec"], "desa": m.get("desa", ""), "site": o["site"],
             "lat": m.get("lat"), "lon": m.get("long"),
-            "ga": {"fm": ga_fm, "lm": ga_lm, "mtd": ga_mtd, "pr": round(ga_pr, 1), "im3": [o["bs"]["IM3"][0], o["bs"]["IM3"][1]], "3id": [o["bs"]["3ID"][0], o["bs"]["3ID"][1]],
-                   "max": maxday, "day": o["o"][1:ga_cut + 1]},
+            "ga": {"fm": ga_fm, "lm": ga_lm, "mtd": ga_mtd, "pr": None if ga_pr is None else round(ga_pr, 1), "im3": [o["bs"]["IM3"][0], o["bs"]["IM3"][1]], "3id": [o["bs"]["3ID"][0], o["bs"]["3ID"][1]],
+                   "max": maxday, "day": o["o"][1:32] if GA_BEHIND else o["o"][1:ga_cut + 1]},
             "sp": {"fm": sp_fm, "lm": sp_lm, "mtd": sp_mtd, "pr": round(sp_mtd / sup_cut * SUP_DAYS, 1) if sup_cut else 0, "d7": d7(sp["spd"], sup_cut) if sp else 0, "pr7": round(sp_pr7, 1), "spi": da["spi"][0]} if sp else None,
             "vc": sp["vc"] if sp else None, "sal": sp["sal"] if sp else None,
             "dm": {k2: dmd[k2] for k2 in ("v", "rld", "pkt", "sal")} if dmd else None,
@@ -413,7 +429,7 @@ def main():
                 fl.append("LOW_VISIT")
             if hasfm and RANK[fmc] >= RANK["K1"] and prc != "N" and "NRKW".index(CAT[prc]) < "NRKW".index(CAT[fmc]):
                 fl.append("DOWN")                                           # fell a whole category (Wholesaler -> KRO / Retail, KRO -> Retail)
-            if hasfm and RANK[fmc] >= RANK["K1"] and (q[key][2] or 0) == 0:
+            if hasfm and RANK[fmc] >= RANK["K1"] and q[key][2] is not None and (q[key][2] or 0) == 0:
                 fl.append("STOP")
             if key in ("ga", "sp"):
                 ga, sp = r["ga"], r["sp"] or {"fm": 0, "mtd": 0, "pr": 0}
@@ -425,7 +441,7 @@ def main():
                     fl.append("GA_NO_SUPPLY")
             if kro and (r["t"] == "G" or not r["dse"] or str(r["dse"]).upper().startswith("UNASSIGNED")):
                 fl.append("NO_DSE")
-            if key == "ga" and (r["ga"]["max"] >= 300 or (r["ga"]["fm"] > 100 and r["ga"]["max"] > 0.5 * max(r["ga"]["fm"], r["ga"]["mtd"]))):
+            if key == "ga" and (r["ga"]["max"] >= 300 or (r["ga"]["fm"] > 100 and r["ga"]["max"] > 0.5 * max(r["ga"]["fm"], r["ga"]["mtd"] or 0))):
                 fl.append("SPIKE")
             if kro and key not in ("vso", "sso") and r["dm"] is not None and r["dm"]["v"] == 0:
                 fl.append("NO_DEMAND")
@@ -477,17 +493,17 @@ def main():
         "generated_at": datetime.now().replace(microsecond=0).isoformat(),
         "contract": "docs/assessments/kro_product_ladders.md",
         "ladders": lad_meta,
-        "keys": {key: {"ladder": lad, "has_fm": hasfm, "label": lab, "near": NEAR[lad]} for key, (lad, hasfm, lab) in KEYS.items()},
+        "keys": {key: {"ladder": lad, "has_fm": hasfm, "has_mtd": not (key == "ga" and GA_BEHIND), "label": lab, "near": NEAR[lad]} for key, (lad, hasfm, lab) in KEYS.items()},
         "slim_columns": ["k", "t", "n", "id_im3", "id_3id", "mc", "dse", "visit_x", "visit_p", "q: per key " + ",".join(KEYORDER) + " x [fm, lm, mtd, pr]"],
         "key_order": KEYORDER,
         "thresholds": {"kro_min": 30, "wholesaler_min": 100, "kro_min_value": 10e6, "wholesaler_min_value": 90e6},
-        "cuts": {"ga": ga_cut, "supply": sup_cut, "demand": dem_cut, "visits": vis_cut, "ga_month_days": GA_DAYS, "ga_base_days": GA_BASE_DAYS, "month_days": SUP_DAYS, "base_days": BASE_DAYS},
+        "cuts": {"ga": ga_cut, "supply": sup_cut, "demand": dem_cut, "visits": vis_cut, "ga_month_days": GA_DAYS, "ga_base_days": GA_BASE_DAYS, "ga_behind": GA_BEHIND, "ga_fm_month": str((gm.get("months") or {}).get("cur") or "") if GA_BEHIND else str((gm.get("months") or {}).get("prev") or ""), "month_days": SUP_DAYS, "base_days": BASE_DAYS},
         "visit_days": vm["days"][:vis_cut],
         "totals": {key: {k2: {c_: (round(v_, 1) if isinstance(v_, float) else v_) for c_, v_ in t[k2].items()} for k2 in t} for key, t in tot.items()},
         "outlets_total": len(out), "rows": len(rows), "slim": len(slim), "visit_expected_min": wd_gate,
         "programs": {n: {"keys": p["keys"], "ids": p["ids"], "unmatched": p["unmatched"][:200], "n_unmatched": len(p["unmatched"])} for n, p in programs.items()},
         "definitions": {
-            "GA": "GA pcs per outlet per month (RGUGA tagging, IM3 + 3ID folded per physical outlet). Catalogue month = September (30 days); current month = projection MTD / cut days x 31.",
+            "GA": "GA pcs per outlet per month (RGUGA tagging, IM3 + 3ID folded per physical outlet). " + ("The GA file of the running month is not here yet: FM = the previous month in full (October), LMTD = 1..cut of that month, MTD and projection are n/a until the new Daily_RGUGA file arrives." if GA_BEHIND else "Catalogue month = previous month (%d days); current month = projection MTD / cut days x %d." % (GA_BASE_DAYS, GA_DAYS)),
             "SP": "Starter Pack sell-in pcs (MOBII, IM3 + 3ID) + SP Injection pcs (MOBO). September injection baseline from the demand feed (l.SPI).",
             "Voucher sell-in": "Value (Rp) of Voucher isi (VCF) + Voucher blank (VCB) sell-in to the outlet (MOBII, outlet-bound only).",
             "Voucher sell-out": "Voucher Injection (VCI, MOBO) value in Rp.",

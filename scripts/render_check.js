@@ -518,6 +518,17 @@ state.branch = ''; state.kec = ''; state.ebTab = 'ringkasan'; state.ebPage = 1;
   state.view = 'mb_pjp'; state.visitsBrandFilter = 'all'; state.branch = ''; state.kec = ''; state.visitsDse = null; state.pjpTab = 'heat'; state.visitsLevel = 'auto';
   let hv = ''; state.branch = global.TERRITORY_FEED.outlets[0].branch; check('entity-line/visits', () => { state.view = 'visits'; state.visitsSubView = 'heat'; return (hv = VIEWS.visits()); }); state.view = 'mb_pjp'; state.branch = '';
   if (!/Per entity-day/.test(hv)) { failures++; console.log('✗ visits scorecard lacks the entity-day line'); } }
+// KRO Management / Program & Tipe Outlet restructure (4 Nov 2026): GA on the previous month (n/a MTD), KRO 360 cards = popup rows, Program toggles in the asked order, no Whitelist / Program mode in KRO
+{ let nCards = 0;
+  for (const pr of ['sp', 'vc', 'sl', 'ga']) for (const tb of ['ringkasan', 'k360', 'katalog', 'tracking', 'aksi']) { state.view = 'mb_kro'; state.kroProd = pr; state.kroTab = tb; state.kroMeas = 'si'; state.kroPage = 1; state.k360Min = '2'; let h = ''; check('kro-restructure/' + pr + '/' + tb, () => (h = VIEWS.mb_kro()));
+    if (/data-kro-mode=/.test(h)) { failures++; console.log('✗ KRO Management still offers Whitelist / Program modes (' + pr + '/' + tb + ')'); }
+    if (tb === 'k360' && pr === 'sp') for (const m of h.matchAll(/data-ov="(kr\|k3\|[^"]+)"[^>]*><h2 class="sect">[^<]*<\/h2><div class="value">([\d,]+)<\/div>/g)) { const e = app.ovEntry(m[1].replace(/&amp;/g, '&')), shown = parseInt(m[2].replace(/,/g, ''), 10); nCards++; if (!e || e.rows.length !== shown) { failures++; console.log('✗ KRO 360 popup rows ' + (e && e.rows.length) + ' != card ' + shown + ' ' + m[1]); } else if (/undefined|NaN/.test(app.ovText(e))) { failures++; console.log('✗ KRO 360 popup undefined/NaN ' + m[1]); } }
+    if (pr === 'ga' && tb === 'ringkasan' && global.KRO_FEED && global.KRO_FEED.metadata.cuts.ga_behind && !/Data GA masih/.test(h)) { failures++; console.log('✗ GA behind banner missing in KRO Management'); } }
+  console.log((nCards >= 6 ? '✓ ' : '✗ ') + 'KRO 360 cards'.padEnd(32) + String(nCards).padStart(9) + ' cards = popup rows'); if (nCards < 6) failures++;
+  for (const pr of ['sp', 'ga']) { state.view = 'mb_program'; state.kroProd = pr; state.prg = ''; let h = ''; check('program-restructure/' + pr, () => (h = VIEWS.mb_program()));
+    const order = ['AVA', 'PROMOTOR', 'TOP PLAYER', 'DtU', 'TEBUS MURAH', 'DSF', 'DSE'], at = order.map(n => h.indexOf(n + ' ') >= 0 || h.indexOf(n + '<') >= 0 ? h.indexOf('☑ ' + n) >= 0 || h.indexOf('☐ ' + n) >= 0 : false);
+    if (!at.every(Boolean)) { failures++; console.log('✗ Program toggles missing: ' + order.filter((n, i) => !at[i]).join(', ')); } }
+  state.kroProd = 'sp'; state.kroTab = 'ringkasan'; state.prg = ''; }
 // PJP heatmap P / A / T split (23 Okt 2026): every cell view renders at every level in both heatmaps, and the feed adds up (T = P + ad-hoc: regional ad-hoc = sum of the daily timeline = sum of areas)
 { const F = global.dseVisitsFeed, rs = F.regional_summary.adhoc_visits_no_beatplan, tl = F.daily_timeline.reduce((a, d) => a + (d.adhoc || 0), 0), br = F.branches.reduce((a, b) => a + (b.adhoc_visits || 0), 0);
   if (!(rs > 0) || rs !== tl || rs !== br) { failures++; console.log('✗ pjp adhoc totals regional ' + rs + ' timeline ' + tl + ' areas ' + br); } else console.log('✓ pjp adhoc totals'.padEnd(32) + String(rs).padStart(9) + ' ad-hoc visits = timeline = areas');
