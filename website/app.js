@@ -141,7 +141,7 @@
     if (view === 'mb_periods') return 'none';
     if (view === 'mb_grossadd' || view === 'mb_gatrend') return 'ga';
     if (view === 'cfg_target') return 'tg';
-    if ((view === 'mb_kro' || view === 'mb_program') && state.kroProd === 'ga') return kroGaFmShift() ? 'sg' : 'ga';
+    if ((view === 'mb_kro' || view === 'mb_program' || view === 'mb_program_daily') && state.kroProd === 'ga') return kroGaFmShift() ? 'sg' : 'ga';
     return 's';
   }
   var MO = {
@@ -187,6 +187,7 @@
       mb_gatrend: 'RGUGA GA cut ' + G + ' ' + Y,
       mb_kro: 'GA ' + G + ' · Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P,
       mb_program: 'GA ' + G + ' · Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P,
+      mb_program_daily: 'GA ' + G + ' · Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P,
       mb_uar: 'Sell-In cut ' + S + ' · GA (SSO) cut ' + G + ' ' + Y,
       mb_pjp: 'PJP cut ' + P,
       visits: 'PJP cut ' + P,
@@ -229,6 +230,7 @@
     mb_uar: ['Morning DSE Briefing · UAR', 'Unique Active Retailer per teritori: sell-in SP, voucher (zero dan value) dan saldo; plus SSO (SIM Selling Outlet) dari gross add RGUGA, dengan growth terhadap periode pembanding.'],
     mb_gatrend: ['Morning DSE Briefing · Daily GA Trend', 'GA harian D1–D31 dengan pilihan tanggal: Oktober MTD vs September LMTD (jumlah hari sama dan sejajar hari kerja), kumulatif, proyeksi akhir bulan, profil hari dan GA per hari per teritori; basis tagging outlet atau lokasi aktivasi.'],
     mb_kro: ['Morning DSE Briefing · Outlet & KRO Management', 'Katalog outlet Retail, KRO dan Wholesaler per produk (SP, Voucher, Saldo, GA), sell-in dan sell-out, dengan mode katalog slab bulan lalu, whitelist outlet dan program, serta tracking kunjungan PJP per outlet, DSO dan DSE.'],
+    mb_program_daily: ['Morning DSE Briefing · Program & Tipe Outlet · Harian', 'Performa harian D1–D30 per kategori outlet program (AVA, Promotor, TOP PLAYER, DtU, KAM, DSF, ...) dan non-program: GA, Sell-In SP, Voucher, Saldo, dengan MTD, LMTD, Growth dan Last FM; detail per Area, MC, DSO atau DSE beserta kunjungan PJP.'],
     mb_program: ['Morning DSE Briefing · Program & Tipe Outlet', 'Flag program per outlet (KRO, Wholesaler, Promotor, DTU, AVA dari katalog 202610, serta BOSS / Tebus Murah bila ada): pilih program dengan toggle, lalu lihat performa seperti Outlet & KRO Management (slab, UAR, growth, kunjungan PJP, daftar outlet) per Area, MC dan program.'],
     mb_grossadd: ['Morning DSE Briefing · Gross Add', 'Gross Add dan SSO (SIM Selling Outlet) dari RGUGA per outlet: Oktober vs September, per Area, MC, DSE dan outlet (basis tagging) atau per site / kecamatan (basis lokasi dari data RGUGA), harian, dan slab SSO.'],
     cfg_pjp: ['Konfigurasi · PJP Mapping', 'Mapping permanen outlet per DSE dari template PJP mingguan: frekuensi dan hari kunjungan Senin sampai Sabtu, sanity check, pengecualian, dan pratinjau PJP harian per teritori yang akan dipakai Instruksi Printing.'],
@@ -8286,7 +8288,137 @@
     var list = kroTable(Ls, key, false, 'Daftar outlet program · ' + kroKeyName(key), kroSearchBar(), 'Diurutkan menurut volume proyeksi Oktober.');
     var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS), KAM dan AVA TM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH, DSF dan DSE belum punya daftar. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
     var wl = kroSlim() ? '<details style="margin-top:10px;"><summary class="note" style="cursor:pointer;"><b>Daftar manual (whitelist ID)</b> · tempel atau unggah id outlet untuk melihat slab, kunjungan dan flag</summary>' + kroWhitelist(K, key) + '</details>' : '';
-    return card('Program & Tipe Outlet', head) + noteO + form + kroProgUploadForm(K) + cards + bench + slab + progTbl + amTbl + list + wl;
+    return card('Program & Tipe Outlet', pdSwitch('mb_program') + head) + noteO + form + kroProgUploadForm(K) + cards + bench + slab + progTbl + amTbl + list + wl;
+  }
+
+  /* ================= Program · Harian (owner, 5 Nov 2026; docs/assessments/program_daily_view.md) =================
+     Daily D1..D<month> of the chosen product per program category and non-program, with MTD · LMTD · Growth · Last FM; the detail tab groups
+     Area › MC › DSO (or DSE) with PJP visit and the non-program comparison. Daily vectors come from program_daily_feed.js (members of every program
+     + MC totals of all outlets); non-program daily = MC total − members, so it is n/a while a DSE filter is on. MTD / LMTD / FM / visits use the same
+     outlet rows as the other Program tables (kro_feed + kro_slim). Unit: pcs, or Rp Jt for Voucher and Saldo. */
+  var _pdCsv = null;
+  function pdSwitch(cur) { return '<div class="map-toolbar" style="margin-top:8px;"><div class="map-toolbar-group" role="group" aria-label="Program & Tipe Outlet"><span class="map-label">Program &amp; Tipe Outlet:</span>' + [['mb_program', '🏷️ Ringkasan · slab & perbandingan'], ['mb_program_daily', '📅 Harian · D1–D30']].map(function (i) { return '<button type="button" class="map-btn' + (cur === i[0] ? ' active' : '') + '" data-view="' + i[0] + '" aria-pressed="' + (cur === i[0]) + '">' + i[1] + '</button>'; }).join('') + '</div></div>'; }
+  function pdFeed() { return (typeof window !== 'undefined' && window.PROGRAM_DAILY) ? window.PROGRAM_DAILY : null; }
+  function pdMap(P) { if (!P._m) { P._m = {}; P.rows.forEach(function (r) { P._m[r[0]] = r[1]; }); } return P._m; }
+  function pdNum(key, v) { if (v == null) return KRO_NA; if (kroIsVal(key)) { var j = v / 1e6; return fmtCount(Math.abs(j) >= 10 ? Math.round(j) : Math.round(j * 10) / 10); } return fmtCount(Math.round(v)); }
+  function pdDays(P, key, rows) {   // daily sum of member rows (outlets without a vector add nothing); null = the key has no MTD yet
+    var cut = P.metadata.cuts[key], i = P.metadata.key_order.indexOf(key), m = pdMap(P), d = [], j;
+    for (j = 0; j < cut; j++) d.push(0);
+    rows.forEach(function (r) { var v = m[r.k]; v = v && v[i]; if (v) for (j = 0; j < v.length && j < cut; j++) d[j] += v[j] || 0; });
+    return d;
+  }
+  function pdMcScope(P, K, g) {   // MC totals of every outlet that pass the Area / HoA / MC filters (a DSE filter cannot be applied to totals)
+    var mi = K.metadata.mc_info || {}, out = [];
+    Object.keys(P.mc).forEach(function (k) { var e = P.mc[k], h = (mi[e.mc] || {}).hoa || ''; if ((!state.branch || e.br === state.branch) && (!state.kec || e.mc === state.kec) && (!state.hoa || h === state.hoa) && (!g || g(e, mi))) out.push(e); });
+    return out;
+  }
+  function pdAgg(rows, key) { var a = { n: rows.length, fm: 0, lm: 0, mtd: 0 }; rows.forEach(function (r) { var q = r.q[key]; a.fm += q[0] || 0; a.lm += q[1] || 0; a.mtd += q[2] || 0; }); return a; }
+  function pdHead(first, P, key, vis, nc) {
+    var n = P.metadata.days_cur, mo = P.metadata.month_cur, d = [], i;
+    for (i = 1; i <= n; i++) d.push('<th class="num" title="' + mo + '-' + (i < 10 ? '0' : '') + i + '">D' + i + '</th>');
+    return '<tr>' + dkStickyTh(first, 2) + '<th rowspan="2">Ket.</th><th rowspan="2" class="num">Outlet</th>' + (vis ? '<th rowspan="2" class="num">Dikunjungi ≥ 1×</th><th rowspan="2" class="num">Belum dikunjungi</th><th rowspan="2" class="num">% dikunjungi</th>' : '') +
+      '<th colspan="' + n + '" style="text-align:center;">Harian · ' + esc(mo) + ' · ' + (kroIsVal(key) ? 'Rp Jt' : kroUnit(key)) + '</th><th colspan="4" style="text-align:center;">Ringkasan</th>' + (nc ? '<th colspan="3" style="text-align:center;">Non-program (di area yang sama)</th>' : '') + '</tr>' +
+      '<tr>' + d.join('') + '<th class="num">MTD</th><th class="num">LMTD</th><th class="num">Growth</th><th class="num">Last FM</th>' + (nc ? '<th class="num">MTD</th><th class="num">Growth</th><th class="num">Program ÷ non-prog / outlet</th>' : '') + '</tr>';
+  }
+  function pdLine(label, ket, rows, days, key, P, o) {   // rows: outlet rows of the line; days: daily vector or null (n/a); o: { vis, non: {agg, days}, ink, indent, csv }
+    o = o || {}; var a = pdAgg(rows, key), hasFm = kroHasFm(key), mt = kroHasP(key, 'mt'), cut = P.metadata.cuts[key], n = P.metadata.days_cur, cells = '', i, vs = o.vis ? kroVisitStat(rows) : null, csv = [label.replace(/<[^>]+>/g, ''), ket.replace(/<[^>]+>/g, ''), a.n];
+    var ink = o.ink ? ' background:var(--ink); color:#fff;' : (o.wash ? ' background:var(--ij-wash, #f6f4f1);' : ' background:#fff;');
+    for (i = 0; i < n; i++) { var dv = days && mt && i < cut ? days[i] : null; cells += '<td class="num"' + (dv === 0 ? ' style="opacity:.45;"' : '') + '>' + (dv == null ? '<span class="note">·</span>' : pdNum(key, dv)) + '</td>'; csv.push(dv == null ? '' : dv); }
+    var gr = hasFm && mt ? kroGrowTag(a.mtd, a.lm) : KRO_NA;
+    cells += '<td class="num"><b>' + (mt ? pdNum(key, a.mtd) : KRO_NA) + '</b></td><td class="num">' + (hasFm ? pdNum(key, a.lm) : KRO_NA) + '</td><td class="num">' + gr + '</td><td class="num">' + (hasFm ? pdNum(key, a.fm) : KRO_NA) + '</td>';
+    csv.push(mt ? a.mtd : '', hasFm ? a.lm : '', hasFm && a.lm > 0 ? Math.round((a.mtd / a.lm - 1) * 1000) / 10 + '%' : '', hasFm ? a.fm : '');
+    var vcell = '';
+    if (o.vis) {
+      vcell = '<td class="num">' + fmtCount(vs.vis) + '</td><td class="num">' + (vs.zero ? '<b style="color:#991b1b;">' + fmtCount(vs.zero) + '</b>' : '0') + '</td><td class="num">' + kroPctv(vs.vis, a.n) + '</td>';
+      csv.splice(3, 0, vs.vis, vs.zero, a.n ? Math.round(vs.vis / a.n * 1000) / 10 + '%' : '');
+      var nn = o.non;
+      if (!o.nc) { /* category tab: no non-program columns */ }
+      else if (nn) { var pa = nn.agg, perP = a.n ? a.mtd / a.n : null, perN = pa.n ? pa.mtd / pa.n : null; cells += '<td class="num">' + (mt ? pdNum(key, pa.mtd) : KRO_NA) + '</td><td class="num">' + (hasFm && mt ? kroGrowTag(pa.mtd, pa.lm) : KRO_NA) + '</td><td class="num">' + (mt && perP != null && perN ? '×' + (perP / perN).toFixed(1) : KRO_NA) + '</td>'; csv.push(mt ? pa.mtd : '', hasFm && pa.lm > 0 ? Math.round((pa.mtd / pa.lm - 1) * 1000) / 10 + '%' : '', mt && perP != null && perN ? (perP / perN).toFixed(1) : ''); }
+      else { cells += '<td class="num">' + KRO_NA + '</td><td class="num">' + KRO_NA + '</td><td class="num">' + KRO_NA + '</td>'; csv.push('', '', ''); }
+    }
+    if (_pdCsv) _pdCsv.push(csv);
+    return '<tr' + (o.ink ? ' style="background:var(--ink); color:#fff;"' : '') + '><td class="cur" style="' + DK_STICKY + ink + (o.indent ? ' padding-left:' + o.indent + 'px;' : '') + '">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(a.n) + '</td>' + vcell + cells + '</tr>';
+  }
+  function pdSub(P, key, entries, mem) {   // non-program daily of a group = MC totals − the member vectors of the group
+    var i = P.metadata.key_order.indexOf(key), cut = P.metadata.cuts[key], d = [], j, md = pdDays(P, key, mem);
+    for (j = 0; j < cut; j++) d.push(0);
+    entries.forEach(function (e) { var v = e.d[key] || []; for (j = 0; j < cut; j++) d[j] += v[j] || 0; });
+    for (j = 0; j < cut; j++) d[j] -= md[j];
+    return d;
+  }
+  function viewProgramDaily() {
+    var K = kroFeed(), P = pdFeed();
+    if (!K) return card('Program · Harian', '<p class="note">Feed KRO belum dibangun. Jalankan <code>python3 scripts/build_kro_feed.py</code>.</p>');
+    if (!P || (typeof window !== 'undefined' && window.IJ_PER === 'oct')) return card('Program · Harian', '<p class="note">Tampilan harian hanya untuk periode berjalan (MTD vs LMTD). ' + (P ? 'Pilih periode A di header.' : 'Feed <code>program_daily_feed.js</code> belum ada: jalankan <code>python3 scripts/build_kro_feed.py</code>.') + '</p>');
+    Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
+    var slim = kroSlim(), key = kroKey(), prod = kroProd(), names = prgNames(K), all = prgAll(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
+    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by;
+    var tab = state.pdTab === 'det' ? 'det' : 'kat', grp = ['am', 'area', 'dso', 'dse'].indexOf(state.pdGroup) >= 0 ? state.pdGroup : 'am';
+    _ovScope = scopeText() + ' · Program harian · ' + kroKeyName(key);
+    var bar = sellinBtnGroup('Produk', 'kro-prod', KRO_PRODS, prod) + ((prod === 'vc' || prod === 'sl') ? sellinBtnGroup('Ukuran', 'kro-meas', [['si', '⬇️ SELL IN · MOBII'], ['so', prod === 'vc' ? '⬆️ SELL OUT · Voucher Injection (MOBO)' : '⬆️ SELL OUT · Saldo Mobo (MOBO)']], kroMeas()) : '') +
+      sellinBtnGroup('Tampilan', 'pd-tab', [['kat', 'Per kategori program'], ['det', 'Detail Area › MC › DSO']], tab) + (tab === 'det' ? sellinBtnGroup('Kelompok', 'pd-group', [['am', 'Area › MC'], ['area', 'Area'], ['dso', 'DSO'], ['dse', 'DSE']], grp) : '');
+    var tg = all.map(function (n) { var has = prgMembers(K, n).length, on = sel.indexOf(n) >= 0; if (!has) return ''; return '<button type="button" class="map-btn' + (on ? ' active' : '') + '" role="switch" aria-checked="' + on + '" data-prg-toggle="' + esc(n) + '">' + (on ? '☑ ' : '☐ ') + esc(prgLabel(n)) + ' (' + fmtCount(prgMembers(K, n).length) + ')</button>'; }).join('');
+    var head = '<div class="map-toolbar" style="margin-top:8px;">' + bar + '</div><div class="map-toolbar" style="margin-top:6px;"><div class="map-toolbar-group"><span class="map-label">Program:</span>' + tg + '</div><div class="map-toolbar-group"><button type="button" class="btn" data-act="prg-all">Semua</button><button type="button" class="btn" data-act="prg-none">Kosongkan</button><button type="button" class="btn" data-act="pd-csv">📥 Unduh CSV</button></div></div>';
+    if (!slim && !state._kroSlimError) head += '<p class="note">Memuat daftar outlet Retail (kro_slim.js)… angka non-program bertambah setelah selesai.</p>';
+    var cut = P.metadata.cuts[key], mt = kroHasP(key, 'mt'), hasFm = kroHasFm(key);
+    var uni = kroUniv(K).filter(kroInScope), memAll = {}, memRows = [];
+    names.forEach(function (n) { Object.keys(C.by[n]).forEach(function (k) { var r = C.by[n][k]; if (!memAll[k] && kroInScope(r)) { memAll[k] = 1; memRows.push(r); } }); });
+    var NP = uni.filter(function (r) { return !memAll[r.k]; }), noDse = !!state.dse;
+    var L = C.rows.filter(kroInScope);
+    _pdCsv = [];
+    var body = '', csvHead, noteDay = '<p class="note">Hari setelah data terakhir (' + cut + ' ' + esc(P.metadata.month_cur) + ') tampil "·" (belum ada data, bukan nol). ' + (mt ? '' : '<b>MTD bulan berjalan belum tersedia untuk produk ini</b> (file GA bulan berjalan belum diterima): kolom harian n/a. ') + 'MTD dan LMTD memakai jumlah hari yang sama (1–' + cut + '); Growth = MTD ÷ LMTD − 1; Last FM = bulan lalu penuh. Satu outlet dihitung sekali di Gabungan walau ada di beberapa program, tetapi tampil di setiap program tempat ia terdaftar. ' + (kroIsVal(key) ? 'Rp Jt = juta rupiah.' : '') + '</p>';
+    if (tab === 'kat') {
+      var rowsHtml = names.map(function (nm) { var sub = Object.keys(C.by[nm]).map(function (k) { return C.by[nm][k]; }).filter(kroInScope); return pdLine('<b>' + esc(prgLabel(nm)) + '</b>' + (sel.indexOf(nm) >= 0 ? '' : ' <span class="note">(mati)</span>'), 'program', sub, pdDays(P, key, sub), key, P, { vis: true, non: null }); }).join('');
+      var entAll = pdMcScope(P, K), npDays = noDse ? null : pdSub(P, key, entAll, memRows);
+      var tot = pdDays(P, key, []).map(function (_, i) { return null; });
+      var comb = pdLine('<b>Program terpilih (gabungan)</b>', mode === 'all' ? 'irisan' : 'gabungan', L, pdDays(P, key, L), key, P, { vis: true, wash: true });
+      var np = pdLine('<b>Non-program / Retail</b>', 'MC yang sama', NP, npDays, key, P, { vis: true });
+      var totDays = noDse ? null : (function () { var d = pdDays(P, key, []); entAll.forEach(function (e) { (e.d[key] || []).forEach(function (v, i) { d[i] += v || 0; }); }); return d; })();
+      var totRow = pdLine('<b>TOTAL semua outlet</b>', 'program + non-program', uni, totDays, key, P, { vis: true, ink: true });
+      var hdr = pdHead('Kategori', P, key, true, false);
+      body = card('Harian per kategori outlet · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + hdr + '</thead><tbody>' + rowsHtml + comb + np + totRow + '</tbody></table></div>' + noteDay +
+        (noDse ? '<p class="note">Filter DSE aktif: harian non-program dan total tidak bisa dihitung per DSE (total MC saja), jadi n/a; MTD, LMTD dan kunjungan tetap per outlet.</p>' : ''));
+      csvHead = ['Kategori', 'Ket.', 'Outlet', 'Dikunjungi', 'Belum dikunjungi', '% dikunjungi'];
+    } else {
+      var keyOf = { am: function (x) { return (x.br || '') + '|' + (x.mc || '(tanpa MC)'); }, area: function (x) { return x.br || ''; }, dso: function (x) { return x.dso || '—'; }, dse: function (x) { return x.dse || '—'; } }[grp === 'am' ? 'am' : grp];
+      var mcOf = function (e, mi) { return { br: e.br, mc: e.mc, dso: (mi[e.mc] || {}).dso || '—' }; };
+      var bucket = function (list) { var o = {}, ord = []; list.forEach(function (r) { var g = keyOf(r); if (!o[g]) { o[g] = []; ord.push(g); } o[g].push(r); }); return { o: o, ord: ord }; };
+      var entBy = {}, mi0 = K.metadata.mc_info || {};
+      pdMcScope(P, K).forEach(function (e) { var g = grp === 'dse' ? null : keyOf(mcOf(e, mi0)); if (g != null) (entBy[g] = entBy[g] || []).push(e); });
+      var Bp = bucket(L), Bn = bucket(NP), Bm = bucket(memRows);
+      var line = function (g, label, ket, indent, wash, entries) {
+        var prow = Bp.o[g] || [], nrow = Bn.o[g] || [], mrow = Bm.o[g] || [], nd = noDse || grp === 'dse' ? null : pdSub(P, key, entries || entBy[g] || [], mrow);
+        return pdLine(label, ket, prow, pdDays(P, key, prow), key, P, { vis: true, nc: true, wash: wash, indent: indent, non: { agg: pdAgg(nrow, key), days: nd } });
+      };
+      var rowsD = '';
+      if (grp === 'am') {
+        var areas = {}, aord = [];
+        Object.keys(Bp.o).forEach(function (g) { var r0 = Bp.o[g][0], a = r0.br || ''; if (!areas[a]) { areas[a] = []; aord.push(a); } areas[a].push(g); });
+        aord.sort(function (a, b) { var s = function (x) { return areas[x].reduce(function (t, g) { return t + Bp.o[g].length; }, 0); }; return s(b) - s(a); });
+        aord.forEach(function (a) {
+          var ar = L.filter(function (r) { return (r.br || '') === a; }), an = NP.filter(function (r) { return (r.br || '') === a; }), am = memRows.filter(function (r) { return (r.br || '') === a; }), ents = pdMcScope(P, K, function (e) { return e.br === a; });
+          rowsD += pdLine('<b>' + esc(a) + '</b>', 'Area', ar, pdDays(P, key, ar), key, P, { vis: true, nc: true, wash: true, non: { agg: pdAgg(an, key), days: noDse ? null : pdSub(P, key, ents, am) } });
+          areas[a].sort(function (x, y) { return Bp.o[y].length - Bp.o[x].length; }).forEach(function (g) { var r0 = Bp.o[g][0], mc = r0.mc || ''; rowsD += line(g, mc ? esc(mc) : '(tanpa MC)', mc ? 'DSO ' + esc((mi0[mc] || {}).dso || '—') : 'di luar master', 16, false); });
+        });
+      } else {
+        Bp.ord.sort(function (a, b) { return Bp.o[b].length - Bp.o[a].length; }).forEach(function (g) {
+          var r0 = Bp.o[g][0];
+          rowsD += line(g, '<b>' + esc(g) + '</b>', grp === 'area' ? 'Area' : (grp === 'dso' ? 'DSO · ' + fmtCount(Object.keys(Bp.o[g].reduce(function (s, r) { s[r.mc] = 1; return s; }, {})).length) + ' MC' : 'DSE · ' + esc(r0.mc || '')), 0, false);
+        });
+      }
+      body = card('Detail harian · ' + ({ am: 'Area › MC', area: 'Area', dso: 'DSO', dse: 'DSE' }[grp]) + ' · program terpilih · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + pdHead({ am: 'Area › MC', area: 'Area', dso: 'DSO', dse: 'DSE' }[grp], P, key, true, true) + '</thead><tbody>' + (rowsD || '<tr><td colspan="9">Tidak ada outlet pada program dan filter terpilih.</td></tr>') + '</tbody></table></div>' + noteDay +
+        '<p class="note">Kolom kunjungan = check-in PJP selesai bulan ini pada outlet program (outlet tanpa DSE tidak punya PJP). Non-program = semua outlet lain di area yang sama (Retail, Kotkab, dst); "Program ÷ non-prog / outlet" = rata-rata MTD per outlet program dibanding per outlet non-program. ' + (grp === 'dse' ? 'Harian non-program per DSE tidak tersedia (total harian hanya per MC), jadi n/a. ' : '') + 'DSO dipetakan per MC (satu DSO per MC).</p>');
+      csvHead = ['Kelompok', 'Ket.', 'Outlet', 'Dikunjungi', 'Belum dikunjungi', '% dikunjungi'];
+    }
+    var dh = []; for (var i = 1; i <= P.metadata.days_cur; i++) dh.push('D' + i);
+    _pdCsv.unshift(csvHead.concat(dh, ['MTD', 'LMTD', 'Growth', 'Last FM'], tab === 'det' ? ['Non-program MTD', 'Non-program growth', 'Program / non-program per outlet'] : []));
+    return card('Program & Tipe Outlet · Harian', pdSwitch('mb_program_daily') + head) + body;
+  }
+  function pdExportCsv() {
+    if (!_pdCsv || typeof window === 'undefined') return;
+    function q(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+    var blob = new Blob(['﻿' + _pdCsv.map(function (r) { return r.map(q).join(','); }).join('\r\n')], { type: 'text/csv;charset=utf-8;' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'program_harian_' + kroKey() + '_' + (state.pdTab === 'det' ? 'detail' : 'kategori') + '.csv'; a.click();
   }
 
   /* ================= SLAB SELL-IN / GA SP / SALDO · bulan lalu (FM dan LMTD) vs bulan ini (MTD), flag gap ================= */
@@ -10936,7 +11068,7 @@
   gaDaily = moGaWrap(gaDaily); gaHarian = moGaWrap(gaHarian); gaSlab = moGaWrap(gaSlab); gaSiteView = moGaWrap(gaSiteView); gaTarget = moGaWrap(gaTarget); gaHeatView = moGaWrap(gaHeatView);
   gaGrafView = moGaWrap(gaGrafView); gaSiteSlab = moGaWrap(gaSiteSlab); gaOutletView = moGaWrap(gaOutletView);
   function moGaWrap(f) { return function () { var r = f.apply(this, arguments); return typeof r === 'string' ? moGa(r) : r; }; }
-  var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, mb_program_daily: viewProgramDaily, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   /* Frozen headers and first column (owner, 2 Nov 2026): every table inside .tbl-wrap keeps its header rows (top) and its first column (left)
      visible while the wrapper scrolls. Offsets of multi-row headers are measured, so grouped two-row headers stack correctly. */
@@ -10969,9 +11101,9 @@
   /* GA is read from the Daily_RGUGA workbooks, which can sit on an earlier month than Sell-In / Demand / PJP (the GA builder follows its own file): say so on every page that shows GA */
   function moGaBanner(view) {
     var C = moClocks(); if (C.gm === C.sm) return '';
-    var uses = view === 'mb_grossadd' || view === 'mb_gatrend' || ((view === 'mb_kro' || view === 'mb_program') && state.kroProd === 'ga') || (view === 'mb_uar' && state.uarTab === 'spi');
+    var uses = view === 'mb_grossadd' || view === 'mb_gatrend' || ((view === 'mb_kro' || view === 'mb_program' || view === 'mb_program_daily') && state.kroProd === 'ga') || (view === 'mb_uar' && state.uarTab === 'spi');
     if (!uses) return '';
-    if ((view === 'mb_kro' || view === 'mb_program') && kroGaFmShift()) return '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Data GA masih ' + MO.lit(MON_FULL_ID[C.gm]) + '.</b> File Daily_RGUGA ' + MON_FULL_ID[C.sm] + ' belum diterima: GA memakai ' + MO.lit(MON_FULL_ID[C.gm]) + ' penuh sebagai bulan lalu (FM) dan 1–' + (kroFeed().metadata.cuts.supply) + ' ' + MO.lit(MON_FULL_ID[C.gm]) + ' sebagai LMTD, sejajar dengan SP, Voucher dan Saldo. MTD dan proyeksi ' + MON_FULL_ID[C.sm] + ' tampil n/a sampai file GA ' + MON_FULL_ID[C.sm] + ' diterima.</p>';
+    if ((view === 'mb_kro' || view === 'mb_program' || view === 'mb_program_daily') && kroGaFmShift()) return '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Data GA masih ' + MO.lit(MON_FULL_ID[C.gm]) + '.</b> File Daily_RGUGA ' + MON_FULL_ID[C.sm] + ' belum diterima: GA memakai ' + MO.lit(MON_FULL_ID[C.gm]) + ' penuh sebagai bulan lalu (FM) dan 1–' + (kroFeed().metadata.cuts.supply) + ' ' + MO.lit(MON_FULL_ID[C.gm]) + ' sebagai LMTD, sejajar dengan SP, Voucher dan Saldo. MTD dan proyeksi ' + MON_FULL_ID[C.sm] + ' tampil n/a sampai file GA ' + MON_FULL_ID[C.sm] + ' diterima.</p>';
     return '<p class="note" style="border-left:3px solid var(--ij-ink); padding-left:8px; margin:8px 0;"><b>Data GA masih ' + MO.lit(MON_FULL_ID[C.gm]) + '.</b> File Daily_RGUGA ' + MON_FULL_ID[C.sm] + ' belum diterima, jadi angka GA di halaman ini berpatokan pada ' + MO.lit(MON_FULL_ID[C.gm]) + ' dan tidak sejajar dengan Sell-In, Demand dan PJP (' + MON_FULL_ID[C.sm] + ').</p>';
   }
   Object.keys(VIEWS).forEach(function (k) { var f = VIEWS[k]; VIEWS[k] = function () { return moGaBanner(k) + pgPost(f.apply(this, arguments)); }; });   // period-group regrouping of tables that opt in (data-pg)
@@ -11520,6 +11652,9 @@
     else if (t.hasAttribute('data-pjp-metric')) { state.pjpMetric = t.getAttribute('data-pjp-metric'); if (state.pjpMetric === 'ec') { state.pjpBasis = 'stop'; state.visitsBrandFilter = 'all'; } }   // Eff Call needs the stop basis and all brands: switch them instead of leaving the button looking dead
     else if (t.hasAttribute('data-pj-heatmode')) { state.pjHeatMode = t.getAttribute('data-pj-heatmode'); }
     else if (t.hasAttribute('data-kro-tab')) { state.kroTab = t.getAttribute('data-kro-tab'); state.kroPage = 1; state.kroFlag = 'all'; }
+    else if (t.hasAttribute('data-pd-tab')) { state.pdTab = t.getAttribute('data-pd-tab'); }
+    else if (t.hasAttribute('data-pd-group')) { state.pdGroup = t.getAttribute('data-pd-group'); }
+    else if (t.getAttribute('data-act') === 'pd-csv') { pdExportCsv(); return; }
     else if (t.hasAttribute('data-kro-prod')) { state.kroProd = t.getAttribute('data-kro-prod'); state.kroPage = 1; state.kroFlag = 'all'; state.kroClass = 'all'; }
     else if (t.hasAttribute('data-kro-meas')) { state.kroMeas = t.getAttribute('data-kro-meas'); state.kroPage = 1; state.kroFlag = 'all'; state.kroClass = 'all'; }
     else if (t.hasAttribute('data-k360-min')) { state.k360Min = t.getAttribute('data-k360-min'); state.kroPage = 1; }
@@ -12149,7 +12284,7 @@
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
     territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_vanguard: ['vgTab', 'vgDay', 'vgLevel', 'vgStep'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay'],
-    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup', 'k360Min'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
+    mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup', 'k360Min'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode'], mb_program_daily: ['kroProd', 'kroMeas', 'prg', 'prgMode', 'pdTab', 'pdGroup'], mb_uar: ['uarTab'], cfg_target: ['cfTab'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], mb_outlet: ['opQ', 'opSel'], mb_periods: ['prMetric', 'prScope', 'prMonth', 'prView'], sellin: ['sellinTab', 'sellinUar']
   };
   var RT_FILTERS = [['sa', 'branch'], ['hoa', 'hoa'], ['mc', 'kec'], ['dse', 'dse']];

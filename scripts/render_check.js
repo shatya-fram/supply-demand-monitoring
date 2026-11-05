@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
+for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
   require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -682,6 +682,19 @@ if (MONTH_SCAN) {
   if (!oct) for (const v of ['cfg_target', 'mb_partner_perf', 'mb_ringkasan']) if (/Target n\/a|belum diganti target/.test(text(v))) bad.push(v + ' still shows targets n/a');
   console.log(bad.length ? '✗ period figures: ' + bad.join(' | ') : '✓ period figures (' + (oct ? 'October close: SP 235,947 · Saldo Rp 22.13 M · PJP 159,340 · GA 323,890 · demand Rp 119.63 M' : 'live feeds: targets carried forward ' + n0(spT) + ' pcs, Rp ' + (osaT / 1e9).toFixed(1) + ' B, pro-rata ' + pm.cut_day + '/' + pm.mtd_month_days) + ')');
   if (bad.length) failures++;
+}
+
+// ---- Program · Harian (5 Nov 2026): both tabs, every product / group; daily sums equal the MTD columns
+{ const PD = global.PROGRAM_DAILY, KF = global.KRO_FEED;
+  if (!PD) { failures++; console.log('✗ PROGRAM_DAILY missing'); } else {
+    for (const [pr, me] of [['sp', 'si'], ['vc', 'si'], ['vc', 'so'], ['sl', 'si'], ['sl', 'so'], ['ga', 'si']]) for (const tab of ['kat', 'det']) for (const grp of tab === 'det' ? ['am', 'area', 'dso', 'dse'] : ['am']) {
+      state.view = 'mb_program_daily'; state.kroProd = pr; state.kroMeas = me; state.prg = ''; state.prgMode = 'any'; state.pdTab = tab; state.pdGroup = grp; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+      let h = ''; check('program-daily/' + pr + '-' + me + '/' + tab + '/' + grp, () => (h = VIEWS.mb_program_daily()));
+      if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-daily undefined/NaN ' + pr + me + tab + grp); }
+      if (!/<td class="num">D|D1<\/th>/.test(h)) { failures++; console.log('✗ program-daily has no day columns'); }
+    }
+    for (const key of PD.metadata.key_order) { const cut = PD.metadata.cuts[key]; if (PD.metadata.ga_behind && key === 'ga') continue; let sd = 0, st = 0; for (const e of Object.values(PD.mc)) { sd += (e.d[key] || []).reduce((a, b) => a + b, 0); st += e.t[key][2]; } if (Math.abs(sd - st) > 1) { failures++; console.log('✗ program-daily ' + key + ': daily sum ' + sd + ' != MTD ' + st); } }
+    state.pdTab = 'kat'; state.pdGroup = 'am'; state.dse = ''; }
 }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
