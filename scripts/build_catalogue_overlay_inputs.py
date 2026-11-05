@@ -195,6 +195,11 @@ def main():
     prows = sorted((p, i, 'tipe outlet dari %s: %s' % (os.path.basename(path), s)) for p, v in prog.items() for i, s in v)
     write(os.path.join(CAT, 'kro_program_outlets.csv'), ['program', 'outlet_id', 'note'], prows)
     print('  programs:', {p: len(v) for p, v in sorted(prog.items())})
+    try:
+        import build_catalogue_nov_programs as _nov   # November lists replace the October ones they define
+        _nov.main()
+    except ImportError:
+        pass
 
     with open(os.path.join(out_dir, 'meta.json'), 'w') as f:
         json.dump({'workbook': os.path.basename(path), 'final_sheet': final_name, 'final_date': final_date, 'month': ym,

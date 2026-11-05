@@ -7751,7 +7751,7 @@
     if (grp === 'pg') {   // Program & Tipe Outlet: gk T = selected cohort, P:<program> = members of one program, A:<area> / M:<mc> inside the cohort
       if (gk.indexOf('P:') === 0) return !!(_prgBy[gk.slice(2)] || {})[r.k];
       if (!_prgSet[r.k]) return false; if (gk === 'T') return true;
-      if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); return false;
+      if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); if (gk.indexOf('N:') === 0) return !r.mc && r.br === gk.slice(2); return false;   // N:<area> = outlets of that area without an MC (non-master program ids)
     }
     if (grp === 'am') { if (gk.indexOf('A:') === 0) return r.br === gk.slice(2); if (gk.indexOf('M:') === 0) return r.mc === gk.slice(2); var m = /^MT:(.*):([WK])$/.exec(gk); return !!m && r.mc === m[1] && kroCat(kroTop(r, key)) === m[2]; }
     return kroGKey(r, grp, key) === gk;
@@ -7775,7 +7775,7 @@
       L = kroUniv(K).filter(kroInScope).filter(inG);
       if (met === 'ALLv') L = L.filter(function (r) { return r.v.x > 0; }); else if (met === 'ALLnv') L = L.filter(function (r) { return r.v.x === 0; }); else if (met === 'ALLnd') L = L.filter(function (r) { return kroFl(r, key).indexOf('NO_DSE') >= 0 || dseIsNone(r.dse); });
       L.sort(function (a, b) { return (kroV(b, key).vm - kroV(a, key).vm) || (kroV(b, key).vp - kroV(a, key).vp); });
-      return kroMeasEntry({ ALL: 'Outlet pada program', ALLv: 'Outlet program yang sudah dikunjungi', ALLnv: 'Outlet program yang belum dikunjungi', ALLnd: 'Outlet program tanpa DSE' }[met] + ' · ' + kroKeyName(key) + (gk === 'T' ? '' : ' · ' + gk.replace(/^(A|M|P):/, '')), L, key, lines);
+      return kroMeasEntry({ ALL: 'Outlet pada program', ALLv: 'Outlet program yang sudah dikunjungi', ALLnv: 'Outlet program yang belum dikunjungi', ALLnd: 'Outlet program tanpa DSE' }[met] + ' · ' + kroKeyName(key) + (gk === 'T' ? '' : ' · ' + gk.replace(/^(A|M|P|N):/, '')), L, key, lines);
     }
     if (slabM || mvM || perM) {
       var needSlim = (slabM && kroCat(slabM[2]) === 'R') || (perM && perM[2] === 'U') || grp === 'pg', uni = needSlim ? kroUniv(K) : K.rows;
@@ -8169,7 +8169,7 @@
   var _prgSet = {}, _prgBy = {}, _prgList = [];
   /* Program & Tipe Outlet (owner, 4 Nov 2026): one flag per program, in the order asked. The October lists (catalogue 202610 outlet types) are used until new lists arrive;
      TEBUS MURAH, DSF and DSE have no list yet (upload program,outlet_id). TOP PLAYER = the Wholesaler flag of the catalogue (whitelist), not the Wholesaler performance class of KRO Management. */
-  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Wholesaler (katalog 202610)'] },
+  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Wholesaler (katalog 202611)', 'Wholesaler (katalog 202610)'] }, { id: 'KAM', label: 'KAM', src: ['KAM'] }, { id: 'AVA TM', label: 'AVA TM', src: ['AVA TM'] },
     { id: 'DtU', label: 'DtU · Direct to Users', src: ['DTU'] }, { id: 'TEBUS MURAH', label: 'TEBUS MURAH', src: ['Tebus Murah'] }, { id: 'DSF', label: 'DSF', src: ['DSF'] }, { id: 'DSE', label: 'DSE', src: ['DSE'] }];
   function prgLabel(n) { var x = PRG_SPEC.filter(function (y) { return y.id === n; })[0]; return x ? x.label : n; }
   function prgMembers(K, id) {
@@ -8180,7 +8180,7 @@
   function prgAll(K) {   // the asked programs (even when empty) plus any other program of an uploaded file; the KRO catalogue type is an attribute in KRO Management, not a program
     var out = PRG_SPEC.map(function (y) { return y.id; }), used = {};
     PRG_SPEC.forEach(function (y) { used[y.id.toUpperCase()] = 1; y.src.forEach(function (n) { used[n.toUpperCase()] = 1; }); });
-    kroProgNames(K).forEach(function (n) { if (!used[n.toUpperCase()] && n !== 'KRO (katalog 202610)' && n !== 'BOSS' && kroProgMembers(K, n).length) out.push(n); });
+    kroProgNames(K).forEach(function (n) { if (!used[n.toUpperCase()] && n !== 'KRO (katalog 202610)' && n !== 'KRO (program Nov)' && n !== 'BOSS' && kroProgMembers(K, n).length) out.push(n); });
     return out;
   }
   function prgNames(K) { return prgAll(K).filter(function (n) { return prgMembers(K, n).length; }); }
@@ -8278,13 +8278,13 @@
     var rowsAM = ord.map(function (a) {
       var all = []; Object.keys(byA[a]).forEach(function (m) { all = all.concat(byA[a][m]); });
       return prgLine('<b>' + esc(a) + '</b>', 'Area', 'A:' + a, all, key, 'background:var(--ij-wash, #f6f4f1);') +
-        Object.keys(byA[a]).sort(function (x, y) { return byA[a][y].length - byA[a][x].length; }).map(function (m) { var mi = (M.mc_info || {})[m] || {}; return prgLine(esc(m), 'DSO ' + esc(mi.dso || '—'), 'M:' + m, byA[a][m], key, '', 16); }).join('');
+        Object.keys(byA[a]).sort(function (x, y) { return byA[a][y].length - byA[a][x].length; }).map(function (m) { var mi = (M.mc_info || {})[m] || {}; return prgLine(m ? esc(m) : '(tanpa MC)', m ? 'DSO ' + esc(mi.dso || '—') : 'di luar master', m ? 'M:' + m : 'N:' + a, byA[a][m], key, '', 16); }).join('');
     }).join('');
     var amTbl = card('Per Area › MC · program terpilih · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + prgHead('Area › MC', key) + '</thead><tbody>' + rowsAM + '</tbody></table></div>' +
       '<p class="note">FM = September penuh · LMTD = 1–' + cuts.supply + ' September · MTD = 1–' + cut + ' Oktober · Proyeksi = ' + (key === 'ga' ? 'MTD ÷ cut × ' + kroDays(key).proj : 'run-rate ' + kroR7(kroFeed().metadata.cuts) + ' hari terakhir × ' + kroDays(key).proj) + '. UAR = outlet dengan volume &gt; 0 pada periode itu. KRO + Wholesaler = outlet berslab KRO ke atas ' + (hasFm ? 'pada September' : 'pada proyeksi Oktober') + '.</p>');
     var q = (state.kroSearch || '').toLowerCase(), Ls = L.filter(function (r) { return kroMatchSearch(r, q); }).sort(function (a, c) { return (c.q[key][3] || 0) - (a.q[key][3] || 0); });
     var list = kroTable(Ls, key, false, 'Daftar outlet program · ' + kroKeyName(key), kroSearchBar(), 'Diurutkan menurut volume proyeksi Oktober.');
-    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar program memakai <b>daftar Oktober</b> (tipe outlet katalog 202610: AVA, PROMOTOR, TOP PLAYER = flag Wholesaler katalog, DtU = channel Direct to Users) sampai daftar baru diunggah. TEBUS MURAH, DSF dan DSE belum punya daftar. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
+    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS), KAM dan AVA TM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH, DSF dan DSE belum punya daftar. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
     var wl = kroSlim() ? '<details style="margin-top:10px;"><summary class="note" style="cursor:pointer;"><b>Daftar manual (whitelist ID)</b> · tempel atau unggah id outlet untuk melihat slab, kunjungan dan flag</summary>' + kroWhitelist(K, key) + '</details>' : '';
     return card('Program & Tipe Outlet', head) + noteO + form + kroProgUploadForm(K) + cards + bench + slab + progTbl + amTbl + list + wl;
   }
