@@ -112,6 +112,26 @@ def st(v):
     return {"Done": "D", "Proses": "P"}.get(v, "B")
 
 
+PJP_FEED = os.path.join(ROOT, "website/data/pjp_mapping_feed.js")
+PJP_PIN = os.path.join(ROOT, "data/catalogues/vanguard_pjp_template_202610.json")
+
+
+def load_pjp():
+    """Weekly PJP template for the plan. Pinned to the October template (owner, 5 Nov 2026: use the October PJP only): the pinned file wins, so a
+    later Weekly_PJP file (and a rebuilt pjp_mapping_feed.js) never changes the Vanguard plan. `--pin-pjp` rewrites the pin from the current feed."""
+    if os.path.exists(PJP_PIN) and "--pin-pjp" not in sys.argv:
+        return json.load(open(PJP_PIN, encoding="utf-8"))
+    j = open(PJP_FEED, encoding="utf-8").read()
+    j = json.loads(j[j.index("{"):j.rindex("}") + 1])
+    pin = {"metadata": {k: j["metadata"].get(k) for k in ("week_of", "source", "mc_info", "generated_at")}, "dses": [{"n": d["n"], "mc": d["mc"]} for d in j["dses"]],
+           "rows": [{"k": r["k"], "d": r.get("d"), "mc": r["mc"], "w": r.get("w", "")} for r in j["rows"]]}
+    if "--pin-pjp" in sys.argv:
+        json.dump(pin, open(PJP_PIN, "w", encoding="utf-8"), separators=(",", ":"), ensure_ascii=False)
+        print(f"Pinned the PJP template of week {pin['metadata']['week_of']} ({len(pin['rows'])} rows) -> {os.path.relpath(PJP_PIN, ROOT)}")
+        sys.exit(0)
+    return j
+
+
 def main():
     fp, op = newest("*Flag*Step1-5*.xlsx"), newest("*OutletMapping*Step1-5*.xlsx")
     if not fp or not op:
@@ -128,8 +148,7 @@ def main():
     # ---- master, DSE catalogue, weekly PJP ---------------------------------------------------------
     mst = list(csv.DictReader(open(os.path.join(ROOT, "data/catalogues/territory_management_master.csv"), encoding="utf-8")))
     cat = list(csv.DictReader(open(os.path.join(ROOT, "data/catalogues/dse_catalogue.csv"), encoding="utf-8")))
-    pj = open(os.path.join(ROOT, "website/data/pjp_mapping_feed.js"), encoding="utf-8").read()
-    pj = json.loads(pj[pj.index("{"):pj.rindex("}") + 1])
+    pj = load_pjp()
     mc_info = pj["metadata"].get("mc_info", {})
     by_im3 = {r["outlet_id_im3"]: r for r in mst if r["outlet_id_im3"]}
     by_3id = {r["outlet_id_3id"]: r for r in mst if r["outlet_id_3id"]}
@@ -338,7 +357,7 @@ def main():
         "sites": len(sites), "outlet_rows": len(outlets), "outlets_in_master": nm, "sites_with_dse": sum(1 for s in sites if s["d"] >= 0),
         "sites_without_outlet": sum(1 for s in sites if not s["o"]), "complete": sum(1 for s in sites if s["s"] == "DDDDD"),
         "step_done": [sum(1 for s in sites if s["s"][i] == "D") for i in range(5)], "sites_per_day": SITES_PER_DAY, "radius_km": RADIUS_KM,
-        "days": plan_days, "all_days": DAYS, "plan_from": plan_days[0], "plan_to": plan_days[-1], "pjp_template_month": str(pj["metadata"].get("week_of", ""))[:7], "pjp_template_week": pj["metadata"].get("week_of"), "basis": {"0": "tag site_nbs master", "1": "outlet daftar Vanguard", "2": "outlet master <= %.1f km" % ASSIGN_KM, "3": "override DSO", "-1": "tanpa DSE"},
+        "days": plan_days, "all_days": DAYS, "plan_from": plan_days[0], "plan_to": plan_days[-1], "pjp_template_month": str(pj["metadata"].get("week_of", ""))[:7], "pjp_template_week": pj["metadata"].get("week_of"), "pjp_template_pinned": os.path.exists(PJP_PIN), "basis": {"0": "tag site_nbs master", "1": "outlet daftar Vanguard", "2": "outlet master <= %.1f km" % ASSIGN_KM, "3": "override DSO", "-1": "tanpa DSE"},
         "mc_info": mc_info,
         "steps": ["Speed test 5G", "Outlet engagement", "Outlet branding", "Outlet advocacy", "Street branding"],
     }
