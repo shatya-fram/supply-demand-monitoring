@@ -50,10 +50,30 @@ def nid(v):
 
 
 def find_csv():
-    hits = sorted(glob.glob(os.path.join(RAW_BASE, 'raw', 'GA*', '*rguga_daily_outlet_*.csv')), key=os.path.getmtime, reverse=True)
-    if not hits:
-        sys.exit('[Site_]rguga_daily_outlet_*.csv tidak ditemukan di raw/GA*/')
-    return hits[0]
+    """Newest month wins. The running month may come as rguga_daily_favloc_inner_<YYYYMM>.csv (Fav Locs: GA by the favourite location of the SIM, ga_site_id;
+    the selling outlet is ga_pairing_id) after the month roll (5 Nov 2026); earlier months are the [Site_]rguga_daily_outlet_<YYYYMM>.csv (activation site)."""
+    import re
+    best = None
+    for pth in glob.glob(os.path.join(RAW_BASE, 'raw', 'GA*', '*rguga_daily_*.csv')):
+        b = os.path.basename(pth)
+        m = re.search(r'rguga_daily_favloc_inner_(\d{6})\.csv$', b) or re.search(r'rguga_daily_outlet_(\d{6})\.csv$', b)
+        if m:
+            key = (m.group(1), 1 if 'favloc' in b else 0, os.path.getmtime(pth))
+            if best is None or key > best[0]:
+                best = (key, pth)
+    if not best:
+        sys.exit('[Site_]rguga_daily_outlet_*.csv / rguga_daily_favloc_inner_*.csv tidak ditemukan di raw/GA*/')
+    return best[1]
+
+
+def favloc_rows(fh):
+    """Fav Locs file -> rows in the activation-site layout read by main(): the favourite location plays the role of the activation site."""
+    for r in csv.DictReader(fh):
+        ak, ok = r['ga_site_kec_kabkot'], r['ga_pairing_kec_kabkot']
+        a = ak.split('|'); o = ok.split('|')
+        yield {'ga_dt': r['ga_dt'], 'ga_brand': r['brand'], 'datavol_mb': r.get('Sum of datavol_mb', ''), 'outlet_id': r['ga_pairing_id'] if r['ga_pairing_status'] == 'VALID_ID' else '',
+               'outlet_nm': '', 'dse_code': '', 'outlet_micro_cluster': '', 'outlet_sales_area': r['ga_pairing_branch'], 'outlet_kecamatan': o[0] if ok else '', 'outlet_kabkot': o[1] if len(o) > 1 else '',
+               'activation_site_id': r['ga_site_id'], 'activation_site_name': r['ga_site_id'], 'activation_kec_kabkot': ak, 'activation_kecamatan': a[0] if ak else '', 'activation_kabkot': a[1] if len(a) > 1 else ''}
 
 
 def main():
@@ -109,10 +129,13 @@ fs.writeFileSync(process.argv[1]+'/feed.json',JSON.stringify({cut:F.metadata.cut
     sdo = C.defaultdict(lambda: [[0] * 32, [0] * 32])         # segment of an IJ tagging outlet -> daily GA activated OUTSIDE IJ
     site_days = C.defaultdict(lambda: [set(), set()])
     with open(path, newline='', encoding='utf-8') as fh:
-        for row in csv.DictReader(fh):
+        for row in (favloc_rows(fh) if 'favloc' in os.path.basename(path) else csv.DictReader(fh)):
             n_rows += 1
             b = B[row['ga_brand']]
             dd = int(row['ga_dt'][8:])
+            if dd > F['cut']:    # both GA bases stay on the same MTD window: days after the cut of ga_feed (outlet tagging) are not read (5 Nov 2026: Fav Locs has D4, tagging D3)
+                n_rows -= 1
+                continue
             d_lo, d_hi = min(d_lo, row['ga_dt']), max(d_hi, row['ga_dt'])
             oid, omc = nid(row['outlet_id']), row['outlet_micro_cluster']
             fr = fo.get((row['ga_brand'], oid))

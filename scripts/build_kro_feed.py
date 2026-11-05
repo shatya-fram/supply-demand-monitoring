@@ -134,7 +134,7 @@ def main():
         if GA_BEHIND:
             o["bs"][r["b"]][0] += sum(c[1:32])
         else:
-            o["bs"][r["b"]][0] += sum(s[1:31])
+            o["bs"][r["b"]][0] += sum(s[1:GA_BASE_DAYS + 1])
             o["bs"][r["b"]][1] += sum(c[1:ga_cut + 1])
 
     # ---- SUPPLY (MOBII) by physical key, then by (brand, id)
@@ -331,7 +331,7 @@ def main():
             ga_lm = sum(o["o"][1:sup_cut + 1])
             ga_mtd = ga_pr = None
         else:
-            ga_fm = sum(o["s"][1:31])
+            ga_fm = sum(o["s"][1:GA_BASE_DAYS + 1])
             ga_mtd = sum(o["o"][1:ga_cut + 1])
             ga_lm = sum(o["s"][1:ga_cut + 1])
             ga_pr = ga_mtd / ga_cut * GA_DAYS if ga_cut else 0
@@ -399,7 +399,7 @@ def main():
                 ids = o["ids"]
                 slim.append([k, o["t"], (o["n"] or m.get("outlet_name", ""))[:40], ids.get("IM3", ""), ids.get("3ID", ""), o["mc"], o["dse"], vv["x"], vv["p"], [0 if x is None else x for x in flat]])
             continue
-        maxday = max(o["o"][1:32]) if GA_BEHIND else max(o["o"][1:ga_cut + 1] + o["s"][1:31])
+        maxday = max(o["o"][1:32]) if GA_BEHIND else max(o["o"][1:ga_cut + 1] + o["s"][1:GA_BASE_DAYS + 1])
         rows.append({
             "k": k, "t": o["t"], "n": o["n"] or m.get("outlet_name", ""), "id": o["ids"], "br": o["br"], "mc": o["mc"], "hoa": info.get("hoa", ""), "dso": info.get("dso", ""),
             "dse": o["dse"], "sg": o["sg"], "kec": m.get("kecamatan") or o["kec"], "desa": m.get("desa", ""), "site": o["site"],

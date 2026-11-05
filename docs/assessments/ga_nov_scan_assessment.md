@@ -52,3 +52,15 @@ Site dengan selisih fav loc − outlet terbesar: 13CKR0252 (512 vs 4 GA, kemasuk
 2. Fav loc per site Oktober tidak ada: perlu file MSISDN fav loc Oktober dengan format sama bila ingin growth per site / kecamatan.
 3. Program: flag katalog Oktober (kro_program_outlets) dipakai; flag November belum ada (TEBUS MURAH, DSF, DSE kosong).
 4. Belum dimasukkan ke app: pipeline GA (builder, feed, view A) masih Oktober.
+
+## 6. Dikerjakan: GA November di app (5 Nov 2026)
+
+Permintaan: data MTD / LMTD November belum muncul di Gross Add dan toggle harus berfungsi.
+- `scripts/build_ga_feed_month.py` (dipanggil otomatis oleh `build_ga_feed.py` bila bulan berjalan hanya ada sebagai file MSISDN): `ga_feed` = November (o) vs Oktober (s), `months` 2026-11 / 2026-10, `cur_days` 30, `prev_days` 31, cut 3. Oktober dibangun dari CSV MSISDN (basis sama dengan November).
+- `build_ga_site_feed.py`: membaca `rguga_daily_favloc_inner_202611.csv` (Fav Locs, lokasi favorit sebagai site, penjual = pairing) dan memotong hari yang melewati cut `ga_feed` (D4 menjadi D3) agar kedua basis satu jendela MTD.
+- App: konstanta 30 / 31 di kode GA diganti `gaPD()` / `gaCD()` / `gaDate()` (hari bulan berjalan dan bulan sebelumnya dari feed), label hari dan catatan ikut; `build_kro_feed.py` tidak lagi membuang hari ke-31 pada FM.
+- Hasil di toggle A: GA MTD 1-3 Nov 15.330 vs LMTD 17.435 (-12,1%), FM Okt 287.269; toggle B tetap penutupan Oktober (323.890 vs 252.195).
+- **Perbedaan basis Oktober**: A memakai 287.269 (CSV MSISDN), B 323.890 (workbook Daily_RGUGA): selisih sekitar 11% ada di outlet non-master. Perlu keputusan bila ingin satu angka Oktober.
+- Target GA (M2S) tetap target Oktober dan dibawa ke depan (belum ada target November).
+- Fav Locs: kartu "GA dari outlet luar IJ" dan "outlet IJ yang aktivasi di luar IJ" kosong karena file hanya memuat site IJ; penjual luar master dihitung kelas U (outlet ber-ID tanpa atribut wilayah).
+- Pemeriksaan: render_check (A dan `PER=oct`), audit_ga (A 3.467, B 3.629), audit_consistency, audit_scorecard, audit_sp lolos; `audit_kro` 8 selisih kecil (sp, voucher, saldo, kurang dari 0,02%) yang bukan dari GA.

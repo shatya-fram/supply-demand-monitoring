@@ -155,6 +155,16 @@ def find_dir():
 
 GA_DIR = find_dir()
 
+# Month roll (owner request 5 Nov 2026): when the running month exists only as MSISDN files (rguga_daily_outlet_inner_<YYYYMM>.csv) and not as a
+# Daily_RGUGA_OUTLET workbook, the feed is built by build_ga_feed_month.py (same GA_FEED schema, months.cur = running month).
+_inner = sorted(glob.glob(os.path.join(GA_DIR, "rguga_daily_outlet_inner_??????.csv")))
+if _inner:
+    _ym = re.search(r"_(\d{6})\.csv$", _inner[-1]).group(1)
+    if _ym > "202610" and not [p for p in glob.glob(os.path.join(GA_DIR, "Daily_RGUGA_OUTLET_%s*.xlsb" % _ym)) if not os.path.basename(p).startswith("~$")]:
+        import runpy
+        runpy.run_path(os.path.join(ROOT, "scripts", "build_ga_feed_month.py"), run_name="__main__")
+        sys.exit(0)
+
 
 def pick(pattern):
     rx = re.compile(pattern, re.I)
