@@ -17,3 +17,9 @@ Menu `mb_program_daily` ("📅 Program · Harian", link `#/mb_program_daily?kroP
 
 ## Cek
 `node scripts/render_check.js`: 2 tampilan × 6 produk / ukuran × 4 pengelompokan tanpa error, tanpa undefined / NaN, jumlah harian = MTD. Tanpa audit baru; angka diambil dari `q` baris KRO, jadi mengikuti `audit_kro.js`.
+
+## Dipindah ke Program & Tipe Outlet + matriks (owner, 5 Nov 2026)
+* Tampilan harian bukan menu terpisah lagi: `#/mb_program?prgTab=ring|harian|matrix` (tiga tab di Program & Tipe Outlet; link lama `#/mb_program_daily` diarahkan ke `prgTab=harian`). Tab disimpan di link (`prgTab`, `pdTab`, `pdGroup`, `pmMetric`, `pmLevel`).
+* **Matriks program × Area / MC** (`prgTab=matrix`): baris Area (▶ / ▼ untuk membuka MC; "Buka semua / Tutup semua MC") atau Gabungan per Area atau Per MC; kolom = program yang dinyalakan + Gabungan program + Non-program / Retail + TOTAL. Isi sel dipilih: MTD + growth, jumlah outlet, growth vs LMTD, LMTD, Last FM, % dikunjungi, share MTD dari baris. Produk dan ukuran sama dengan tab lain; filter Area / HoA / MC / DSE berlaku. Setiap sel membuka daftar outlet (popup `kr|pg|Q:<kolom>|<A:|M:|N:|T>`, FM / LMTD / MTD, gap, growth), CSV panjang (Area, MC, Kategori, …).
+* Catatan data: di katalog November kategori WS berisi AVA TM (43 id) + WS (3 id), jadi kolom **TOP PLAYER dan AVA TM hampir sama**; perlu keputusan apakah AVA TM dipisah dari TOP PLAYER.
+* Cek: `render_check.js` merender 4 produk × 3 tingkat × 7 isi sel, dan membandingkan baris popup dengan angka sel (jumlah outlet).

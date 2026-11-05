@@ -688,13 +688,21 @@ if (MONTH_SCAN) {
 { const PD = global.PROGRAM_DAILY, KF = global.KRO_FEED;
   if (!PD) { failures++; console.log('✗ PROGRAM_DAILY missing'); } else {
     for (const [pr, me] of [['sp', 'si'], ['vc', 'si'], ['vc', 'so'], ['sl', 'si'], ['sl', 'so'], ['ga', 'si']]) for (const tab of ['kat', 'det']) for (const grp of tab === 'det' ? ['am', 'area', 'dso', 'dse'] : ['am']) {
-      state.view = 'mb_program_daily'; state.kroProd = pr; state.kroMeas = me; state.prg = ''; state.prgMode = 'any'; state.pdTab = tab; state.pdGroup = grp; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
-      let h = ''; check('program-daily/' + pr + '-' + me + '/' + tab + '/' + grp, () => (h = VIEWS.mb_program_daily()));
+      state.view = 'mb_program'; state.prgTab = 'harian'; state.kroProd = pr; state.kroMeas = me; state.prg = ''; state.prgMode = 'any'; state.pdTab = tab; state.pdGroup = grp; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+      let h = ''; check('program-daily/' + pr + '-' + me + '/' + tab + '/' + grp, () => (h = VIEWS.mb_program()));
       if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-daily undefined/NaN ' + pr + me + tab + grp); }
       if (!/<td class="num">D|D1<\/th>/.test(h)) { failures++; console.log('✗ program-daily has no day columns'); }
     }
     for (const key of PD.metadata.key_order) { const cut = PD.metadata.cuts[key]; if (PD.metadata.ga_behind && key === 'ga') continue; let sd = 0, st = 0; for (const e of Object.values(PD.mc)) { sd += (e.d[key] || []).reduce((a, b) => a + b, 0); st += e.t[key][2]; } if (Math.abs(sd - st) > 1) { failures++; console.log('✗ program-daily ' + key + ': daily sum ' + sd + ' != MTD ' + st); } }
-    state.pdTab = 'kat'; state.pdGroup = 'am'; state.dse = ''; }
+    state.pdTab = 'kat'; state.pdGroup = 'am'; state.dse = '';
+    // matrix: every metric x level x product renders; outlet-count cells open exactly that many outlets
+    for (const [pr, me] of [['sp', 'si'], ['vc', 'so'], ['sl', 'si'], ['ga', 'si']]) for (const lvl of ['am', 'area', 'mc']) for (const met of ['mtd', 'n', 'gr', 'lm', 'fm', 'vis', 'share']) {
+      state.view = 'mb_program'; state.prgTab = 'matrix'; state.kroProd = pr; state.kroMeas = me; state.prg = ''; state.prgMode = 'any'; state.pmLevel = lvl; state.pmMetric = met; state.pmAllOpen = lvl === 'am'; state.pmOpen = {}; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+      let h = ''; check('program-matrix/' + pr + '-' + me + '/' + lvl + '/' + met, () => (h = VIEWS.mb_program()));
+      if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-matrix undefined/NaN ' + pr + lvl + met); }
+      if (met === 'n') { let ctr = 0; for (const m of h.matchAll(/data-ov="(kr\|pg\|Q%3A[^"]+\|ALL)"[^>]*>\s*([\d.,]+)<\/td>/g)) { if (ctr++ % 7) continue; const k = m[1].replace(/&amp;/g, '&'), e = app.ovEntry(k), shown = parseInt(m[2].replace(/[.,]/g, ''), 10); if (!e) { failures++; console.log('✗ matrix no popup ' + k); continue; } if (e.rows.length !== shown) { failures++; console.log('✗ matrix popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k); } } }
+    }
+    state.prgTab = 'ring'; state.pmAllOpen = false; }
 }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
