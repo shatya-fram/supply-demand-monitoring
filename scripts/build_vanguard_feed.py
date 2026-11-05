@@ -85,6 +85,7 @@ def newest(pattern):
     return max(fs, key=lambda f: (file_date(f), os.path.getmtime(f))) if fs else None
 
 
+PLACEHOLDER_DSE = {"UNASSIGNED", "TANPA DSE", "-"}   # master placeholders, not people: such outlets / sites have no DSE
 LAT_OK, LON_OK = (-7.2, -5.5), (105.8, 108.0)   # Inner Jakarta + Karawang
 
 
@@ -118,6 +119,8 @@ def main():
         return 0
     fdate, odate = file_date(fp), file_date(op)
     snap = max(fdate, odate)
+    if fdate != odate:
+        print(f"  WARNING: Flag file is {fdate} but OutletMapping is {odate}: site steps are current, outlet-level Step 2-4 status is from {odate}.")
     print(f"Vanguard: {os.path.basename(fp)} + {os.path.basename(op)} (file date {snap})")
     S = [r for r in table(fp) if r["Flag 5G"] == "5G"]
     O = table(op)
@@ -141,7 +144,7 @@ def main():
 
     def dse_of(name, mc):
         """One person = one entry: keyed by name, plus MC only for a name the catalogue holds twice (SUSANTO)."""
-        if not name:
+        if not name or name.upper().strip() in PLACEHOLDER_DSE:
             return -1
         n = name.upper().strip()
         one = cat_by_name.get(n, [])
@@ -160,6 +163,8 @@ def main():
             if la is None or lo is None:
                 continue
             i = dse_of(r["dse_name"], r["micro_cluster"])
+            if i < 0:
+                continue
             pts.append((la, lo, i, r["outlet_key"]))
             grid[(int(la * 100), int(lo * 100))].append(len(pts) - 1)
 
@@ -201,7 +206,7 @@ def main():
     # ---- site -> DSE (master based) -----------------------------------------------------------------
     tag = C.defaultdict(C.Counter)
     for r in mst:
-        if r["dse_name"] and r["site_nbs"] in sx:
+        if r["dse_name"] and r["site_nbs"] in sx and dse_of(r["dse_name"], r["micro_cluster"]) >= 0:
             tag[r["site_nbs"]][dse_of(r["dse_name"], r["micro_cluster"])] += 1
     over = {}
     ofp = os.path.join(ROOT, "data/catalogues/vanguard_site_override.csv")
@@ -231,6 +236,8 @@ def main():
         if not dn or not row.get("w"):
             continue
         di = dse_of(dn, row["mc"])
+        if di < 0:
+            continue
         for wi, ch in enumerate(row["w"][:6]):
             if ch == "1":
                 pjd[di][DAYS[wi]].append(row["k"])
@@ -327,7 +334,7 @@ def main():
     cnt = C.Counter(s["s"][i] for s in sites for i in range(5))
     meta = {
         "generated_at": dt.datetime.now().replace(microsecond=0).isoformat(), "plan_date": today.isoformat(), "snapshot_date": snap.isoformat(),
-        "prev_snapshot": prev_day, "sources": [os.path.basename(fp), os.path.basename(op)], "contract": "docs/assessments/vanguard_5g_site_briefing.md",
+        "prev_snapshot": prev_day, "flag_snapshot": fdate.isoformat(), "outlet_snapshot": odate.isoformat(), "sources": [os.path.basename(fp), os.path.basename(op)], "contract": "docs/assessments/vanguard_5g_site_briefing.md",
         "sites": len(sites), "outlet_rows": len(outlets), "outlets_in_master": nm, "sites_with_dse": sum(1 for s in sites if s["d"] >= 0),
         "sites_without_outlet": sum(1 for s in sites if not s["o"]), "complete": sum(1 for s in sites if s["s"] == "DDDDD"),
         "step_done": [sum(1 for s in sites if s["s"][i] == "D") for i in range(5)], "sites_per_day": SITES_PER_DAY, "radius_km": RADIUS_KM,

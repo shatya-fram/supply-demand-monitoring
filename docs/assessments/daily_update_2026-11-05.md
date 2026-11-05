@@ -47,7 +47,10 @@ Catatan baca:
 
 ## 4. Perlu keputusan / perhatian
 
-1. **Tiga DSE belum punya visit di November** (tidak ada person id di feed visit): IHSAN RIYADLUL JINAN dan SUKRON MAMUN (MC-BATUJAYA), Edi Warsono (MC-CENGKARENG). Itu yang membuat audit katalog DSE menandai dua cek. Data owner perlu memeriksa apakah mereka cuti, nonaktif, atau login-nya berubah.
+1. **Tiga DSE punya visit, tetapi feed visit mencatatnya di MC lain dari master** (koreksi 5 Nov: asesmen awal menulis "belum punya visit", itu salah). Feed visit menaruh seorang DSE di MC tempat paling banyak outlet yang ia rencanakan (`generate_dse_visits_feed.py`, `info["mcs"].most_common`), bukan MC master:
+   - **Edi Warsono** (master MC-CENGKARENG, 48 outlet, login IM3 `DSEIN102` / 3ID `DSEIN1023ID`): 36 kunjungan terencana dan terlaksana (3 dan 4 Nov). 17 outlet IM3 ada di Cengkareng (outlet miliknya), tetapi 19 outlet 3ID ada di MC-KEMBANGAN dan di master milik **Irfan Saptian**. Mayoritas menang, jadi ia tercatat di MC-KEMBANGAN dan tidak muncul di baris MC-Cengkareng (yang 100% hanya mencerminkan 9 DSE lain). 14 dari 48 outlet miliknya belum dikunjungi bulan ini.
+   - **Ihsan Riyadlul Jinan** (master MC-BATUJAYA, 67 outlet) dan **Sukron Mamun** (master MC-BATUJAYA, 57 outlet): 56 dan 62 kunjungan terencana, seluruhnya di outlet MC-RENGASDENGKLOK yang di master milik DSE lain (Erick Rejeki Limbong dan Juana). 44 dan 31 outlet master mereka belum dikunjungi. Mereka tercatat di MC-RENGASDENGKLOK.
+   - Ini yang membuat audit katalog DSE menandai dua cek: pencocokan katalog ke `person_id` memakai nama dan MC, dan MC-nya berbeda. Yang perlu diputuskan: apakah ini salah mapping login MOBI (plan DSE dipakai di wilayah lain; mirip temuan DSE bertukar 21 Okt), atau pindah wilayah sah. Dampak ke laporan: baris MC Cengkareng, Batujaya, Rengasdengklok dan Kembangan tidak mencerminkan wilayah master, dan outlet master yang tidak direncanakan tidak muncul sebagai kegagalan di baris MC.
 2. Voucher Injection rendah (lihat §2).
 3. GA belum month-aware: file Daily_RGUGA November belum ada; GA tetap Oktober; Fav Locs masih 26 Okt.
 4. Target November memakai distribusi Target Oktober (carry-forward, keputusan 4 Nov).

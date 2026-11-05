@@ -92,7 +92,7 @@
     var m = f.metadata;
     return '<p class="note">Sumber: ' + api.esc(m.sources.join(' + ')) + ' · snapshot ' + api.esc(m.snapshot_date) + ' · rencana dihitung ' + api.esc(m.plan_date) + '. PJP mengikuti template mingguan (minggu ' + api.esc(m.pjp_template_week || '—') + '), dianggap sama untuk November (asumsi owner 29 Okt 2026); satu site muncul sekali per bulan kalender; November mulai siklus baru dengan mapping DSE yang sama dan tidak memperhitungkan jadwal Oktober. Status step dari Vanguard; DSE ditentukan dari master aplikasi (bukan DSE ID Vanguard); ' +
       m.sites_per_day + ' site per DSE per hari, terdekat dari rute PJP hari itu (radius ' + m.radius_km + ' km). Kontrak: <code>docs/assessments/vanguard_5g_site_briefing.md</code>.' +
-      (m.prev_snapshot ? '' : ' Progres antar file (sync) mulai terlihat setelah file Vanguard berikutnya.') + '</p>';
+      (m.outlet_snapshot && m.flag_snapshot && m.outlet_snapshot !== m.flag_snapshot ? ' <b>Perhatian:</b> status step per site per ' + api.esc(m.flag_snapshot) + ', tetapi status Step 2-4 per outlet masih per ' + api.esc(m.outlet_snapshot) + ' (file OutletMapping terbaru belum ada), jadi daftar outlet bisa menampilkan step yang sebenarnya sudah Done.' : '') + (m.prev_snapshot ? '' : ' Progres antar file (sync) mulai terlihat setelah file Vanguard berikutnya.') + '</p>';
   }
 
   /* ---- Briefing ---- */
