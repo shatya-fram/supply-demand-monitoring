@@ -46,3 +46,8 @@ Sumber: slide "TARGET PER SALES AREA" dan "DSF + D2U PER SALES AREA" (GA Bridge 
 * `python3 scripts/build_program_target_feed.py` mencocokkan setiap angka (natural, program, wholesaler, D2U, DSF, target harian, D2U / DSF per 25 hari) dengan guideline: **semua sesuai** (`metadata.bridge_check` kosong); `render_check.js` gagal bila total ≠ 361,750 atau ada selisih.
 * Tab **Bridge Target** (`prgTab=bridge`): dua tabel seperti slide, kolom Cek vs guideline, dan Bridge vs aktual (MTD vs pro-rata per komponen dan area). Grup channel: Program = AVA, Promotor, KOTKAB; Retail & KRO = natural (non-program) dengan slab Retail dan KRO.
 * Informasi di situs: deskripsi menu Program & Tipe Outlet (Supply & Demand) dan kartu laporan 02 di landing page portal menyebut Bridge Target, Target vs Aktual dan Summary Achievement.
+
+### Konfirmasi pemilik (6 Nov 2026)
+* **Promotor + Outlet Promotor dihitung 36.000** (bukan 72.000): dengan 72.000 sisa Retail & KRO Kota Bekasi negatif (−751) dan total 361.750 tidak bisa dipenuhi. Sisa Retail & KRO = 128.474 (4.282 per hari).
+* **DSF total 12.500**, pembagian per area mengikuti slide DSF + D2U (2.000 · 1.500 · 2.500 · 2.000 · 2.000 · 1.500 · 1.000), bukan lembar ALOKASI PROGRAM (1.500 · 2.000 · 2.000 · 2.000 · 2.000 · 2.000 · 1.000).
+* Cross-check lembar ALOKASI (Promotor 48.000 + Outlet Promotor 24.000, total komponen 269.276, sisa 92.474) tidak dipakai; angka di app sudah sesuai konfirmasi ini, tidak ada perubahan data.
