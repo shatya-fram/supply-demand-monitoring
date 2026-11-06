@@ -707,7 +707,7 @@ if (MONTH_SCAN) {
 
 // ---- Program target vs aktual (6 Nov 2026): monthly / daily, both cell modes, every channel; totals match the sheet
 { const PT = global.PROGRAM_TARGET; if (!PT) { failures++; console.log('✗ PROGRAM_TARGET missing'); } else {
-    const want = { 'AVA': 21600, 'KOTKAB': 41526, 'PROMOTOR': 48000, 'OUTLET PROMOTOR': 24000, 'TEBUS MURAH | KAM': 15000, 'TOP PLAYER': 80000, 'DTU DSE': 26650, 'DSF': 12500 };
+    const want = { 'AVA': 21600, 'KOTKAB': 41526, 'PROMOTOR': 36000, 'TEBUS MURAH | KAM': 15000, 'TOP PLAYER': 80000, 'DTU DSE': 26650, 'DSF': 12500, 'RETAIL & KRO NATURAL': 128474 }; { const tt = PT.channels.reduce((s, c) => s + c.total, 0); if (tt !== 361750) { failures++; console.log('✗ total target ' + tt + ' != guideline 361,750'); } if (PT.metadata.bridge_check && PT.metadata.bridge_check.length) { failures++; console.log('✗ bridge check: ' + PT.metadata.bridge_check.join(' | ')); } }
     for (const c of PT.channels) if (want[c.id] !== c.total) { failures++; console.log('✗ target ' + c.id + ' ' + c.total + ' != sheet ' + want[c.id]); }
     for (const [view, mode, open] of [['m', 'day', false], ['m', 'day', true], ['d', 'day', true], ['d', 'cum', true]]) for (const ch of PT.channels) {
       state.view = 'mb_program'; state.prgTab = 'target'; state.ptView = view; state.ptMode = mode; state.ptAllOpen = open; state.ptOpen = {}; state.ptCh = ch.id; state.ptArea = ''; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
@@ -732,5 +732,11 @@ if (MONTH_SCAN) {
     if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ cat-program undefined/NaN ' + pr + sel); }
   }
   state.cpSel = 'AVA'; check('cat-program/AVA', () => VIEWS.cat_program()); state.view = 'mb_program'; }
+
+// ---- Bridge Target tab (6 Nov 2026)
+{ state.view = 'mb_program'; state.prgTab = 'bridge'; state.kroProd = 'ga'; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = ''; let h = ''; check('program-bridge', () => (h = VIEWS.mb_program()));
+  if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-bridge undefined/NaN'); }
+  if (!/361,750/.test(h)) { failures++; console.log('✗ bridge total 361,750 missing'); }
+  state.prgTab = 'ring'; }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
