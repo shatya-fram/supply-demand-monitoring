@@ -716,5 +716,21 @@ if (MONTH_SCAN) {
     }
     state.prgTab = 'ring'; state.ptAllOpen = false; }
 }
+
+// ---- Program summary achievement + channel grouping (6 Nov 2026)
+{ for (const dim of ['ch', 'area', 'chArea', 'areaCh']) for (const met of ['ach', 'gap', 'mtd', 'tgt']) {
+    state.view = 'mb_program'; state.prgTab = 'summary'; state.smDim = dim; state.smMetric = met; state.ptAllOpen = true; state.ptOpen = {}; state.smOpen = {}; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = ''; state.kroProd = 'ga';
+    let h = ''; check('program-summary/' + dim + '/' + met, () => (h = VIEWS.mb_program()));
+    if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-summary undefined/NaN ' + dim + met); }
+  }
+  state.chOpen = { WS: false, DIR: false }; for (const tab of ['ring', 'harian', 'matrix', 'target', 'summary']) { state.prgTab = tab; check('program-group-collapsed/' + tab, () => VIEWS.mb_program()); } state.chOpen = {}; state.prgTab = 'ring'; state.ptAllOpen = false; }
+
+// ---- Katalog Program & Partisipasi Program (6 Nov 2026)
+{ for (const pr of ['ga', 'sp', 'vc', 'sl']) for (const sel of Object.keys(global.KRO_FEED.metadata.programs).filter(n => (global.KRO_FEED.metadata.programs[n].keys || []).length).slice(0, 4)) {
+    state.view = 'cat_program'; state.kroProd = pr; state.kroMeas = 'si'; state.cpSel = ''; state.cpPage = 1; state.kroSearch = ''; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+    let h = ''; check('cat-program/' + pr + '/' + sel, () => (h = VIEWS.cat_program()));
+    if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ cat-program undefined/NaN ' + pr + sel); }
+  }
+  state.cpSel = 'AVA'; check('cat-program/AVA', () => VIEWS.cat_program()); state.view = 'mb_program'; }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
