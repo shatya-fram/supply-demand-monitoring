@@ -52,7 +52,7 @@ GA November dibaca dari file MSISDN (`build_ga_feed_month.py`, CLAUDE.md "GA mon
 1. **Audit KRO: sempat gagal 8 cek, sudah diperbaiki** (commit `341d6d0`, hanya `scripts/build_kro_feed.py`). Gagal juga pada commit sebelumnya (checkout bersih `b2f3ebf`), jadi bukan dari data 6 Nov. Selisihnya sangat kecil dan feed selalu lebih rendah (SP Last FM 173.868 vs 173.888 pcs; Saldo sell-out Last FM Rp 155,371 B vs Rp 155,382 B). Penyebab: baris master dengan kunci lama (`0_317011`, `NA_sh013732`, `NA_307805`, `0_144884`, ...) membawa id 3ID yang sama dengan outlet yang oleh GA dikunci dengan `outlet_key` yang benar; builder hanya menjumlah `sup[k]` / `dem[k]`, sehingga baris itu dianggap sudah terpakai tetapi tidak pernah dijumlahkan. Sekarang setiap outlet juga menjumlah semua baris yang membawa salah satu idnya (tanpa duplikat). Feed KRO dibangun ulang dari feed 6 Nov: "KRO feed reconciles"; render check dan semua audit lulus.
 2. **Tiga DSE tercatat di MC lain di feed visit** (Edi Warsono, Ihsan Riyadlul Jinan, Sukron Mamun; lihat asesmen 5 Nov): menyebabkan dua cek audit katalog DSE; opsi tampilan sudah diajukan, belum diputuskan.
 3. Voucher Injection rendah dibanding Oktober.
-4. Vanguard: outlet-level Step 2–4 masih dari OutletMapping 29 Okt.
+4. Vanguard: outlet-level Step 2–4 masih dari OutletMapping 29 Okt; **disetujui pemilik 6 Nov** sampai file OutletMapping baru datang (hanya catatan, bukan masalah).
 5. Fav Locs dan GA dipotong D3; sinkron lagi saat file D4 / D5 datang.
 6. Data owner: id `D…` di SALMO, daftar BOSS / Tebus Murah.
 
