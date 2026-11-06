@@ -15,7 +15,7 @@ Attributes (segment PJP / NON / KAM, hybrid, location keys, M2S target) are carr
 Pure stdlib. Run from anywhere: python3 scripts/build_ga_feed_month.py   (build_ga_feed.py calls it itself when only the MSISDN files exist for the running month)
 """
 import calendar, csv, glob, gzip, json, os, re, sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -49,6 +49,16 @@ if not cands:
     raise SystemExit('rguga_daily_outlet_inner_<YYYYMM>.csv tidak ditemukan di ' + GA_DIR)
 CUR_SRC = cands[-1]
 CUR_YM = re.search(r'_(\d{6})\.csv$', CUR_SRC).group(1)
+# The _inner_ export can lag the full export on the newest day (5 Nov 2026: 2,144 vs 5,240 GA): when rguga_daily_outlet_<YYYYMM>.csv has the same
+# layout (ga_pairing_status) and at least as many rows, read that one.
+_full = os.path.join(GA_DIR, 'rguga_daily_outlet_%s.csv' % CUR_YM)
+if os.path.exists(_full):
+    with open(_full, encoding='utf-8') as _f, open(CUR_SRC, encoding='utf-8') as _g:
+        _hdr_ok = 'ga_pairing_status' in (_f.readline() or '')
+        _nf, _ni = sum(1 for _ in _f), sum(1 for _ in _g) - 1
+    if _hdr_ok and _nf >= _ni:
+        print('   pakai file penuh %s (%d baris) menggantikan _inner_ (%d baris)' % (os.path.basename(_full), _nf, _ni))
+        CUR_SRC = _full
 cy, cm = int(CUR_YM[:4]), int(CUR_YM[4:])
 py, pm = (cy, cm - 1) if cm > 1 else (cy - 1, 12)
 PREV_YM = '%04d%02d' % (py, pm)
@@ -130,9 +140,25 @@ print('[3/5] bulan berjalan', CUR_SRC)
 cut_day = 0
 n_cur = 0
 unpaired = 0
+# the newest day of the MSISDN file is often still being paired to outlets (5 Nov 2026: 2,144 vs ~4,900 a day): when it holds < 60% of the
+# average of the days before it, it is held back (metadata.partial_dropped) so MTD and the cut stay on complete days (the Fav Locs feed follows the same cut)
+_pd = Counter()
+with open(CUR_SRC, encoding='utf-8') as f:
+    for r in csv.DictReader(f):
+        if r['ga_pairing_status'] == 'VALID_ID' and nid(r['ga_pairing_id']):
+            _pd[int(r['ga_dt'][8:])] += 1
+partial_dropped = None
+if len(_pd) > 2:
+    _last = max(_pd)
+    _prev = [v for k, v in _pd.items() if k < _last]
+    if _pd[_last] < 0.6 * sum(_prev) / len(_prev):
+        partial_dropped = {'day': _last, 'pcs': _pd[_last], 'avg_before': round(sum(_prev) / len(_prev))}
+        print('   hari %d belum lengkap (%d GA vs rata-rata %d), tidak dipakai' % (_last, _pd[_last], sum(_prev) / len(_prev)))
 with open(CUR_SRC, encoding='utf-8') as f:
     for r in csv.DictReader(f):
         b, d = r['brand'], int(r['ga_dt'][8:])
+        if partial_dropped and d == partial_dropped['day']:
+            continue
         oid = nid(r['ga_pairing_id'])
         if not oid or r['ga_pairing_status'] != 'VALID_ID':
             unpaired += 1
@@ -228,7 +254,7 @@ loc_keys = [l for l, _ in sorted(loc_index.items(), key=lambda kv: kv[1])]
 meta = {
     'generated_at': datetime.now().isoformat(timespec='seconds'), 'contract': 'docs/assessments/ga_rguga_outlet.md',
     'sources': {'sep': PREV_SRC, 'oct': CUR_SRC, 'note': 'keys sep / oct = month before / running month (compatibility); builder scripts/build_ga_feed_month.py'},
-    'months': {'prev': '%04d-%02d' % (py, pm), 'cur': '%04d-%02d' % (cy, cm)}, 'prev_days': PREV_DAYS, 'cur_days': CUR_DAYS, 'cut_day': cut_day,
+    'months': {'prev': '%04d-%02d' % (py, pm), 'cur': '%04d-%02d' % (cy, cm)}, 'prev_days': PREV_DAYS, 'cur_days': CUR_DAYS, 'cut_day': cut_day, 'partial_dropped': partial_dropped,
     'definitions': TM.get('definitions'), 'row_fields': dict(TM.get('row_fields') or {}, s='[hari, qty, ...] bulan sebelumnya', o='[hari, qty, ...] bulan berjalan'),
     'mc_info': mc_info, 'universe_rows': {b: {'sep': sum(1 for (k, bb), x in REC.items() if bb == b and x['s']), 'oct': sum(1 for (k, bb), x in REC.items() if bb == b and x['o'])} for b in ('IM3', '3ID')},
     'dropped_outside_zero': {}, 'ga_total': tot, 'ga_in_master': matched, 'unknown_mc': {},

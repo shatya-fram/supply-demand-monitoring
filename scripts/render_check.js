@@ -673,14 +673,14 @@ if (MONTH_SCAN) {
   const oct = process.env.PER === 'oct', K = global.DSE_KPI_FEED, pm = global.PENJUALAN_FEED.metadata;
   const spT = K.dses.reduce((a, d) => a + (d.sp_tgt || 0), 0), osaT = K.dses.reduce((a, d) => a + (d.osa_tgt || 0), 0), n0 = (n) => Math.round(n).toLocaleString('en-US');
   const expect = oct
-    ? [['mb_penjualan', ['235,947', 'Rp 22.13 M', 'MTD 1–31 Okt vs LMTD 1–31 Sep']], ['visits', ['159,340']], ['mb_gatrend', ['323,890']], ['mb_performance', ['119.63']], ['mb_overall', ['266,765', 'Okt']], ['cfg_target', [n0(spT), 'Okt']]]
+    ? [['mb_penjualan', ['235,947', 'Rp 22.13 M', 'MTD 1–31 Okt vs LMTD 1–31 Sep']], ['visits', ['159,340']], ['mb_gatrend', ['287,269']], ['mb_performance', ['119.63']], ['mb_overall', ['266,765', 'Okt']], ['cfg_target', [n0(spT), 'Okt']]]
     : [['cfg_target', [n0(spT), 'carry-forward', 'Target November', 'Target Nov = distribusi Target Okt']], ['mb_partner_perf', [n0(spT * pm.cut_day / pm.mtd_month_days), 'carry-forward']], ['mb_overall', [n0(spT)]]];
   const bad = [];
   if (!!oct !== (pm.cut.slice(0, 7) === '2026-10')) bad.push('period feeds do not match PER: cut ' + pm.cut);
   if (Math.round(spT) !== 266765) bad.push('SP target total ' + spT);
   for (const [v, needles] of expect) { const t = text(v); needles.forEach((n) => { if (!t.includes(n)) bad.push(v + ' misses "' + n + '"'); }); }
   if (!oct) for (const v of ['cfg_target', 'mb_partner_perf', 'mb_ringkasan']) if (/Target n\/a|belum diganti target/.test(text(v))) bad.push(v + ' still shows targets n/a');
-  console.log(bad.length ? '✗ period figures: ' + bad.join(' | ') : '✓ period figures (' + (oct ? 'October close: SP 235,947 · Saldo Rp 22.13 M · PJP 159,340 · GA 323,890 · demand Rp 119.63 M' : 'live feeds: targets carried forward ' + n0(spT) + ' pcs, Rp ' + (osaT / 1e9).toFixed(1) + ' B, pro-rata ' + pm.cut_day + '/' + pm.mtd_month_days) + ')');
+  console.log(bad.length ? '✗ period figures: ' + bad.join(' | ') : '✓ period figures (' + (oct ? 'October close: SP 235,947 · Saldo Rp 22.13 M · PJP 159,340 · GA 287,269 · demand Rp 119.63 M' : 'live feeds: targets carried forward ' + n0(spT) + ' pcs, Rp ' + (osaT / 1e9).toFixed(1) + ' B, pro-rata ' + pm.cut_day + '/' + pm.mtd_month_days) + ')');
   if (bad.length) failures++;
 }
 
