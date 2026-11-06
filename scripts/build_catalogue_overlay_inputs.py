@@ -35,7 +35,7 @@ CAT = os.path.join(ROOT, 'data', 'catalogues')
 
 TOKENS = re.compile(r'DTU|AVA|Kotkab|Promotor|Wholesaler|WS|KRO', re.I)
 PROGRAM = {'KRO': 'KRO (katalog {ym})', 'WS': 'Wholesaler (katalog {ym})', 'WHOLESALER': 'Wholesaler (katalog {ym})',
-           'PROMOTOR': 'Promotor', 'DTU': 'DTU', 'AVA': 'AVA'}   # 'Kotkab' is not a program: its meaning is unconfirmed
+           'PROMOTOR': 'Promotor', 'DTU': 'DTU', 'AVA': 'AVA', 'KOTKAB': 'Kotkab'}   # Kotkab is the KOTKAB channel of the November program allocation (owner, 6 Nov 2026); list = catalogue 202610 type KOTKAB until a November list exists
 
 
 def nid(v):

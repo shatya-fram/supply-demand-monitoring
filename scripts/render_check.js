@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
+for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'program_target_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
   require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -703,6 +703,18 @@ if (MONTH_SCAN) {
       if (met === 'n') { let ctr = 0; for (const m of h.matchAll(/data-ov="(kr\|pg\|Q%3A[^"]+\|ALL)"[^>]*>\s*([\d.,]+)<\/td>/g)) { if (ctr++ % 7) continue; const k = m[1].replace(/&amp;/g, '&'), e = app.ovEntry(k), shown = parseInt(m[2].replace(/[.,]/g, ''), 10); if (!e) { failures++; console.log('✗ matrix no popup ' + k); continue; } if (e.rows.length !== shown) { failures++; console.log('✗ matrix popup rows ' + e.rows.length + ' != cell ' + shown + ' for ' + k); } } }
     }
     state.prgTab = 'ring'; state.pmAllOpen = false; }
+}
+
+// ---- Program target vs aktual (6 Nov 2026): monthly / daily, both cell modes, every channel; totals match the sheet
+{ const PT = global.PROGRAM_TARGET; if (!PT) { failures++; console.log('✗ PROGRAM_TARGET missing'); } else {
+    const want = { 'AVA': 21600, 'KOTKAB': 41526, 'PROMOTOR': 48000, 'OUTLET PROMOTOR': 24000, 'TEBUS MURAH | KAM': 15000, 'TOP PLAYER': 80000, 'DTU DSE': 26650, 'DSF': 12500 };
+    for (const c of PT.channels) if (want[c.id] !== c.total) { failures++; console.log('✗ target ' + c.id + ' ' + c.total + ' != sheet ' + want[c.id]); }
+    for (const [view, mode, open] of [['m', 'day', false], ['m', 'day', true], ['d', 'day', true], ['d', 'cum', true]]) for (const ch of PT.channels) {
+      state.view = 'mb_program'; state.prgTab = 'target'; state.ptView = view; state.ptMode = mode; state.ptAllOpen = open; state.ptOpen = {}; state.ptCh = ch.id; state.ptArea = ''; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+      let h = ''; check('program-target/' + view + mode + open + '/' + ch.id, () => (h = VIEWS.mb_program()));
+      if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-target undefined/NaN ' + view + mode + ch.id); }
+    }
+    state.prgTab = 'ring'; state.ptAllOpen = false; }
 }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);
