@@ -199,7 +199,8 @@ def main():
             n_dem_only += add_only(x, "dm")
 
     def supply_of(k, ids):
-        rows = [sup[k]] if k in sup else [x for b, i in ids.items() for x in sup_bid.get((b, str(i)), [])]
+        # the master row of the key plus every other row that carries one of the outlet's ids (a stale key such as 0_317011 / NA_sh013732 for the same 3ID id is the same outlet; deduplicated by object below)
+        rows = ([sup[k]] if k in sup else []) + [x for b, i in ids.items() for x in sup_bid.get((b, str(i)), [])]
         if not rows and k in out and out[k].get("_pj"):
             rows = [out[k]["_pj"]]
         seen, acc = set(), {"sp": [0, 0, 0], "spi": 0, "vc": [0, 0, 0], "sal": [0, 0, 0], "spv": 0, "spd": defaultdict(int),
@@ -241,7 +242,7 @@ def main():
         return acc if rows else None
 
     def demand_of(k, ids):
-        rows = [dem[k]] if k in dem else [x for b, i in ids.items() for x in dem_bid.get((b, str(i)), [])]
+        rows = ([dem[k]] if k in dem else []) + [x for b, i in ids.items() for x in dem_bid.get((b, str(i)), [])]
         if not rows and k in out and out[k].get("_dm"):
             rows = [out[k]["_dm"]]
         if not rows:

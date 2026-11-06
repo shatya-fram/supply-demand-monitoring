@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 6 Nov 2026 · Sell-In, Demand dan PJP sampai 5 Nov; GA November (D3); ENDBAL snapshot 5 Nov
+- MOBII, MOBO dan SALMO November 6 Nov 00:31, PJP 5 Nov, ENDBAL snapshot 5 Nov. GA by Outlet dan Fav Locs November masuk dari file MSISDN (cut D3); bulan lalu GA Oktober dibangun dari MSISDN (287.269, sekitar 11% di bawah workbook 323.890). Vanguard status 5 Nov.
+- Audit KRO sempat gagal 8 cek (sudah ada sebelum refresh); diperbaiki di `build_kro_feed.py` (commit `341d6d0`), feed KRO dibangun ulang dari feed 6 Nov. Detail: `docs/assessments/daily_update_2026-11-06.md`.
+
 ## 5 Nov 2026 · Sell-In, Demand dan PJP sampai 4 Nov; ENDBAL snapshot 4 Nov
 - MOBII, MOBO dan SALMO November diperbarui 4 Nov 23:11, PJP 4 Nov, ENDBAL snapshot 4 Nov. Sell-In, Demand dan PJP sama-sama cut 4 Nov. Tidak ada file GA, Fav Locs atau Vanguard baru.
 - Detail: `docs/assessments/daily_update_2026-11-05.md`.
