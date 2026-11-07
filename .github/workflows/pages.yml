@@ -13,14 +13,20 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Slim the Pages artifact (JSON twins of the JS feeds are not loaded by the app)
+        run: rm -f website/data/*.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 300000
+          reporting_interval: 10000

@@ -121,17 +121,23 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Slim the Pages artifact (JSON twins of the JS feeds are not loaded by the app)
+        run: rm -f website/data/*.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 300000
+          reporting_interval: 10000
 """
 
 
@@ -161,6 +167,10 @@ def main():
             open(dst, 'wb').write(head_bytes(rel))
         copied += 1
     open(os.path.join(OUT, 'README.md'), 'w', encoding='utf-8').write(README)
+    # version stamp: scripts/publish_all.sh compares the live site's version.json with the commit it just published
+    sha = subprocess.check_output(['git', 'rev-parse', '--short', REF], cwd=ROOT).decode().strip()
+    from datetime import datetime, timezone
+    json.dump({'commit': sha, 'built_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}, open(os.path.join(OUT, 'website', 'version.json'), 'w'))
     os.makedirs(os.path.join(OUT, '.github', 'workflows'), exist_ok=True)
     open(os.path.join(OUT, '.github', 'workflows', 'pages.yml'), 'w', encoding='utf-8').write(PAGES)
     for d in ('dist-public/',):                       # keep the export folder out of the working repository
