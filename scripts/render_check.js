@@ -738,5 +738,18 @@ if (MONTH_SCAN) {
   if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-bridge undefined/NaN'); }
   if (!/361,750/.test(h)) { failures++; console.log('✗ bridge total 361,750 missing'); }
   state.prgTab = 'ring'; }
+
+// ---- Harian cell popups (7 Nov 2026): Area (grup) · MC · Outlet · total; popup total = the cell
+{ const P = global.PROGRAM_DAILY, K = global.KRO_FEED; state.view = 'mb_program'; state.prgTab = 'harian'; state.kroProd = 'ga'; state.pdTab = 'kat'; state.prg = ''; state.prgMode = 'any'; state.chOpen = {}; state.branch = ''; state.kec = ''; state.dse = ''; state.hoa = '';
+  let h = ''; check('harian-popups', () => (h = VIEWS.mb_program()));
+  let n = 0, bad = 0; for (const m of h.matchAll(/data-ov="(kr\|pd\|[^"]+)"[^>]*>(?:<b>)?([\d.,]+)(?:<\/b>)?(?:<div[^>]*>[^<]*<\/div>)?<\/td>/g)) {
+    if (n++ % 6) continue; const k = m[1].replace(/&amp;/g, '&'), e = app.ovEntry(k), shown = parseInt(m[2].replace(/[.,]/g, ''), 10);
+    if (!e || !e.rows) { failures++; console.log('✗ no harian popup ' + k); continue; }
+    const sum = e.rows.reduce((s2, r) => s2 + parseInt(String(r[5]).replace(/[.,]/g, ''), 10), 0);
+    if (!/^kr\|pd\|.*\|mtd$|^kr\|pd\|.*\|d\d+$|^kr\|pd\|.*\|(lm|fm)$/.test(k)) continue;
+    if (sum !== shown) { bad++; failures++; console.log('✗ harian popup total ' + sum + ' != cell ' + shown + ' for ' + k); }
+  }
+  if (!n) { failures++; console.log('✗ no clickable harian cells'); }
+  state.prgTab = 'ring'; }
 console.log(failures ? `\n${failures} failure(s)` : '\nAll views rendered without errors.');
 process.exit(failures ? 1 : 0);

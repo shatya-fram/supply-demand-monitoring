@@ -7786,6 +7786,20 @@
     var slabM = /^(cf|cl|cm|cp)_([A-Z]\d|N)(?:_(v|nv|nd))?$/.exec(met), mvM = /^(mv|ml)_(\w+?)_(\w+)$/.exec(met), perM = /^p(fm|lm|mt|pr)_([WKAU])$/.exec(met);
     var mapc = function (c) { return kroCat(c) === 'W' ? 'W' : (c || 'N'); };
     var inG = function (r) { return kroGMatch(r, grp, gk, key); };
+    if (grp === 'pd') {   // Harian cell: outlets of the row with their total for MTD / LMTD / Last FM / one day, grouped by Area then MC
+      var P2 = pdFeed(), mp = P2 ? pdMap(P2) : {}, ki = P2 ? P2.metadata.key_order.indexOf(key) : -1, qi2 = gk.indexOf('|'), col = qi2 >= 0 ? gk.slice(0, qi2) : gk, gg = qi2 >= 0 ? gk.slice(qi2 + 1) : 'T', dm = /^d(\d+)$/.exec(met);
+      if (!kroSlim()) lines.push('Daftar outlet Retail masih dimuat (kro_slim.js): tutup dan klik lagi dalam beberapa detik.');
+      var all2 = kroUniv(K).filter(kroInScope).filter(function (r) { return pmColMatch(r, col, key) && pmGroupMatch(r, gg); });
+      var val = function (r) { if (met === 'mtd') return r.q[key][2]; if (met === 'lm') return r.q[key][1]; if (met === 'fm') return r.q[key][0]; if (dm) { var v = (mp[r.k] || [])[ki]; return v ? (v[parseInt(dm[1], 10) - 1] || 0) : null; } return null; };
+      var withVal = all2.map(function (r) { return { r: r, v: val(r) }; }), noData = withVal.filter(function (x) { return x.v == null; }).length, shown = withVal.filter(function (x) { return x.v != null && x.v > 0; });
+      var ba = function (x) { return x === 'BEKASI' ? 'KOTA BEKASI' : String(x || ''); };
+      shown.sort(function (a, b) { return ba(a.r.br).localeCompare(ba(b.r.br)) || String(a.r.mc || '').localeCompare(String(b.r.mc || '')) || (b.v - a.v); });
+      var per = { mtd: 'MTD', lm: 'LMTD', fm: 'Last FM' }[met] || (dm ? 'D' + dm[1] + ' · ' + (P2 ? P2.metadata.month_cur : '') + '-' + (parseInt(dm[1], 10) < 10 ? '0' : '') + dm[1] : met), tot = 0, byA = {};
+      shown.forEach(function (x) { tot += x.v; byA[x.r.br || '—'] = (byA[x.r.br || '—'] || 0) + x.v; });
+      if (noData) lines.push(fmtCount(noData) + ' outlet tidak punya data harian per outlet (hanya total MC): tidak ditampilkan.');
+      lines.push(fmtCount(shown.length) + ' outlet dengan ' + kroKeyName(key) + ' · total ' + kroFmt(key, tot) + ' · per Area: ' + Object.keys(byA).map(function (a) { return a + ' ' + kroFmt(key, byA[a]); }).join(' · ') + (all2.length - shown.length - noData > 0 ? ' · ' + fmtCount(all2.length - shown.length - noData) + ' outlet tanpa volume pada periode ini' : ''));
+      return { title: pdColLabel(gk) + ' · ' + kroKeyName(key) + ' · ' + per, cols: ['Area (grup)', 'MC', 'Outlet', 'ID', 'DSE', 'Total ' + kroKeyName(key)], rows: shown.map(function (x) { var r = x.r; return [r.br || '—', r.mc || '(tanpa MC)', r.n || '(tanpa nama)', Object.keys(r.id).sort().map(function (b) { return b + ' ' + r.id[b]; }).join(' · '), uarDse(r), kroFmt(key, x.v)]; }), lines: lines };
+    }
     if (grp === 'pg' && /^ALL(v|nv|nd|m)?$/.test(met)) {   // every outlet of the program cohort (or of one program / area / MC inside it)
       if (!kroSlim()) lines.push('Daftar outlet Retail masih dimuat (kro_slim.js): tutup dan klik lagi dalam beberapa detik.');
       L = kroUniv(K).filter(kroInScope).filter(inG);
@@ -8399,6 +8413,14 @@
     return card(title || 'Review kunjungan PJP', '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead><tr>' + dkStickyTh('Kelompok', 1) + th('Ket.') + th('Outlet', 1) + th('Dikunjungi ≥ 1×', 1) + th('Belum dikunjungi', 1) + th('% dikunjungi', 1) + th('Tanpa DSE', 1) + th('Check-in per outlet', 1) + th('KRO+ belum dikunjungi / KRO+', 1) + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<p class="note">Review kunjungan = check-in PJP selesai bulan ini pada outlet tiap kelompok (outlet tanpa DSE tidak punya PJP). Outlet yang ada di beberapa program dihitung di tiap program, sekali di baris kelompok. Retail dan KRO di luar program memakai slab ' + esc(kroKeyName(key)) + ' bulan lalu; KRO+ = KRO dan Wholesaler pada produk ini.</p>');
   }
+  /* click on a Harian cell (owner, 6 Nov 2026): popup Area (group) · MC · Outlet · total of the measure for that period (MTD, LMTD, Last FM or one day); key kr|pd|<column>|<group>|<period> */
+  function pdOvKey(col, met) { return 'kr|pd|' + encodeURIComponent(col) + '|' + met; }
+  function pdCol(col, met, inner, style, cls) { return col ? ovCell(pdOvKey(col, met), inner, style || '', cls) : '<td class="num"' + (style ? ' style="' + style + '"' : '') + '>' + inner + '</td>'; }
+  function pdColLabel(col) {
+    var c = col.indexOf('|') >= 0 ? col.slice(0, col.indexOf('|')) : col, g = col.indexOf('|') >= 0 ? col.slice(col.indexOf('|') + 1) : 'T';
+    var nm = c === '~TOT' ? 'Total semua outlet' : c === '~NP' ? 'Non-program (di luar flag)' : c === '~GAB' ? 'Program terpilih (gabungan)' : c.indexOf('~G:') === 0 ? ((CH_GROUPS.filter(function (x) { return x.id === c.slice(3); })[0] || { label: c.slice(3) }).label) : c.indexOf('~S:') === 0 ? 'Slab ' + kroLabel(c.slice(3), kroKey()) : prgLabel(c);
+    return nm + (g === 'T' ? '' : ' · ' + g.replace(/^(A|M|N):/, ''));
+  }
   function pdTgOn(key) { var T = ptFeed(); return !!(T && T.channels.some(function (c) { return c.measure === key && c.program; })); }
   function pdTgt(names, key, area) {   // monthly target of the channels of these programs on this measure (area null = every area in scope); null = no target for this line
     var T = ptFeed(); if (!T) return null; var s = 0, hit = false;
@@ -8416,7 +8438,7 @@
   function pdLine(label, ket, rows, days, key, P, o) {   // o: { tgt (monthly target or null), nc, non: {agg}, ink, wash, indent }
     o = o || {}; var a = pdAgg(rows, key), hasFm = kroHasFm(key), mt = kroHasP(key, 'mt'), cut = P.metadata.cuts[key], n = P.metadata.days_cur, vs = kroVisitStat(rows), tg = pdTgOn(key), cells = '', csv = [label.replace(/<[^>]+>/g, ''), ket.replace(/<[^>]+>/g, ''), a.n], i;
     var ink = o.ink ? ' background:var(--ink); color:#fff;' : (o.wash ? ' background:var(--ij-wash, #f6f4f1);' : ' background:#fff;'), f0 = function (v) { return fmtCount(Math.round(v)); };
-    var perf = '<td class="num"><b>' + (mt ? pdNum(key, a.mtd) : KRO_NA) + '</b></td><td class="num">' + (hasFm ? pdNum(key, a.lm) : KRO_NA) + '</td><td class="num">' + (hasFm && mt ? kroGrowTag(a.mtd, a.lm) : KRO_NA) + '</td><td class="num">' + (hasFm ? pdNum(key, a.fm) : KRO_NA) + '</td>';
+    var oc = o.col || null, perf = pdCol(oc && mt ? oc : null, 'mtd', '<b>' + (mt ? pdNum(key, a.mtd) : KRO_NA) + '</b>') + pdCol(oc && hasFm ? oc : null, 'lm', hasFm ? pdNum(key, a.lm) : KRO_NA) + '<td class="num">' + (hasFm && mt ? kroGrowTag(a.mtd, a.lm) : KRO_NA) + '</td>' + pdCol(oc && hasFm ? oc : null, 'fm', hasFm ? pdNum(key, a.fm) : KRO_NA);
     csv.push(mt ? a.mtd : '', hasFm ? a.lm : '', hasFm && mt && a.lm > 0 ? Math.round((a.mtd / a.lm - 1) * 1000) / 10 + '%' : '', hasFm ? a.fm : '');
     var tgt = o.tgt != null && mt ? o.tgt : null, R = tgt != null ? ptRates(tgt, a.mtd, cut, n) : null, tgc = '';
     if (tg) {
@@ -8433,8 +8455,9 @@
     for (i = 0; i < n; i++) {
       var dv = days && mt && i < cut ? days[i] : null;
       if (dv == null) { cells += '<td class="num"><span class="note">·</span></td>'; csv.push(''); continue; }
-      if (dt) { var pd = dt ? dv / dt * 100 : null; cells += '<td class="num" style="' + ptTint(pd) + (o.ink ? 'color:#111;' : '') + '" title="aktual ' + f0(dv) + ' vs target harian ' + f0(dt) + '">' + pdNum(key, dv) + '<div style="font-size:10px;">' + pd.toFixed(0) + '% · ' + ptSgn(dv - dt, f0) + '</div></td>'; }
-      else cells += '<td class="num"' + (dv === 0 ? ' style="opacity:.45;"' : '') + '>' + pdNum(key, dv) + '</td>';
+      var dcol = oc && o.dayOk ? oc : null;
+      if (dt) { var pd = dt ? dv / dt * 100 : null; cells += pdCol(dcol, 'd' + (i + 1), pdNum(key, dv) + '<div style="font-size:10px;">' + pd.toFixed(0) + '% · ' + ptSgn(dv - dt, f0) + '</div>', ptTint(pd) + (o.ink ? 'color:#111;' : '')); }
+      else cells += pdCol(dcol, 'd' + (i + 1), pdNum(key, dv), dv === 0 ? 'opacity:.45;' : '');
       csv.push(dv);
     }
     var vcell = '<td class="num">' + fmtCount(vs.vis) + '</td><td class="num">' + (vs.zero ? '<b style="color:#991b1b;">' + fmtCount(vs.zero) + '</b>' : '0') + '</td><td class="num">' + kroPctv(vs.vis, a.n) + '</td>';
@@ -8454,6 +8477,7 @@
     if (!K) return card('Program · Harian', '<p class="note">Feed KRO belum dibangun. Jalankan <code>python3 scripts/build_kro_feed.py</code>.</p>');
     if (!P || (typeof window !== 'undefined' && window.IJ_PER === 'oct')) return card('Program · Harian', '<p class="note">Tampilan harian hanya untuk periode berjalan (MTD vs LMTD). ' + (P ? 'Pilih periode A di header.' : 'Feed <code>program_daily_feed.js</code> belum ada: jalankan <code>python3 scripts/build_kro_feed.py</code>.') + '</p>');
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
+    _kroLazy = kroLazy; ovLazy('kr', kroLazy);
     var slim = kroSlim(), key = kroKey(), prod = kroProd(), names = prgNames(K), all = prgAll(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
     var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by;
     var tab = state.pdTab === 'det' ? 'det' : 'kat', grp = ['am', 'area', 'dso', 'dse'].indexOf(state.pdGroup) >= 0 ? state.pdGroup : 'am';
@@ -8475,17 +8499,17 @@
       var addD = function (a, b) { if (!a || !b) return null; return a.map(function (v, i) { return v + (b[i] || 0); }); };
       tree.forEach(function (g) {
         var gDays = g.id === 'RET' ? npDays : pdDays(P, key, g.rows);
-        rowsHtml += pdLine(chBtn(g.id) + '<b>' + esc(g.label) + '</b>', esc(g.note), g.rows, g.id === 'RET' && noDse ? null : gDays, key, P, { wash: true, tgt: pdTgt(g.id === 'RET' ? ['~NP'] : g.names, key, null) });
+        rowsHtml += pdLine(chBtn(g.id) + '<b>' + esc(g.label) + '</b>', esc(g.note), g.rows, g.id === 'RET' && noDse ? null : gDays, key, P, { wash: true, col: '~G:' + g.id + '|T', dayOk: g.id !== 'RET', tgt: pdTgt(g.id === 'RET' ? ['~NP'] : g.names, key, null) });
         if (!chOpen(g.id)) return;
-        g.items.forEach(function (it) { rowsHtml += pdLine('<b>' + esc(prgLabel(it.name)) + '</b>' + (sel.indexOf(it.name) >= 0 ? '' : ' <span class="note">(mati)</span>'), 'program', it.rows, pdDays(P, key, it.rows), key, P, { indent: 22, tgt: pdTgt([it.name], key, null) }); });
+        g.items.forEach(function (it) { rowsHtml += pdLine('<b>' + esc(prgLabel(it.name)) + '</b>' + (sel.indexOf(it.name) >= 0 ? '' : ' <span class="note">(mati)</span>'), 'program', it.rows, pdDays(P, key, it.rows), key, P, { indent: 22, col: it.name + '|T', dayOk: true, tgt: pdTgt([it.name], key, null) }); });
         if (g.np) {
-          rowsHtml += pdLine('Non-program (di luar flag)', 'Retail dan KRO · harian dari total MC', g.np, npDays, key, P, { indent: 22, tgt: pdTgt(['~NP'], key, null) });
-          g.slabs.forEach(function (sl) { rowsHtml += pdLine((sl.cat === 'K' ? 'KRO · ' : 'Retail · ') + esc(sl.label), 'slab · harian n/a', sl.rows, null, key, P, { indent: 40 }); });
+          rowsHtml += pdLine('Non-program (di luar flag)', 'Retail dan KRO · harian dari total MC', g.np, npDays, key, P, { indent: 22, col: '~NP|T', tgt: pdTgt(['~NP'], key, null) });
+          g.slabs.forEach(function (sl) { rowsHtml += pdLine((sl.cat === 'K' ? 'KRO · ' : 'Retail · ') + esc(sl.label), 'slab · harian n/a', sl.rows, null, key, P, { indent: 40, col: '~S:' + sl.code + '|T' }); });
         }
       });
-      var comb = pdLine('<b>Program terpilih (gabungan)</b>', mode === 'all' ? 'irisan' : 'gabungan', L, pdDays(P, key, L), key, P, { wash: true, tgt: mode === 'all' ? null : pdTgt(sel, key, null) });
+      var comb = pdLine('<b>Program terpilih (gabungan)</b>', mode === 'all' ? 'irisan' : 'gabungan', L, pdDays(P, key, L), key, P, { wash: true, col: '~GAB|T', dayOk: true, tgt: mode === 'all' ? null : pdTgt(sel, key, null) });
       var totDays = noDse ? null : (function () { var d = pdDays(P, key, []); entAll.forEach(function (e) { (e.d[key] || []).forEach(function (v, i) { d[i] += v || 0; }); }); return d; })();
-      var totRow = pdLine('<b>TOTAL semua outlet</b>', 'program + non-program', uni, totDays, key, P, { ink: true });
+      var totRow = pdLine('<b>TOTAL semua outlet</b>', 'program + non-program', uni, totDays, key, P, { ink: true, col: '~TOT|T' });
       var hdr = pdHead('Kategori', P, key, true, false);
       body = card('Harian per kategori outlet · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + hdr + '</thead><tbody>' + rowsHtml + comb + totRow + '</tbody></table></div>' + noteDay +
         (noDse ? '<p class="note">Filter DSE aktif: harian non-program dan total tidak bisa dihitung per DSE (total MC saja), jadi n/a; MTD, LMTD dan kunjungan tetap per outlet.</p>' : ''));
@@ -8500,7 +8524,8 @@
       var tgOf = grp === 'area' && mode !== 'all' ? function (g) { return pdTgt(sel, key, g.replace(/^A:/, '')); } : null;
       var line = function (g, label, ket, indent, wash, entries) {
         var prow = Bp.o[g] || [], nrow = Bn.o[g] || [], mrow = Bm.o[g] || [], nd = noDse || grp === 'dse' ? null : pdSub(P, key, entries || entBy[g] || [], mrow);
-        return pdLine(label, ket, prow, pdDays(P, key, prow), key, P, { nc: true, wash: wash, indent: indent, tgt: tgOf ? tgOf(g) : null, non: { agg: pdAgg(nrow, key), days: nd } });
+        var r0 = prow[0], dcol = grp === 'am' ? (r0 ? (r0.mc ? 'M:' + r0.mc : 'N:' + (r0.br || '')) : null) : (grp === 'area' ? 'A:' + g : null);
+        return pdLine(label, ket, prow, pdDays(P, key, prow), key, P, { nc: true, wash: wash, indent: indent, col: dcol ? '~GAB|' + dcol : null, dayOk: true, tgt: tgOf ? tgOf(g) : null, non: { agg: pdAgg(nrow, key), days: nd } });
       };
       var rowsD = '';
       if (grp === 'am') {
@@ -8509,7 +8534,7 @@
         aord.sort(function (a, b) { var s = function (x) { return areas[x].reduce(function (t, g) { return t + Bp.o[g].length; }, 0); }; return s(b) - s(a); });
         aord.forEach(function (a) {
           var ar = L.filter(function (r) { return (r.br || '') === a; }), an = NP.filter(function (r) { return (r.br || '') === a; }), am = memRows.filter(function (r) { return (r.br || '') === a; }), ents = pdMcScope(P, K, function (e) { return e.br === a; });
-          rowsD += pdLine('<b>' + esc(a) + '</b>', 'Area', ar, pdDays(P, key, ar), key, P, { nc: true, wash: true, tgt: mode === 'all' ? null : pdTgt(sel, key, a), non: { agg: pdAgg(an, key), days: noDse ? null : pdSub(P, key, ents, am) } });
+          rowsD += pdLine('<b>' + esc(a) + '</b>', 'Area', ar, pdDays(P, key, ar), key, P, { nc: true, wash: true, col: '~GAB|A:' + a, dayOk: true, tgt: mode === 'all' ? null : pdTgt(sel, key, a), non: { agg: pdAgg(an, key), days: noDse ? null : pdSub(P, key, ents, am) } });
           areas[a].sort(function (x, y) { return Bp.o[y].length - Bp.o[x].length; }).forEach(function (g) { var r0 = Bp.o[g][0], mc = r0.mc || ''; rowsD += line(g, mc ? esc(mc) : '(tanpa MC)', mc ? 'DSO ' + esc((mi0[mc] || {}).dso || '—') : 'di luar master', 16, false); });
         });
       } else {
