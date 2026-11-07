@@ -62,3 +62,4 @@ Id types: `SH…` (SaleSHub / QR style, 3ID and IM3), plain numbers (17368690, 4
 - Target applies from November; the October view (`per=oct`) shows GA only. The Bridge target for DSF is 12,500 = 25 DSF x 500; the roster has 24 DSF (12,000).
 - The ids are mostly non-PJP, so the GA is read from the GA feed by id, not through the master DSE.
 - Not covered: sell-in SP or other products per DSF (the DSF target is read as GA pcs, as in `program_target_nov.csv`; change here if the owner means another measure).
+- **DMO / DMP and DSF are not DSE** (owner, 7 Nov 2026): a DMO / DMP such as NUR AINUN is a different role that only shares a name with a DSE of the master. The Monitoring DSF table carries `data-nodse`, so `dseLoginEnhance`, `dseCoverEnhance` and `dseFlagEnhance` skip it: no DSE login ids, coverage line or flag chips under a DMO / DMP or DSF name.

@@ -118,7 +118,7 @@
       'ID outlet DSF hampir semuanya non-PJP (di luar master), jadi tidak masuk insentif DSE dan total MC master. ' +
       (noId.length ? 'Tanpa ID outlet: ' + noId.map(function (o) { return esc(o.p.n); }).join(', ') + '. ' : '') + (noFeed.length ? 'ID belum ketemu di feed GA: ' + noFeed.map(function (o) { return esc(o.p.n); }).join(', ') + '. ' : '') +
       'Target program DSF di Bridge Target (12,500) = 25 DSF × 500; roster ini ' + nAll + ' DSF × 500 = ' + f0(tMonAll) + '. Hari terakhir data dapat terisi sebagian. Sumber roster: ' + esc(c.meta.source) + '.</p>';
-    return api.card('Monitoring DSF · GA per DSF manpower · target ' + T_DAY + ' pcs / hari · ' + T_MONTH + ' pcs / bulan', kp + tools + '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table></div>' + notes);
+    return api.card('Monitoring DSF · GA per DSF manpower · target ' + T_DAY + ' pcs / hari · ' + T_MONTH + ' pcs / bulan', kp + tools + '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1" data-nodse="1"><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table></div>' + notes);
   }
 
   function csv(api) {

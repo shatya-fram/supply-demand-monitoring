@@ -6274,6 +6274,7 @@
     var M = dseCat(); if (!M || !root || !root.querySelectorAll) return;
     var up = function (s) { return String(s || '').replace(/\.0$/, '').trim().toUpperCase(); };
     [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      if (tb.hasAttribute('data-nodse')) return;   /* the table lists people who are not DSE (Monitoring DSF: DMO / DMP and DSF) */
       [].forEach.call(tb.querySelectorAll('td'), function (td) {
         if (td.querySelector('.dse-login') || td.querySelector('.dse-role') || td.colSpan > 2) return;
         var cands = [], b = td.querySelector('b');
@@ -11737,6 +11738,7 @@
     var map = dseCoverMap(); if (!map) return;
     // The line is shown the first time a DSE appears in a table; later rows of the same table only carry it as a tooltip (keeps outlet lists readable).
     [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      if (tb.hasAttribute('data-nodse')) return;
       var seen = {};
       [].forEach.call(tb.querySelectorAll('td'), function (td) {
         if (td.querySelector('.dse-cov')) return;
@@ -11923,6 +11925,7 @@
     if (!F || !root || !root.querySelectorAll) return;
     var up = function (s) { return String(s || '').replace(/\.0$/, '').trim().toUpperCase(); };
     [].forEach.call(root.querySelectorAll('table'), function (tb) {
+      if (tb.hasAttribute('data-nodse')) return;
       var seen = {};
       [].forEach.call(tb.querySelectorAll('td'), function (td) {
         if (td.querySelector('.dse-flag') || td.colSpan > 2) return;
@@ -12836,12 +12839,18 @@
     var h = rtBuild();
     if (window.location.hash !== h) { try { window.history[RT_LAST_VIEW && RT_LAST_VIEW !== state.view ? 'pushState' : 'replaceState'](null, '', h); } catch (e) { /* file:// or sandboxed frame */ } }
     RT_LAST_VIEW = state.view;
+    try { if (window.IJ_SPLIT && window.parent && window.parent !== window) window.parent.postMessage({ type: 'ijp-route', hash: h }, '*'); } catch (e) { /* not embedded in the portal */ }   // keeps the portal address in step with this page
     if (document.title !== undefined && META[state.view]) document.title = META[state.view][0] + ' · Inner Jakarta';
     var c = document.getElementById('cut');
     if (c && !document.getElementById('shareLink')) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.id = 'shareLink'; b.style.cssText = 'cursor:pointer; background:#fff; margin-left:6px;'; b.textContent = '🔗 Salin link'; b.title = 'Salin link halaman dan filter ini untuk dibagikan'; c.parentNode.insertBefore(b, c.nextSibling); }
   }
+  /* inside the portal the page address is a blob: URL; the shareable deep link is the portal address with #/sd/<route> (the viewer logs in first) */
+  function rtShareUrl() {
+    try { if (window.IJ_SPLIT && window.parent && window.parent !== window) { var pl = window.parent.location; return pl.origin + pl.pathname + '#/sd' + window.location.hash.slice(1); } } catch (e) { /* cross-origin parent */ }
+    return window.location.href;
+  }
   function rtCopy() {
-    var b = document.getElementById('shareLink'), url = window.location.href, done = function (ok) { if (b) { b.textContent = ok ? '✓ Link tersalin' : 'Salin manual: ' + url; setTimeout(function () { b.textContent = '🔗 Salin link'; }, ok ? 2200 : 6000); } };
+    var b = document.getElementById('shareLink'), url = rtShareUrl(), done = function (ok) { if (b) { b.textContent = ok ? '✓ Link tersalin' : 'Salin manual: ' + url; setTimeout(function () { b.textContent = '🔗 Salin link'; }, ok ? 2200 : 6000); } };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { done(true); }, function () { done(false); });
     else { var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } document.body.removeChild(ta); done(ok); }
   }
