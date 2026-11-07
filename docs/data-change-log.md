@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 7 Nov 2026 · Sell-In, Demand, PJP dan GA sampai 6 Nov
+- MOBII, MOBO dan SALMO November 7 Nov 03:26, PJP 6 Nov, GA tagging dan Fav Locs D1-D6 (file 7 Nov 03:29). ENDBAL tetap snapshot 5 Nov (belum ada file 7 Nov). Cut sejajar: Sell-In, Demand, PJP, GA = 6.
+- GA D6 10.799 (dua kali D5) dari 3 outlet (17452102, SH155202, 153825); audit SP: satu kejadian SH254705 3.999 pcs S PLUS V2 diperlakukan duplikat oleh aturan de-dup. Detail: `docs/assessments/daily_update_2026-11-07.md`.
+
 ## 6 Nov 2026 · Sell-In, Demand dan PJP sampai 5 Nov; GA November (D3); ENDBAL snapshot 5 Nov
 - MOBII, MOBO dan SALMO November 6 Nov 00:31, PJP 5 Nov, ENDBAL snapshot 5 Nov. GA by Outlet dan Fav Locs November masuk dari file MSISDN (cut D3); bulan lalu GA Oktober dibangun dari MSISDN (287.269, sekitar 11% di bawah workbook 323.890). Vanguard status 5 Nov.
 - Audit KRO sempat gagal 8 cek (sudah ada sebelum refresh); diperbaiki di `build_kro_feed.py` (commit `341d6d0`), feed KRO dibangun ulang dari feed 6 Nov. Detail: `docs/assessments/daily_update_2026-11-06.md`.
