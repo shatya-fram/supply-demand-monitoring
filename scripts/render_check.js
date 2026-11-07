@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'program_target_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js']) {
+for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'program_target_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js', 'dsf_feed.js']) {
   require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -32,6 +32,7 @@ if (typeof global.dseVisitsFeed === 'undefined') {
 }
 
 require(path.join(root, 'website', 'stock.js'));
+require(path.join(root, 'website', 'dsf_monitor.js'));
 require(path.join(root, 'website', 'vanguard.js'));
 require(path.join(root, 'website', 'outlet_profile.js'));
 require(path.join(root, 'website', 'period_review.js'));
@@ -723,7 +724,7 @@ if (MONTH_SCAN) {
     let h = ''; check('program-summary/' + dim + '/' + met, () => (h = VIEWS.mb_program()));
     if (/undefined|NaN/.test(h.replace(/<[^>]+>/g, ' '))) { failures++; console.log('✗ program-summary undefined/NaN ' + dim + met); }
   }
-  state.chOpen = { WS: false, DIR: false }; for (const tab of ['ring', 'harian', 'matrix', 'target', 'summary']) { state.prgTab = tab; check('program-group-collapsed/' + tab, () => VIEWS.mb_program()); } state.chOpen = {}; state.prgTab = 'ring'; state.ptAllOpen = false; }
+  state.chOpen = { WS: false, DIR: false }; for (const tab of ['ring', 'harian', 'matrix', 'target', 'summary', 'dsf']) { state.prgTab = tab; check('program-group-collapsed/' + tab, () => VIEWS.mb_program()); } state.chOpen = {}; state.prgTab = 'ring'; state.ptAllOpen = false; }
 
 // ---- Katalog Program & Partisipasi Program (6 Nov 2026)
 { for (const pr of ['ga', 'sp', 'vc', 'sl']) for (const sel of Object.keys(global.KRO_FEED.metadata.programs).filter(n => (global.KRO_FEED.metadata.programs[n].keys || []).length).slice(0, 4)) {

@@ -64,6 +64,8 @@ def main():
         w = csv.DictWriter(f, fieldnames=['program', 'outlet_id', 'note']); w.writeheader(); w.writerows(keep + add)
     print('  November programs (%s): %s' % (os.path.basename(path), {p: len(v) for p, v in sorted(prog.items())}),
           '| groups', dict(Counter(x[4] for x in out)))
+    import build_dsf_manpower   # DSF = November catalogue category DSF + the ids of the DSF manpower sheet (owner, 7 Nov 2026)
+    build_dsf_manpower.main()
 
 
 if __name__ == '__main__':

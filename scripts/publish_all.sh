@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 SD=shatya-fram/supply-demand-monitoring; PT=shatya-fram/inner-jakarta-portal
 SD_URL=https://shatya-fram.github.io/supply-demand-monitoring; PT_URL=https://shatya-fram.github.io/inner-jakarta-portal
-INNER_HTML="${INNER_HTML:-$ROOT/../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html}"
+INNER_HTML="${INNER_HTML:-$ROOT/../../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html}"
 MODE=all; CHECK=0
 for a in "$@"; do case "$a" in --sd-only) MODE=sd;; --portal-only) MODE=portal;; --check) CHECK=1;; esac; done
 SHA="$(git rev-parse --short HEAD)"

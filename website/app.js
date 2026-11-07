@@ -8265,7 +8265,8 @@
     return card('Program vs bukan program · MC yang sama · ' + kroKeyName(key), '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div><p class="note">Pembanding = semua outlet lain di MC tempat program terpilih berada (termasuk Retail). Aktif = volume &gt; 0 pada periode itu; ÷ = rata-rata volume per outlet aktif program dibanding bukan program.</p>');
   }
   function viewProgram() {
-    var t = ['harian', 'matrix', 'target', 'summary', 'bridge'].indexOf(state.prgTab) >= 0 ? state.prgTab : 'ring';
+    var t = ['harian', 'matrix', 'target', 'summary', 'bridge', 'dsf'].indexOf(state.prgTab) >= 0 ? state.prgTab : 'ring';
+    if (t === 'dsf') return viewProgramDsf();
     return t === 'harian' ? viewProgramDaily() : (t === 'matrix' ? viewProgramMatrix() : (t === 'target' ? viewProgramTarget() : (t === 'summary' ? viewProgramAch() : (t === 'bridge' ? viewProgramBridge() : viewProgramSummary()))));
   }
   function viewProgramSummary() {
@@ -8287,7 +8288,7 @@
     var form = card('Program flags · nyalakan satu atau beberapa program', '<div class="map-toolbar"><div class="map-toolbar-group"><span class="map-label">Program:</span>' + tg + '</div></div>' +
       '<div class="map-toolbar" style="margin-top:6px;">' + sellinBtnGroup('Gabungkan', 'prg-mode', [['any', 'Salah satu program (gabungan)'], ['all', 'Ada di semua program terpilih (irisan)']], mode) +
       '<div class="map-toolbar-group"><button type="button" class="btn" data-act="prg-all">Semua</button><button type="button" class="btn" data-act="prg-none">Kosongkan</button><button type="button" class="btn" data-act="kro-export">📥 Unduh daftar (CSV)</button></div></div>' +
-      '<p class="note">Satu outlet dihitung sekali walau ada di beberapa program. Angka dalam kurung = outlet yang ditemukan di feed (sebelum filter wilayah). Flag tipe outlet berasal dari <code>CATALAGUE_INNER_JAKARTA_202610.xlsb</code> (OUTLET IOH 2 Okt untuk KRO / WS, IOH_Outlet 19 Okt untuk DTU / AVA / Wholesaler / Promotor); TEBUS MURAH, DSF dan DSE belum punya daftar anggota (daftar Oktober dipakai sementara).</p>' +
+      '<p class="note">Satu outlet dihitung sekali walau ada di beberapa program. Angka dalam kurung = outlet yang ditemukan di feed (sebelum filter wilayah). Flag tipe outlet berasal dari <code>CATALAGUE_INNER_JAKARTA_202610.xlsb</code> (OUTLET IOH 2 Okt untuk KRO / WS, IOH_Outlet 19 Okt untuk DTU / AVA / Wholesaler / Promotor); TEBUS MURAH dan DSE belum punya daftar anggota (daftar Oktober dipakai sementara). <b>DSF</b> = ID outlet DSF di sheet manpower DSF (kolom OUTLET DSF dan QR CODE 3ID DSF, DASHBOARD DSF November 2026) ditambah kategori DSF katalog November.</p>' +
       (!slim && !state._kroSlimError ? '<p class="note">Memuat daftar outlet Retail (kro_slim.js)… angka akan bertambah setelah selesai.</p>' : (state._kroSlimError ? '<p class="note" style="color:#991b1b;">kro_slim.js tidak bisa dimuat: hanya outlet berslab KRO ke atas yang tampil.</p>' : '')));
     if (!L.length) return card('Program & Tipe Outlet', head) + form + '<p class="note" style="margin-top:8px;">Tidak ada outlet pada program dan filter terpilih.</p>';
     var M = K.metadata, cuts = M.cuts, hasFm = kroHasFm(key), ag = kroAggP(L, key), vs = kroVisitStat(L), n = L.length, cut = kroCut(key), unit = kroUnit(key);
@@ -8330,7 +8331,7 @@
       '<p class="note">FM = September penuh · LMTD = 1–' + cuts.supply + ' September · MTD = 1–' + cut + ' Oktober · Proyeksi = ' + (key === 'ga' ? 'MTD ÷ cut × ' + kroDays(key).proj : 'run-rate ' + kroR7(kroFeed().metadata.cuts) + ' hari terakhir × ' + kroDays(key).proj) + '. UAR = outlet dengan volume &gt; 0 pada periode itu. KRO + Wholesaler = outlet berslab KRO ke atas ' + (hasFm ? 'pada September' : 'pada proyeksi Oktober') + '.</p>');
     var q = (state.kroSearch || '').toLowerCase(), Ls = L.filter(function (r) { return kroMatchSearch(r, q); }).sort(function (a, c) { return (c.q[key][3] || 0) - (a.q[key][3] || 0); });
     var list = kroTable(Ls, key, false, 'Daftar outlet program · ' + kroKeyName(key), kroSearchBar(), 'Diurutkan menurut volume proyeksi Oktober.');
-    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS), KAM dan AVA TM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH, DSF dan DSE belum punya daftar. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
+    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS), KAM dan AVA TM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH dan DSE belum punya daftar. <b>DSF</b> memakai ID outlet DSF di sheet manpower DSF (OUTLET DSF dan QR CODE 3ID DSF) ditambah kategori DSF katalog November; ID itu hampir semuanya outlet non-PJP. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
     var wl = kroSlim() ? '<details style="margin-top:10px;"><summary class="note" style="cursor:pointer;"><b>Daftar manual (whitelist ID)</b> · tempel atau unggah id outlet untuk melihat slab, kunjungan dan flag</summary>' + kroWhitelist(K, key) + '</details>' : '';
     return card('Program & Tipe Outlet', pdSwitch('ring') + head) + noteO + form + kroProgUploadForm(K) + cards + bench + slab + progTbl + amTbl + list + wl + chVisitCard(K, key);
   }
@@ -8341,7 +8342,7 @@
      + MC totals of all outlets); non-program daily = MC total − members, so it is n/a while a DSE filter is on. MTD / LMTD / FM / visits use the same
      outlet rows as the other Program tables (kro_feed + kro_slim). Unit: pcs, or Rp Jt for Voucher and Saldo. */
   var _pdCsv = null;
-  function pdSwitch(cur) { return '<div class="map-toolbar" style="margin-top:8px;"><div class="map-toolbar-group" role="group" aria-label="Program & Tipe Outlet"><span class="map-label">Program &amp; Tipe Outlet:</span>' + [['ring', '🏷️ Ringkasan · slab & perbandingan'], ['harian', '📅 Harian · D1–D30'], ['matrix', '🧮 Matriks program × Area / MC'], ['summary', '📊 Summary Achievement'], ['target', '🎯 Target vs Aktual'], ['bridge', '🌉 Bridge Target']].map(function (i) { return '<button type="button" class="map-btn' + (cur === i[0] ? ' active' : '') + '" data-prg-tab="' + i[0] + '" aria-pressed="' + (cur === i[0]) + '">' + i[1] + '</button>'; }).join('') + '</div></div>'; }
+  function pdSwitch(cur) { return '<div class="map-toolbar" style="margin-top:8px;"><div class="map-toolbar-group" role="group" aria-label="Program & Tipe Outlet"><span class="map-label">Program &amp; Tipe Outlet:</span>' + [['ring', '🏷️ Ringkasan · slab & perbandingan'], ['harian', '📅 Harian · D1–D30'], ['matrix', '🧮 Matriks program × Area / MC'], ['summary', '📊 Summary Achievement'], ['target', '🎯 Target vs Aktual'], ['bridge', '🌉 Bridge Target'], ['dsf', '🧑‍💼 Monitoring DSF']].map(function (i) { return '<button type="button" class="map-btn' + (cur === i[0] ? ' active' : '') + '" data-prg-tab="' + i[0] + '" aria-pressed="' + (cur === i[0]) + '">' + i[1] + '</button>'; }).join('') + '</div></div>'; }
   function pdFeed() { return (typeof window !== 'undefined' && window.PROGRAM_DAILY) ? window.PROGRAM_DAILY : null; }
   function pdMap(P) { if (!P._m) { P._m = {}; P.rows.forEach(function (r) { P._m[r[0]] = r[1]; }); } return P._m; }
   function pdNum(key, v) { if (v == null) return KRO_NA; if (kroIsVal(key)) { var j = v / 1e6; return fmtCount(Math.abs(j) >= 10 ? Math.round(j) : Math.round(j * 10) / 10); } return fmtCount(Math.round(v)); }
@@ -11548,6 +11549,8 @@
         return '<tr><td class="cur"><code>' + esc(r[0]) + '</code></td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>';
       }).join('') + '</tbody></table></div><p class="note">Drop new exports into these folders and rerun the build scripts. Raw files stay local and are not versioned in git.</p>');
   }
+  function dsfApi() { return { state: state, card: card, kpi: kpi, th: th, gaFeed: gaFeed, gaDays: gaDays }; }
+  function viewProgramDsf() { return pdSwitch('dsf') + ((typeof window !== 'undefined' && window.IJDsf) ? window.IJDsf.view(dsfApi()) : card('Monitoring DSF', '<p class="note">Modul dsf_monitor.js belum dimuat.</p>')); }
   function stockApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, dkTag: dkTag, scopeText: scopeText, grpBody: grpBody, grpBar: grpBar }; }
   function vanguardApi() { return { render: render, state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
   function viewVanguard() { return (typeof window !== 'undefined' && window.IJVanguard) ? window.IJVanguard.view(vanguardApi()) : card('Vanguard 5G', '<p class="note">Modul vanguard.js belum dimuat.</p>'); }
@@ -12453,6 +12456,7 @@
     else if (t.hasAttribute('data-vg')) { if (window.IJVanguard) window.IJVanguard.click(t.getAttribute('data-vg'), vanguardApi()); }
     else if (t.hasAttribute('data-prv')) { if (window.IJPeriods) window.IJPeriods.click(t.getAttribute('data-prv'), periodsApi()); }
     else if (t.hasAttribute('data-opf')) { if (window.IJOutletProfile) window.IJOutletProfile.click(t.getAttribute('data-opf'), outletProfileApi()); }
+    else if (t.hasAttribute('data-dsf')) { if (window.IJDsf) window.IJDsf.click(t.getAttribute('data-dsf'), dsfApi()); }
     else if (t.hasAttribute('data-st')) { if (window.IJStock) window.IJStock.click(t.getAttribute('data-st'), stockApi()); }
     else if (t.getAttribute('data-act') === 'grp-all') { var gt_ = t.getAttribute('data-t'); state.grpAll = state.grpAll || {}; state.grpAll[gt_] = t.getAttribute('data-v'); Object.keys(state.grpOpen || {}).forEach(function (k) { if (k.indexOf(gt_ + '|') === 0) delete state.grpOpen[k]; }); }
     else if (t.getAttribute('data-act') === 'pj-out-all') { state.pjOutAll = t.getAttribute('data-v'); state.pjOutOpen = {}; }

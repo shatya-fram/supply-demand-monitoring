@@ -23,5 +23,5 @@ Akibat: dua kali laporan "terbit" padahal belum tayang, sekitar 40 menit terbuan
 
 ## Aturan
 * Jangan melaporkan "sudah terbit" sebelum `publish_all.sh` mencetak `DONE`.
-* Portal memakai `portal/users.json` dan `portal/_keys.json` lokal (gitignored) dan laporan 01 dari `../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html` (ubah dengan `INNER_HTML`).
+* Portal memakai `portal/users.json` dan `portal/_keys.json` lokal (gitignored) dan laporan 01 dari `../../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html` (relatif terhadap folder proyek) (ubah dengan `INNER_HTML`).
 * Bila situs terus bertambah besar: kurangi `website/archive/` (feed Oktober, 64 MB) atau pindahkan bagian besar ke Release asset; batas keras Pages 1 GB, batas praktis deploy cepat sekitar 100–150 MB.
