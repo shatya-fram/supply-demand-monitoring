@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 9 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 8 Nov; GA tetap D7
+- MOBII, MOBO dan SALMO 8 Nov 22:39, PJP D7-D8 (8 Nov 22:40), ENDBAL snapshot 8 Nov (16.193 outlet). GA tidak ada file baru (cut D7). Hari 1-6 tidak direvisi.
+- D7 ada bulk SP 21.006 pcs dan SP Injection 30.095 pcs (Babelan, Bekasi Tengah, Pasar Minggu, Cipayung); D8 Minggu PJP planned 34 actual 0. Detail: `docs/assessments/daily_update_2026-11-09.md`.
+
 ## 8 Nov 2026 · Refresh GA saja (D7)
 - Atas permintaan pemilik, hanya GA by Outlet dan Fav Locs (file 8 Nov 10:15, D1-D7) yang dibangun; GA tagging dan site cut D7, GA MTD 49.052. Sell-In, Demand, PJP (cut 6 Nov) dan ENDBAL (5 Nov) menunggu file besok.
 - D6 tidak direvisi (10.799), D7 12.810 juga tinggi; konfirmasi ke Victor. Detail: `docs/assessments/daily_update_2026-11-08_ga.md`.
