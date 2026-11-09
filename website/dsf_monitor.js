@@ -48,8 +48,8 @@
     var crr = cal.wCut ? m / cal.wCut : null, rrr = cal.wLeft ? Math.max(0, tMon - m) / cal.wLeft : null;
     for (d = 1; d <= cal.days; d++) {
       var v = arr[d], bg = '', txt;
-      if (!cal.wd[d]) txt = '<span title="Minggu">·</span>';
-      else if (d > cal.cut) txt = '·';
+      if (d > cal.cut) txt = '·';
+      else if (!cal.wd[d]) { txt = '<span title="Minggu: dihitung di GA MTD, tidak ada target harian" style="opacity:.6;">' + f0(v) + '</span>'; bg = ink ? '' : ' style="background:rgba(120,120,120,.10);"'; }
       else {
         txt = f0(v);
         if (n && cal.hasT && !ink) { var r = v / (n * T_DAY); bg = ' style="background:' + (r >= 1 ? 'rgba(31,107,58,.28)' : r >= 0.5 ? 'rgba(202,138,4,.22)' : 'rgba(185,28,28,.16)') + ';"'; }
