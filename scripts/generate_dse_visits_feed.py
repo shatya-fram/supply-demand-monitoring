@@ -272,12 +272,35 @@ def add_person(pid, **kw):
     return persons[pid]
 
 
+# Master Hierarchy (owner, 10 Nov 2026): the micro cluster / branch of a DSE follows the DSE sheet of data/catalogues/master_hierarchy_<YYYYMM>/dse_sheet.csv (DSE who swapped MC)
+import glob as _g0
+_sheet_mc = {}
+for _p0 in sorted(_g0.glob("data/catalogues/master_hierarchy_[0-9]*/dse_sheet.csv"))[-1:]:
+    with open(_p0, encoding="utf-8") as f:
+        for _h in csv.DictReader(f):
+            for _l in (_h["login_im3"], _h["login_3id"]):
+                if _l:
+                    _sheet_mc[_l.strip().upper()] = (_h["micro_cluster"], "BEKASI" if _h["branch"] == "KOTA BEKASI" else _h["branch"])
+            _sheet_mc.setdefault("N:" + _h["dse_name"].strip().upper(), []).append((_h["micro_cluster"], "BEKASI" if _h["branch"] == "KOTA BEKASI" else _h["branch"]))
+_dso_of_mc = {}
+if os.path.exists(DSE_MASTER_PATH):
+    with open(DSE_MASTER_PATH, encoding="utf-8") as f:
+        _rows0 = list(csv.DictReader(f))
+    for r in _rows0:
+        _dso_of_mc.setdefault(r["micro_cluster"].strip(), r["nama_dso"].strip())
 if os.path.exists(DSE_MASTER_PATH):
     with open(DSE_MASTER_PATH, encoding="utf-8") as f:
         for i, r in enumerate(csv.DictReader(f)):
             pid = f"M{i:03d}"
-            add_person(pid, dse_name=r["nama_dse"].strip(), dso_leader=r["nama_dso"].strip(), hoa_leader=r["nama_hoa"].strip(),
-                       branch_master=r["branch"].strip(), mc_master=r["micro_cluster"].strip(), in_master=True)
+            _mc, _br, _dso = r["micro_cluster"].strip(), r["branch"].strip(), r["nama_dso"].strip()
+            _hit = _sheet_mc.get(norm_id(r["dse_id_im3"]).upper()) or _sheet_mc.get(norm_id(r["dse_id_3id"]).upper())
+            _nm_hit = _sheet_mc.get("N:" + r["nama_dse"].strip().upper(), [])
+            if not _hit and len(_nm_hit) == 1:                    # a DSE whose login changed in the catalogue: matched by name (unique names only)
+                _hit = _nm_hit[0]
+            if _hit and _hit[0] != _mc:
+                _mc, _br, _dso = _hit[0], _hit[1], _dso_of_mc.get(_hit[0], _dso)
+            add_person(pid, dse_name=r["nama_dse"].strip(), dso_leader=_dso, hoa_leader=r["nama_hoa"].strip(),
+                       branch_master=_br, mc_master=_mc, in_master=True)
             for c in (norm_id(r["dse_id_im3"]), norm_id(r["dse_id_3id"])):
                 if c:
                     code_person[c] = pid

@@ -19,7 +19,15 @@ check(all(c['role'] == 'DSE' and c['status'] == 'AKTIF' for c in cat), 'every ca
 import glob
 cdir = sorted(glob.glob(os.path.join(ROOT, 'data/catalogues/catalogue_*/dse_logins.csv')))[-1]
 uploaded = list(csv.DictReader(open(cdir, encoding='utf-8')))
-check({(r['nama_dse'].strip().upper(), r['micro_cluster']) for r in master} == {(c['dse_name'].strip().upper(), c['micro_cluster']) for c in cat}, 'the 272 DSE (name, MC) are those of the master file')
+_hd = sorted(glob.glob(os.path.join(ROOT, 'data/catalogues/master_hierarchy_[0-9]*/dse_sheet.csv')))
+_mc_by_name = {}
+if _hd:
+    for _h in csv.DictReader(open(_hd[-1], encoding='utf-8')):
+        _mc_by_name.setdefault(_h['dse_name'].strip().upper(), []).append(_h['micro_cluster'])
+def _mc_now(r):   # micro cluster of the master file, replaced by the Master Hierarchy DSE sheet (10 Nov 2026) when that sheet lists the DSE once
+    m = _mc_by_name.get(r['nama_dse'].strip().upper(), [])
+    return m[0] if len(m) == 1 else r['micro_cluster']
+check({(r['nama_dse'].strip().upper(), _mc_now(r)) for r in master} == {(c['dse_name'].strip().upper(), c['micro_cluster']) for c in cat}, 'the 272 DSE (name, MC) are those of the master file (micro cluster per the Master Hierarchy DSE sheet)')
 uk = {(r['dse_name'].strip().upper(), r['mc']): (r['login_im3'].strip(), r['login_3id'].strip()) for r in uploaded}
 bad_l = [c['dse_name'] for c in cat if uk.get((c['dse_name'].strip().upper(), c['micro_cluster']), (c['login_im3'], c['login_3id'])) != (c['login_im3'], c['login_3id'])]
 check(not bad_l, f"login IM3 / 3ID of every DSE equal the uploaded catalogue ({os.path.basename(os.path.dirname(cdir))}, sheet DSE); {len(bad_l)} differ")

@@ -267,6 +267,7 @@ def main():
         steps.append(("STOCK · Stok Outlet Over / Par / Low (KRO + ENDBAL)", [py, "scripts/build_stock_feed.py"]))
     if glob.glob(os.path.join("raw", "Vanguard", "*Flag*Step1-5*.xlsx")) and glob.glob(os.path.join("raw", "Vanguard", "*OutletMapping*Step1-5*.xlsx")):   # Vanguard 5G: needs territory master + weekly PJP feed
         steps.append(("VANGUARD · 5G site Step 1-5, site -> DSE and the 3-site daily plan", [py, "scripts/build_vanguard_feed.py"]))
+    steps.append(("NON-PJP · transactions of non-PJP outlets (flag NON_PJP_ADA_TRANSAKSI)", [py, "scripts/build_nonpjp_flags.py"]))   # after penjualan, demand, GA and visits
     steps.append(("PERIOD · history archive (daily series per month, MTD / LMTD / FM review)", [py, "scripts/build_period_history.py"]))
     steps.append(("Audit · period history vs feeds", [py, "scripts/audit_period_history.py"]))
     if "--no-render" not in sys.argv and shutil.which("node"):

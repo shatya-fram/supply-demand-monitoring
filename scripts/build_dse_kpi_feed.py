@@ -108,7 +108,7 @@ def main():
             parent[find(a)] = find(b)
     import csv as _csv, glob as _glob
     code_owner = {}                                      # login code -> DSE name it belongs to (hierarchy first, then the catalogue sheet DSE)
-    for pth in [os.path.join(ROOT, 'data', 'catalogues', 'dse_master_hierarchy.csv')] + sorted(_glob.glob(os.path.join(ROOT, 'data', 'catalogues', 'catalogue_[0-9]*', 'dse_logins.csv')))[-1:]:
+    for pth in [os.path.join(ROOT, 'data', 'catalogues', 'dse_master_hierarchy.csv')] + sorted(_glob.glob(os.path.join(ROOT, 'data', 'catalogues', 'catalogue_[0-9]*', 'dse_logins.csv')))[-1:] + sorted(_glob.glob(os.path.join(ROOT, 'data', 'catalogues', 'master_hierarchy_[0-9]*', 'dse_sheet.csv')))[-1:]:   # + Master Hierarchy DSE sheet (10 Nov 2026): its logins link to the person
         if os.path.exists(pth):
             with open(pth, encoding='utf-8-sig') as f:
                 for r in _csv.DictReader(f):
@@ -117,6 +117,20 @@ def main():
                     for c in (a, b):
                         if c:
                             code_owner[c] = norm(r.get('nama_dse') or r.get('dse_name'))
+    # a DSE whose login changed between the hierarchy and the 3 Nov Master Hierarchy sheet (Raja Mangku: DSEIN032 -> 2613053632) stays one person:
+    # codes of the same name are joined when the name is unique in both files (names shared by two people, e.g. SUSANTO, are never joined)
+    _nm_codes = defaultdict(lambda: defaultdict(set))
+    for pth in [os.path.join(ROOT, 'data', 'catalogues', 'dse_master_hierarchy.csv')] + sorted(_glob.glob(os.path.join(ROOT, 'data', 'catalogues', 'master_hierarchy_[0-9]*', 'dse_sheet.csv')))[-1:]:
+        if os.path.exists(pth):
+            with open(pth, encoding='utf-8-sig') as f:
+                for r in _csv.DictReader(f):
+                    for c in (norm(r.get('dse_id_im3') or r.get('login_im3')), norm(r.get('dse_id_3id') or r.get('login_3id'))):
+                        if c:
+                            _nm_codes[norm(r.get('nama_dse') or r.get('dse_name'))][pth].add(c)
+    for _n, _src in _nm_codes.items():
+        if len(_src) == 2 and all(len(_rows) <= 2 for _rows in _src.values()):
+            _a, _b = [sorted(v) for v in _src.values()]
+            union(_a[0], _b[0])
     def pcode(o):
         c = norm(o.get('dse_code_im3')) or norm(o.get('dse_code_3id'))
         return find(c) if c else ''

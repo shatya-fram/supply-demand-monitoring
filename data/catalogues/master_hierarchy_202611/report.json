@@ -1,0 +1,20 @@
+{
+  "workbook": "Update_Master_Hierarchy_3_Nov_2026.xlsb",
+  "IM3_rows": 16700,
+  "IM3_dup_codes": 0,
+  "3ID_rows": 18605,
+  "3ID_dup_codes": 65,
+  "pairs": 8053,
+  "pairs_check1": 7022,
+  "id3_in_several_pairs": 56,
+  "dse_rows": 272,
+  "dse_new_logins_without_name": [
+    "2613050947",
+    "2613053632"
+  ],
+  "dse_new_login_assumed_replacement": {
+    "2613050947": "Herry Apriyanto",
+    "2613053632": "RAJA MANGKU ALAM YANDO PASONI"
+  },
+  "outlets_with_cso": 22343
+}

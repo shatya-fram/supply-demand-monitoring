@@ -40,13 +40,42 @@ def main():
     hoa_of_mc = {r['micro_cluster']: r['hoa_leader'] for r in terr if r['hoa_leader']}
     outlets = Counter((up(r['dse_name']), r['micro_cluster']) for r in terr if r['dse_name'] and up(r['dse_name']) not in ('UNASSIGNED', '0', '0.0'))
     pid_of = {(up(d['dse_name']), d['micro_cluster']): d['person_id'] for d in V['dses'] if d['in_master']}
+    # the visits feed MC is where the DSE is planned in the PJP exports; a DSE who swapped MC in the Master Hierarchy (10 Nov 2026) keeps the old MC there,
+    # so a unique master name is matched to its person id whatever the MC (names shared by two people are never matched this way)
+    _by_name = {}
+    for d in V['dses']:
+        if d['in_master']:
+            _by_name.setdefault(up(d['dse_name']), []).append(d['person_id'])
+    _name_pid = {n: p[0] for n, p in _by_name.items() if len(p) == 1}
     name_count = Counter(up(r['nama_dse']) for r in master)
+    # Master Hierarchy (owner, 10 Nov 2026): the micro cluster of a DSE follows the DSE sheet of the hierarchy (4 DSE swapped MC, e.g. Batujaya <-> Rengasdengklok); DSO per MC from the outlet master
+    hdirs = sorted(glob.glob(os.path.join(CAT, 'master_hierarchy_[0-9]*', 'dse_sheet.csv')))
+    sheet_mc = {}
+    if hdirs:
+        for h_ in csv.DictReader(open(hdirs[-1], encoding='utf-8')):
+            for lg in (h_['login_im3'], h_['login_3id']):
+                if lg:
+                    sheet_mc[lg.strip().upper()] = (h_['micro_cluster'], 'BEKASI' if h_['branch'] == 'KOTA BEKASI' else h_['branch'])
+        for h_ in csv.DictReader(open(hdirs[-1], encoding='utf-8')):
+            sheet_mc.setdefault('N:' + h_['dse_name'].strip().upper(), []).append((h_['micro_cluster'], 'BEKASI' if h_['branch'] == 'KOTA BEKASI' else h_['branch']))
+    dso_of_mc = {}
+    for r_ in terr:
+        if r_['dso_leader'] and r_['micro_cluster']:
+            dso_of_mc.setdefault(r_['micro_cluster'], r_['dso_leader'])
+    master = [dict(r) for r in master]
+    for r in master:
+        c0 = cat_by.get((up(r['nama_dse']), r['micro_cluster'])) or {}
+        lg = ((c0.get('login_im3') or '').strip() or r['dse_id_im3'].strip()).upper()
+        hit = sheet_mc.get(lg) or (sheet_mc.get('N:' + up(r['nama_dse'])) or [None])[0] if len(sheet_mc.get('N:' + up(r['nama_dse']), [])) == 1 or lg in sheet_mc else None
+        if hit and hit[0] != r['micro_cluster']:
+            r['micro_cluster'], r['branch'] = hit
+            r['nama_dso'] = dso_of_mc.get(r['micro_cluster'], r['nama_dso'])
     dse = []
     for r in master:
         key = (up(r['nama_dse']), r['micro_cluster'])
         c = cat_by.get(key) or {}
         im3, id3 = (c.get('login_im3') or '').strip() or r['dse_id_im3'].strip(), (c.get('login_3id') or '').strip() or r['dse_id_3id'].strip()
-        dse.append({'pid': pid_of.get(key, ''), 'n': (c.get('dse_name') or r['nama_dse']).strip(), 'im3': im3, 'id3': id3, 'br': r['branch'], 'mc': r['micro_cluster'],
+        dse.append({'pid': pid_of.get(key) or _name_pid.get(key[0], ''), 'n': (c.get('dse_name') or r['nama_dse']).strip(), 'im3': im3, 'id3': id3, 'br': r['branch'], 'mc': r['micro_cluster'],
                     'dso': r['nama_dso'], 'hoa': hoa_of_mc.get(r['micro_cluster'], r['nama_hoa']), 'outlets': outlets.get(key, 0), 'role': 'DSE', 'status': 'AKTIF', 'dup': name_count[up(r['nama_dse'])] > 1,
                     'src': 'catalogue' if c and (c.get('login_im3') or c.get('login_3id')) else 'master', 'old_im3': r['dse_id_im3'].strip(), 'old_3id': r['dse_id_3id'].strip()})
     dse.sort(key=lambda x: (x['br'], x['mc'], x['n']))

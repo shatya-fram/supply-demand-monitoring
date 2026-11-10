@@ -1417,7 +1417,8 @@
       dses: Object.keys(dses).length, mcs: Object.keys(mcs).length, branches: Object.keys(brs).length };
   }
   /* Status of the governed catalogue (flags per outlet and per DSE / login); a button filters the outlet table below by that flag */
-  var TERR_FLAG_ORDER = ['TIDAK_ADA_DI_FINAL_20OKT', 'DSE_TUKAR_PERLU_CEK', 'ID_PERLU_VERIFIKASI', 'BARU_DARI_FINAL', 'IOH_NON_BERTENTANGAN', 'DSE_IM3_3ID_BEDA', 'PAIR_3ID_GANDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH'];
+  var TERR_FLAG_ORDER = ['TIDAK_ADA_DI_FINAL_20OKT', 'DSE_TUKAR_PERLU_CEK', 'ID_PERLU_VERIFIKASI', 'BARU_DARI_FINAL', 'IOH_NON_BERTENTANGAN', 'DSE_IM3_3ID_BEDA', 'PAIR_3ID_GANDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH',
+    'NON_PJP_ADA_TRANSAKSI', 'NON_PJP_KATALOG', 'DSE_HILANG_3NOV', 'DSE_BERUBAH_3NOV', 'TANPA_DSE_HIERARKI', 'HILANG_DARI_HIERARKI', 'BARU_DARI_HIERARKI', 'MC_PINDAH_3NOV', 'PAIR_BARU_HIERARKI', 'PAIR_DILEPAS_HIERARKI', 'KOORDINAT_DIPERBAIKI', 'DSE_BARU_LOGIN', 'CSO_TIDAK_DIKENAL'];
   /* ---------- Outlet catalogue following the sheet OUTLET IOH (catalogue 202610): Outlet ID IOH, IM3 id / name / type, 3ID id / name / type, status pairing, long / lat ---------- */
   var IOH_COLS = [['outlet_id_ioh', 'Outlet ID IOH'], ['outlet_id_im3', 'Outlet ID IM3'], ['outlet_name_im3', 'Nama Outlet IM3'], ['outlet_type_im3', 'Tipe Outlet IM3'], ['outlet_id_3id', 'Outlet ID 3ID'], ['outlet_name_3id', 'Nama Outlet 3ID'], ['outlet_type_3id', 'Tipe Outlet 3ID'], ['status_pairing', 'Status Pairing'], ['long', 'Long'], ['lat', 'Lat']];
   var IOH_EXTRA = [['lokasi_dari', 'Lokasi dari'], ['flag_pairing_baru', 'Flag pairing (analisis baru)'], ['cek_dse', 'Cek DSE IM3 vs 3ID'], ['catatan', 'Catatan'], ['micro_cluster', 'Micro Cluster'], ['kecamatan', 'Kecamatan']];
@@ -11915,7 +11916,20 @@
     PAIR_DIPISAH: ['Pairing dipisah', '', 'Id dilepas dari pasangan lama karena pasangan baru atau aturan 3ID ganda.'],
     PAIR_3ID_GANDA: ['3ID dipakai >1 IM3', 'warn', 'Satu id 3ID dipakai lebih dari satu IM3; satu IM3 menjadi pasangan primer.'],
     BARU_DARI_FINAL: ['Baru dari FINAL', '', 'Outlet hanya ada di FINAL_20261020 dan ditambahkan ke master (lokasi dari IOH_Outlet 19 Okt; site NBS menunggu pemetaan).'],
-    IOH_NON_BERTENTANGAN: ['IOH = NON', 'warn', 'FINAL memetakan outlet ini ke DSE, tetapi IOH_Outlet (19 Okt) menyebutnya NON-PJP: sumber saling bertentangan.']
+    IOH_NON_BERTENTANGAN: ['IOH = NON', 'warn', 'FINAL memetakan outlet ini ke DSE, tetapi IOH_Outlet (19 Okt) menyebutnya NON-PJP: sumber saling bertentangan.'],
+    NON_PJP_ADA_TRANSAKSI: ['Non-PJP · ada transaksi', 'alert', 'Outlet non-PJP (tanpa DSE di hierarki 3 Nov) yang punya transaksi bulan ini di MOBII, MOBO, GA atau kunjungan PJP: lihat sumbernya di data/catalogues/nonpjp_tx_flags.csv.'],
+    NON_PJP_KATALOG: ['Non-PJP · label NON', 'warn', 'Punya CSO di hierarki 3 Nov, tetapi katalog 5 Nov melabelnya NON: dikategorikan non-PJP.'],
+    DSE_HILANG_3NOV: ['DSE hilang 3 Nov', 'warn', 'Sebelumnya punya DSE (FINAL 20 Okt), tanpa DSE di hierarki 3 Nov: non-PJP.'],
+    DSE_BERUBAH_3NOV: ['DSE berubah 3 Nov', 'warn', 'DSE outlet ini berbeda dari FINAL 20 Okt (hierarki 3 Nov dipakai).'],
+    TANPA_DSE_HIERARKI: ['Tanpa DSE (hierarki)', '', 'Ada di hierarki 3 Nov tanpa CSO: non-PJP.'],
+    HILANG_DARI_HIERARKI: ['Hilang dari hierarki', 'warn', 'Outlet master yang tidak ada di hierarki 3 Nov: disimpan sebagai histori non-PJP.'],
+    BARU_DARI_HIERARKI: ['Baru dari hierarki', '', 'Outlet baru dari hierarki 3 Nov (site NBS menunggu pemetaan).'],
+    MC_PINDAH_3NOV: ['MC pindah 3 Nov', '', 'Micro cluster outlet berbeda dari master sebelumnya; hierarki 3 Nov dipakai.'],
+    PAIR_BARU_HIERARKI: ['Pairing baru (hierarki)', '', 'Pasangan IM3-3ID dari sheet dual_brand hierarki 3 Nov yang belum ada di master sebelumnya.'],
+    PAIR_DILEPAS_HIERARKI: ['Pairing dilepas (hierarki)', '', 'Pasangan di master sebelumnya, tidak lagi berpasangan di hierarki 3 Nov.'],
+    KOORDINAT_DIPERBAIKI: ['Koordinat diperbaiki', '', 'Koordinat master tidak valid, diganti koordinat hierarki 3 Nov.'],
+    CSO_TIDAK_DIKENAL: ['CSO tidak dikenal', 'warn', 'Kode CSO di hierarki 3 Nov bukan salah satu dari 272 DSE di sheet DSE: dikategorikan non-PJP (kode asli di kolom dse_hierarki).'],
+    DSE_BARU_LOGIN: ['Login DSE baru', 'warn', 'Login CSO baru di hierarki 3 Nov yang namanya belum ada di katalog DSE.']
   };
   function flagChip(f, note) { var x = FLAG_INFO[f] || [f, '', '']; return '<span class="flag-chip' + (x[1] ? ' ' + x[1] : '') + '" title="' + esc((note ? note + ' · ' : '') + x[2]) + '">' + esc(x[0]) + '</span>'; }
   function flagChips(s) { return String(s || '').split('|').filter(Boolean).map(function (f) { return flagChip(f); }).join(''); }

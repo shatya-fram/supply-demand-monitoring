@@ -13,6 +13,15 @@ def chk(name, a, b, tol=0.5):
         fails.append("%s: store %s vs feed %s" % (name, a, b))
 
 
+def chk_prev(name, a, b, rel=0.002):
+    # the previous month's full month (FM) in the live feed follows the CURRENT outlet master, the stored close is frozen: the Master Hierarchy of 3 Nov 2026 (more outlets mapped
+    # to Inner Jakarta MCs) moved October sell-in by 0.02-0.1%; larger differences still fail
+    global n
+    n += 1
+    if abs((a or 0) - (b or 0)) > max(0.5, rel * abs(a or 0)):
+        fails.append("%s: store %s vs feed %s" % (name, a, b))
+
+
 def tot(key, mid, sc="ALL", upto=None):
     r = S["months"][key]["series"][mid][sc]
     return sum(x or 0 for x in (r[:upto] if upto else r))
@@ -30,9 +39,9 @@ for cat in ("SP", "SPI", "VCF", "VCB", "SALMO"):
     pk = "%04d-%02d" % ((int(ck[:4]), int(ck[5:]) - 1) if int(ck[5:]) > 1 else (int(ck[:4]) - 1, 12))
     if cat != "SALMO":
         chk("sellin %s qty %s" % (cat, ck), tot(ck, "si.%s.q" % cat), mq)
-        chk("sellin %s qty FM %s" % (cat, pk), tot(pk, "si.%s.q" % cat), fq)
+        chk_prev("sellin %s qty FM %s" % (cat, pk), tot(pk, "si.%s.q" % cat), fq)
     chk("sellin %s Rp %s" % (cat, ck), tot(ck, "si.%s.v" % cat), mv)
-    chk("sellin %s Rp FM %s" % (cat, pk), tot(pk, "si.%s.v" % cat), fv)
+    chk_prev("sellin %s Rp FM %s" % (cat, pk), tot(pk, "si.%s.v" % cat), fv)
 d = json.load(open("data/processed/demand_feed.json"))
 for cat in ("RLD", "VCI", "CVM", "PKT", "SAL", "SPI"):
     mv = sum(((o.get("c") or {}).get(cat) or [0, 0])[1] for o in d["outlets"])

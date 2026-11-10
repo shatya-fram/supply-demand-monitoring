@@ -39,6 +39,7 @@ WEB = os.path.join(ROOT, 'website', 'data')
 BASE = os.path.join(CAT, 'territory_management_master_base.json.gz')
 
 FLAG_SWAPS = False                    # owner, 21 Oct 2026: the 24 swapped DSE pairs of FINAL are accepted, no DSE_TUKAR_PERLU_CEK flag (the swap is still counted in the report)
+OVERLAY_HIERARCHY = True                # owner, 10 Nov 2026: Update Master Hierarchy 3 Nov is the source of DSE per outlet, pairing, MC and the outlet universe (data/catalogues/master_hierarchy_<YYYYMM>/)
 ADD_FINAL_ONLY = True                 # add the outlets that are only in FINAL to the master (owner: 21 Oct 2026, "jalankan")
 F_NOT_IN_FINAL = 'TIDAK_ADA_DI_FINAL_20OKT'
 F_SWAP = 'DSE_TUKAR_PERLU_CEK'
@@ -68,10 +69,229 @@ def read_csv(path):
 
 
 def latest_catalogue():
-    ds = sorted(glob.glob(os.path.join(CAT, 'catalogue_[0-9]*')))
+    ds = sorted(d for d in glob.glob(os.path.join(CAT, 'catalogue_[0-9]*')) if os.path.exists(os.path.join(d, 'final_dse_mapping.csv')))
     if not ds:
         sys.exit('no data/catalogues/catalogue_<YYYYMM>/ - run scripts/build_catalogue_overlay_inputs.py first')
     return ds[-1]
+
+
+def latest_hierarchy():
+    ds = sorted(glob.glob(os.path.join(CAT, 'master_hierarchy_[0-9]*')))
+    return ds[-1] if ds and os.path.exists(os.path.join(ds[-1], 'outlet_hierarchy.csv')) else None
+
+
+F_STALE = ('TIDAK_ADA_DI_FINAL_20OKT', 'DSE_IM3_3ID_BEDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH', 'PAIR_3ID_GANDA', 'ID_PERLU_VERIFIKASI')   # FINAL-era flags, recomputed from the hierarchy
+KNOWN_BRANCH = {'CENTRAL NORTH JAKARTA', 'EAST JAKARTA', 'BEKASI', 'KAB BEKASI', 'KARAWANG', 'SOUTH JAKARTA DEPOK', 'WEST JAKARTA'}
+
+
+def coord_ok(la, lo):
+    try:
+        la, lo = float(la), float(lo)
+    except (TypeError, ValueError):
+        return False
+    return -7.3 < la < -5.8 and 106.3 < lo < 107.9
+
+
+def overlay_hierarchy(outlets, rep, canon):
+    """Master Hierarchy (owner, 10 Nov 2026; docs/assessments/master_hierarchy_3nov_assessment.md, built by scripts/build_master_hierarchy.py): the hierarchy is the source of
+    DSE per outlet (CSO code), MC / branch, IM3 <-> 3ID pairing (dual_brand sheet, one primary IM3 per 3ID) and the outlet universe. PJP = has a CSO and is not labelled NON in the
+    November catalogue; every other outlet (no CSO, NON label, gone from the hierarchy) is non-PJP with DSE UNASSIGNED; transactions of non-PJP outlets are flagged by build_nonpjp_flags.py."""
+    hd = latest_hierarchy()
+    if not hd or not OVERLAY_HIERARCHY:
+        return outlets
+    H = {(r['brand'], r['outlet_id']): r for r in read_csv(os.path.join(hd, 'outlet_hierarchy.csv')) if r['primary'] == '1'}
+    pairs = read_csv(os.path.join(hd, 'dual_pairs.csv'))
+    names, new_codes = {}, set()
+    for r in read_csv(os.path.join(hd, 'dse_sheet.csv')):
+        for c in (r['login_im3'], r['login_3id']):
+            if c:
+                names[ncode(c).upper()] = canon.get(r['dse_name'].strip().upper(), r['dse_name'].strip())
+                if r.get('login_baru') == '1':
+                    new_codes.add(ncode(c).upper())
+    groups = {}
+    pn = os.path.join(CAT, 'catalogue_202611', 'program_nov.csv')
+    if os.path.exists(pn):
+        for r in read_csv(pn):
+            groups[(r['brand'], nid(r['outlet_id']))] = r['mapping_group']
+    for o in outlets:
+        o.setdefault('dse_hierarki', ''); o.setdefault('mpc_name', ''); o.setdefault('mpc_code', '')
+    mc_info = defaultdict(lambda: defaultdict(Counter))
+    kec_kab = defaultdict(Counter)
+    for o in outlets:
+        for f_ in ('branch', 'dso_leader', 'hoa_leader'):
+            mc_info[o['micro_cluster']][f_][o.get(f_, '')] += 1
+        if o.get('kecamatan') and o.get('kabupaten'):
+            kec_kab[o['kecamatan'].upper()][o['kabupaten']] += 1
+    top = lambda mc, f_: (mc_info[mc][f_].most_common(1)[0][0] if mc_info[mc][f_] else '')
+    i3, t3 = defaultdict(list), defaultdict(list)
+    for o in outlets:
+        if o['outlet_id_im3']:
+            i3[o['outlet_id_im3']].append(o)
+        if o['outlet_id_3id']:
+            t3[o['outlet_id_3id']].append(o)
+    base_pairs = {(o['outlet_id_im3'], o['outlet_id_3id']) for o in outlets if o['outlet_id_im3'] and o['outlet_id_3id']}
+    # ---- pairs: one primary IM3 per 3ID (check = same DSE on both sides first, then the pair already in the master, then the lowest IM3 id)
+    by3 = defaultdict(list)
+    for r in pairs:
+        by3[r['id_3id']].append(r)
+    chosen, dropped = [], []
+    for b, rs in by3.items():
+        if len(rs) == 1:
+            chosen.append(rs[0]); continue
+        rs = sorted(rs, key=lambda r: (r['check'] != '1', (r['id_im3'], b) not in base_pairs, r['id_im3']))
+        chosen.append(rs[0]); dropped.extend(rs[1:])
+        rep['hier_3id_multi'] += 1
+        rep['hier_3id_multi_primary_check1'] += rs[0]['check'] == '1'
+    drop_set = {(r['id_im3'], r['id_3id']) for r in dropped}
+    multi3 = {r['id_3id'] for r in pairs if r['id3_pairs'] not in ('', '1')}
+    pair_ids_i = {r['id_im3'] for r in chosen}; pair_ids_t = {r['id_3id'] for r in chosen}
+    ents = [(r['id_im3'], r['id_3id']) for r in chosen]
+    ents += [(a, '') for (br, a) in H if br == 'IM3' and a not in pair_ids_i]
+    ents += [('', b) for (br, b) in H if br == '3ID' and b not in pair_ids_t]
+    def who(code):                                           # DSE name of a CSO code: the code itself, else without the 3ID / ID suffix (outlet rows carry 3ID logins that the DSE sheet lists only as the IM3 login)
+        u = code.upper()
+        for c in (u, u[:-3] if u.endswith('3ID') else '', u[:-2] if u.endswith('ID') else ''):
+            if c and c in names:
+                return names[c]
+        return ''
+    # guard (10 Nov 2026): a DSE of the DSE sheet whose hierarchy outlets are almost all labelled NON in the November catalogue (>= 80%: 5 DSE, e.g. Adnan Al Ap Ghani, Kusnadi) would lose its
+    # whole portfolio, which cannot be intended: for these DSE the NON label is ignored (outlets stay PJP) and the DSE are listed in apply_report.json for the owner to confirm.
+    share = defaultdict(lambda: [0, 0])
+    for (br_, id_), hrow in H.items():
+        c_ = hrow.get('cso_code', '')
+        if c_ and names.get(c_.upper() if c_.upper() in names else (c_.upper()[:-3] if c_.upper().endswith('3ID') else '')):
+            nm_ = names.get(c_.upper()) or names.get(c_.upper()[:-3])
+            share[nm_][0] += 1
+            share[nm_][1] += groups.get((br_, id_)) == 'NON'
+    non_ignored = {n_ for n_, (a_, b_) in share.items() if a_ >= 10 and b_ / a_ >= 0.8}
+    rep['hier_dse_non_label_ignored'] = sorted(non_ignored)
+    claimed, new_rows, consumed = set(), [], set()
+    tpl = {k: ('' if isinstance(v, str) else (False if isinstance(v, bool) else (None if v is None else 0))) for k, v in outlets[0].items()}
+    for a, b in sorted(ents):
+        ra = next((r for r in i3.get(a, []) if id(r) not in claimed), None) if a else None
+        rb = next((r for r in t3.get(b, []) if id(r) not in claimed), None) if b else None
+        cand = ra or rb
+        was_new = False
+        if cand is None:
+            fb = (i3.get(a) or [None])[0] if a else None
+            fb = fb or ((t3.get(b) or [None])[0] if b else None)
+            if fb is not None:                       # the id existed in the master, on a row that another entity already took: copy that row
+                r = copy.deepcopy(fb); r.update(ZERO_STATS)
+            else:
+                r = dict(tpl); was_new = True
+        else:
+            r = cand
+            if id(r) in claimed:
+                r = copy.deepcopy(r); r.update(ZERO_STATS)
+        for x in (ra, rb):
+            if x is not None:
+                claimed.add(id(x)); consumed.add(id(x))
+        if cand is not None and id(cand) in claimed and r is not cand:
+            pass
+        base_name = '' if was_new else str(r.get('dse_name') or '')                  # DSE of the previous master (after FINAL), the reference of the 3 Nov changes
+        had_dse_before = bool(base_name and not PLACEHOLDER.match(base_name))
+        old_mc = r.get('micro_cluster', '')
+        fl = [x for x in str(r.get('flags') or '').split('|') if x and x not in F_STALE]
+        r['flags'] = '|'.join(fl)
+        set_ids(r, a, b)
+        hi, h3 = H.get(('IM3', a)) if a else None, H.get(('3ID', b)) if b else None
+        hr = hi or h3 or {}
+        cso_i, cso_3 = (hi or {}).get('cso_code', ''), (h3 or {}).get('cso_code', '')
+        ni, n3 = (who(cso_i) if cso_i else ''), (who(cso_3) if cso_3 else '')
+        unknown = [c for c, n_ in ((cso_i, ni), (cso_3, n3)) if c and not n_]       # CSO code that is not a DSE of the DSE sheet: no DSE (non-PJP), flagged
+        if cso_i and not ni:
+            cso_i = ''
+        if cso_3 and not n3:
+            cso_3 = ''
+        labels = [g for g in (groups.get(('IM3', a)) if a else None, groups.get(('3ID', b)) if b else None) if g]
+        has_cso = bool(cso_i or cso_3)
+        pjp = has_cso and not (labels and all(g == 'NON' for g in labels) and (ni or n3) not in non_ignored)
+        r['dse_hierarki'] = ''
+        if pjp:
+            r['dse_code_im3'], r['dse_code_3id'] = cso_i, cso_3
+            r['dse_name'] = ni or n3
+            if ni and n3 and ni.upper() != n3.upper():
+                add_flag(r, 'DSE_IM3_3ID_BEDA'); rep['hier_dse_im3_3id_differ'] += 1
+            if had_dse_before and base_name.upper() != str(r['dse_name']).upper():
+                add_flag(r, 'DSE_BERUBAH_3NOV'); rep['hier_dse_changed'] += 1
+            if str(r['dse_name']).startswith('DSE BARU') or cso_i.upper() in new_codes or cso_3.upper() in new_codes:
+                add_flag(r, 'DSE_BARU_LOGIN'); rep['hier_dse_new_login_outlets'] += 1
+            rep['hier_pjp'] += 1
+        else:
+            r['dse_code_im3'], r['dse_code_3id'], r['dse_name'] = '', '', 'UNASSIGNED'
+            if unknown and not has_cso:
+                r['dse_hierarki'] = unknown[0]; add_flag(r, 'CSO_TIDAK_DIKENAL'); rep['hier_cso_unknown'] += 1
+            elif has_cso:
+                r['dse_hierarki'] = ni or n3; add_flag(r, 'NON_PJP_KATALOG'); rep['hier_non_pjp_katalog'] += 1
+            elif had_dse_before:
+                add_flag(r, 'DSE_HILANG_3NOV'); rep['hier_dse_lost'] += 1
+            else:
+                add_flag(r, 'TANPA_DSE_HIERARKI'); rep['hier_without_dse'] += 1
+            if had_dse_before and has_cso:
+                add_flag(r, 'DSE_HILANG_3NOV'); rep['hier_dse_lost'] += 1
+        mc = hr.get('micro_cluster') or old_mc
+        r['micro_cluster'] = mc
+        if old_mc and mc != old_mc:
+            add_flag(r, 'MC_PINDAH_3NOV'); rep['hier_mc_moved'] += 1
+        br = hr.get('branch', '')
+        br = 'BEKASI' if br == 'KOTA BEKASI' else br
+        r['branch'] = br if br in KNOWN_BRANCH else (top(mc, 'branch') or r.get('branch', ''))
+        r['dso_leader'] = top(mc, 'dso_leader') or r.get('dso_leader', ''); r['hoa_leader'] = top(mc, 'hoa_leader') or r.get('hoa_leader', '')
+        if hr.get('kecamatan'):
+            r['kecamatan'] = hr['kecamatan'].upper()
+        if not r.get('kabupaten') and r.get('kecamatan') and kec_kab.get(r['kecamatan'].upper()):
+            r['kabupaten'] = kec_kab[r['kecamatan'].upper()].most_common(1)[0][0]
+        if hi and hi.get('partner_territory'):
+            r['partner_name_im3'] = hi['partner_territory']
+        if h3 and h3.get('partner_territory'):
+            r['partner_name_3id'] = h3['partner_territory']
+        r['mpc_name'], r['mpc_code'] = hr.get('mpc_name', ''), hr.get('mpc_code', '')
+        nm = str(r.get('outlet_name') or '').strip()
+        if nm in ('', '0', '0.0') or nm.lower().startswith('unnamed'):
+            r['outlet_name'] = (hr.get('outlet_name') or '').strip() or 'Unnamed Outlet'
+        h_lat = next((x for x in (hi, h3) if x and x.get('lat')), None)
+        if h_lat and not coord_ok(r.get('lat'), r.get('long')):
+            r['lat'], r['long'] = round(float(h_lat['lat']), 6), round(float(h_lat['long']), 6)
+            if not was_new:
+                add_flag(r, 'KOORDINAT_DIPERBAIKI'); rep['hier_coord_fixed'] += 1
+        if was_new:
+            r.update({'site_nbs': 'PENDING-NBS', 'site_name': 'PENDING-NBS', 'dist_km': None, 'desa': '', 'dse_name_base': '', 'dse_code_im3_base': '', 'dse_code_3id_base': '', 'has_supply_tx': False})
+            add_flag(r, 'BARU_DARI_HIERARKI'); rep['hier_new_outlets'] += 1
+        if a and b:
+            if (a, b) not in base_pairs:
+                add_flag(r, 'PAIR_BARU_HIERARKI'); rep['hier_pair_new'] += 1
+            if b in multi3:
+                add_flag(r, 'PAIR_3ID_GANDA'); rep['hier_pair_3id_multi_primary'] += 1
+        else:
+            wp = (a and any(p[0] == a for p in base_pairs)) or (b and any(p[1] == b for p in base_pairs))
+            if wp:
+                add_flag(r, 'PAIR_DILEPAS_HIERARKI'); rep['hier_pair_released'] += 1
+            if (a and any(p[0] == a for p in drop_set)) or (b and b in multi3):
+                add_flag(r, 'PAIR_3ID_GANDA'); rep['hier_3id_secondary_single'] += 1
+        new_rows.append(r)
+    keep = []
+    for o in outlets:
+        if id(o) in consumed:
+            continue
+        ids = [('IM3', o['outlet_id_im3'])] if o['outlet_id_im3'] else []
+        ids += [('3ID', o['outlet_id_3id'])] if o['outlet_id_3id'] else []
+        if ids and any(k in H for k in ids):
+            rep['hier_dropped_duplicate_rows'] += 1
+            continue
+        if ids:                                                # master outlet that the hierarchy does not list: history, non-PJP
+            fl = [x for x in str(o.get('flags') or '').split('|') if x and x not in F_STALE]
+            o['flags'] = '|'.join(fl)
+            had = bool(str(o.get('dse_name') or '') and not PLACEHOLDER.match(str(o.get('dse_name') or '')))
+            o['dse_code_im3'], o['dse_code_3id'], o['dse_name'] = '', '', 'UNASSIGNED'
+            add_flag(o, 'HILANG_DARI_HIERARKI'); rep['hier_gone_rows'] += 1
+            if had:
+                add_flag(o, 'DSE_HILANG_3NOV')
+        keep.append(o)
+    rep['hier_entities'] = len(new_rows)
+    rep['hier_pairs_chosen'] = len(chosen)
+    rep['hier_pairs_dropped_multi3'] = len(dropped)
+    return keep + new_rows
+
 
 
 def set_ids(rec, im3, t3):
@@ -362,6 +582,8 @@ def apply(base_outlets, cat_dir=None):
     rep['dse_flag_rows'] = len(flag_rows)
     rep['sem_logins'] = len(sem_codes)
 
+    # ---- 4b. Master Hierarchy overlay (owner, 10 Nov 2026)
+    outlets = overlay_hierarchy(outlets, rep, canon)
     # ---- result
     for o in outlets:
         o.pop('_del', None)

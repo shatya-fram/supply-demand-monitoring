@@ -1,0 +1,44 @@
+{
+  "both": 35014,
+  "sama": 32222,
+  "DSE beda": 542,
+  "katalog kosong, hierarki ada": 472,
+  "label PJP tetapi tanpa CSO": 525,
+  "label NON tetapi punya CSO": 871,
+  "only_catalogue": 1377,
+  "hierarki kosong, katalog ada": 382,
+  "only_hierarchy": 226,
+  "outlet_wise_file": "rguga_favloc_&_rguga_outlet_Inner_Jakarta_202611.xlsb",
+  "outlet_wise_rows": 36851,
+  "outlet_wise_pjp_non": {
+    "PJP": 20893,
+    "NON": 15958
+  },
+  "outlet_wise_program_flags": {
+    "AVA 50, 150": 8,
+    "DSF": 34,
+    "DTU DSE": 10,
+    "PROMOTOR": 31,
+    "TEBUS MURAH KAM": 5,
+    "TOP PLAYER": 3
+  },
+  "catalogue_5nov_pjp_non": {
+    "PJP": 22145,
+    "NON": 14246
+  },
+  "catalogue_5nov_groups": {
+    "PROMOTOR": 124,
+    "PJP": 21447,
+    "KRO": 195,
+    "WS": 46,
+    "NON": 14223,
+    "AVA": 268,
+    "KAM": 88
+  },
+  "ow_pjp_non_same": 32772,
+  "ow_dse_code_differs_hierarchy": 3117,
+  "ow_dse_code_differs_catalogue": 2021,
+  "ow_pjp_non_differs": 3618,
+  "ow_only_outlet_wise": 461,
+  "ow_only_catalogue": 1
+}
