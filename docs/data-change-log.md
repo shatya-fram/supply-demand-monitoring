@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 11 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 10 Nov; GA tetap D9
+- MOBII dan SALMO 10 Nov 22:54, PJP D10 (10 Nov 22:50), ENDBAL snapshot 10 Nov (27.188 outlet). MOBO Demand D10 (11 Nov 05:58, ditemukan di scan ulang 06:01; SALMO MTD Rp 44,78 B). GA by Outlet dan Fav Locs tidak berubah (cut D9, D10 belum ada).
+- Penjualan MTD: SP Rp 487,9 jt, SALMO Rp 7.589,1 jt; PJP 67.890 planned, 63.754 actual (93,9%). Semua audit lulus. Detail: `docs/assessments/daily_update_2026-11-11.md`.
+
 ## 10 Nov 2026 (sore) · Refresh GA D9
 - Hanya GA by Outlet dan Fav Locs yang baru (10 Nov 10:40, D1-D9); GA tagging dan site kini cut D9, GA MTD 66.891 (IM3 46.246, 3ID 20.645). Tagging D1-D8 tidak direvisi. Sell-In, Demand, PJP, ENDBAL tidak berubah.
 - Perhatian: Fav Locs D9 (7.763) tampak belum lengkap (0,81x tagging, hari lain 1,08-1,17x). Detail: `docs/assessments/daily_update_2026-11-10_ga.md`.
