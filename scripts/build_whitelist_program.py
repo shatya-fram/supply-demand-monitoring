@@ -51,6 +51,15 @@ def main():
                 continue
             tier = cell(r.get(6)) if sname == 'AVA 50,150' and cell(r.get(6)) in ('50', '100', '150') else ''
             out.append([prog, cell(r.get(0)), i, cell(r.get(4)), b, cell(r.get(2)), tier])
+    # the allocation picture (owner, 11 Nov 2026) is the authority for TOP PLAYER: all its ids (24) are participants, also those the sheet lacks (562979)
+    ap = os.path.join(CAT, 'catalogue_202611', 'top_player_allocation_nov.csv')
+    if os.path.exists(ap):
+        have = {x[2] for x in out if x[0] == 'Top Player (peserta Nov)'}
+        for r in csv.DictReader(open(ap, encoding='utf-8')):
+            names = r['outlet_names'].split('|')
+            for k, i in enumerate(r['outlet_ids'].split('|')):
+                if nid(i) not in have:
+                    have.add(nid(i)); out.append(['Top Player (peserta Nov)', '', nid(i), names[k] if k < len(names) else '', r['branch'], r['partner'], ''])
     seen, uniq = set(), []
     for x in out:
         if (x[0], x[1], x[2]) not in seen:

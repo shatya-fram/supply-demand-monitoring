@@ -100,3 +100,7 @@ Selisih 500 hanya di Karawang (alokasi gambar Elkomindo 3,500 + Kawan Data 3,000
 4. **DTU tetap 331 outlet tipe DTU**: login `DTUIN###` tidak ditambahkan ke program (builder melewati sheet DTU); 59 login hanya ada di `whitelist_program_v1.csv`.
 
 Pemeriksaan ulang sesudah keputusan: render_check lulus, audit_kro reconciles, konsistensi 275 / 275, scorecard 162 / 162.
+
+## 10. Koreksi (11 Nov 2026): Top Player = 24 id
+
+Gambar alokasi memuat **24 id** (bukan 23): `562979` (Centini Cell, KAB BEKASI, Sannin Brother Megah) tidak ada di sheet TOP PLAYER workbook. Gambar menjadi acuan: `build_whitelist_program.py` menambahkan semua id `top_player_allocation_nov.csv` ke Top Player (peserta Nov), sehingga daftar = 24 id. Angka "23" di bagian di atas = isi sheet saja.
