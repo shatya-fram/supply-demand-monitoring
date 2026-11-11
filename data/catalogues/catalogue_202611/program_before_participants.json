@@ -1,0 +1,82 @@
+{
+ "feed_programs": {
+  "BOSS": {
+   "ids": 0,
+   "outlets_in_feed": 0,
+   "unmatched": 0
+  },
+  "Tebus Murah": {
+   "ids": 0,
+   "outlets_in_feed": 0,
+   "unmatched": 0
+  },
+  "DSF": {
+   "ids": 96,
+   "outlets_in_feed": 38,
+   "unmatched": 56
+  },
+  "DSE": {
+   "ids": 0,
+   "outlets_in_feed": 0,
+   "unmatched": 0
+  },
+  "DTU": {
+   "ids": 331,
+   "outlets_in_feed": 322,
+   "unmatched": 0
+  },
+  "KRO (katalog 202610)": {
+   "ids": 587,
+   "outlets_in_feed": 577,
+   "unmatched": 0
+  },
+  "Kotkab": {
+   "ids": 3631,
+   "outlets_in_feed": 2971,
+   "unmatched": 2
+  },
+  "AVA": {
+   "ids": 268,
+   "outlets_in_feed": 252,
+   "unmatched": 0
+  },
+  "AVA TM": {
+   "ids": 43,
+   "outlets_in_feed": 43,
+   "unmatched": 0
+  },
+  "KAM": {
+   "ids": 88,
+   "outlets_in_feed": 81,
+   "unmatched": 7
+  },
+  "KRO (program Nov)": {
+   "ids": 195,
+   "outlets_in_feed": 195,
+   "unmatched": 0
+  },
+  "Promotor": {
+   "ids": 124,
+   "outlets_in_feed": 94,
+   "unmatched": 0
+  },
+  "Wholesaler (katalog 202611)": {
+   "ids": 46,
+   "outlets_in_feed": 46,
+   "unmatched": 0
+  }
+ },
+ "csv_rows": {
+  "DTU": 331,
+  "KRO (katalog 202610)": 587,
+  "Kotkab": 3631,
+  "AVA": 268,
+  "AVA TM": 43,
+  "KAM": 88,
+  "KRO (program Nov)": 195,
+  "Promotor": 124,
+  "Wholesaler (katalog 202611)": 46,
+  "DSF": 96
+ },
+ "taken": "2026-11-11 before participants files"
+}

@@ -66,6 +66,8 @@ def main():
           '| groups', dict(Counter(x[4] for x in out)))
     import build_dsf_manpower   # DSF = November catalogue category DSF + the ids of the DSF manpower sheet (owner, 7 Nov 2026)
     build_dsf_manpower.main()
+    import build_program_participants   # AVA / Kotkab / Tebus Murah / Top Player participants of 11 Nov 2026 override the lists above
+    build_program_participants.main()
 
 
 if __name__ == '__main__':

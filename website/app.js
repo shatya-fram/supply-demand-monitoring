@@ -8201,7 +8201,7 @@
   var _prgSet = {}, _prgBy = {}, _prgList = [];
   /* Program & Tipe Outlet (owner, 4 Nov 2026): one flag per program, in the order asked. The October lists (catalogue 202610 outlet types) are used until new lists arrive;
      TEBUS MURAH, DSF and DSE have no list yet (upload program,outlet_id). TOP PLAYER = the Wholesaler flag of the catalogue (whitelist), not the Wholesaler performance class of KRO Management. */
-  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Wholesaler (katalog 202611)', 'Wholesaler (katalog 202610)'] }, { id: 'KAM', label: 'KAM', src: ['KAM'] }, { id: 'KOTKAB', label: 'KOTKAB', src: ['Kotkab'] }, { id: 'AVA TM', label: 'AVA TM', src: ['AVA TM'] },
+  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Wholesaler (katalog 202611)', 'Wholesaler (katalog 202610)', 'Top Player (peserta Nov)'] }, { id: 'KAM', label: 'KAM', src: ['KAM'] }, { id: 'KOTKAB', label: 'KOTKAB', src: ['Kotkab'] }, { id: 'AVA TM', label: 'AVA TM', src: ['AVA TM'] },
     { id: 'DtU', label: 'DtU · Direct to Users', src: ['DTU'] }, { id: 'TEBUS MURAH', label: 'TEBUS MURAH', src: ['Tebus Murah'] }, { id: 'DSF', label: 'DSF', src: ['DSF'] }, { id: 'DSE', label: 'DSE', src: ['DSE'] }];
   function prgLabel(n) { var x = PRG_SPEC.filter(function (y) { return y.id === n; })[0]; return x ? x.label : n; }
   function prgMembers(K, id) {
