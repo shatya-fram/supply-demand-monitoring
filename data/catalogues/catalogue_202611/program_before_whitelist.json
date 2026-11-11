@@ -1,0 +1,72 @@
+{
+ "BOSS": {
+  "ids": 0,
+  "outlets_in_feed": 0,
+  "unmatched": 0
+ },
+ "Tebus Murah": {
+  "ids": 29,
+  "outlets_in_feed": 27,
+  "unmatched": 2
+ },
+ "DSF": {
+  "ids": 96,
+  "outlets_in_feed": 38,
+  "unmatched": 56
+ },
+ "DSE": {
+  "ids": 0,
+  "outlets_in_feed": 0,
+  "unmatched": 0
+ },
+ "DTU": {
+  "ids": 331,
+  "outlets_in_feed": 322,
+  "unmatched": 0
+ },
+ "KRO (katalog 202610)": {
+  "ids": 587,
+  "outlets_in_feed": 577,
+  "unmatched": 0
+ },
+ "AVA TM": {
+  "ids": 43,
+  "outlets_in_feed": 43,
+  "unmatched": 0
+ },
+ "KAM": {
+  "ids": 88,
+  "outlets_in_feed": 81,
+  "unmatched": 7
+ },
+ "KRO (program Nov)": {
+  "ids": 195,
+  "outlets_in_feed": 195,
+  "unmatched": 0
+ },
+ "Promotor": {
+  "ids": 124,
+  "outlets_in_feed": 94,
+  "unmatched": 0
+ },
+ "Wholesaler (katalog 202611)": {
+  "ids": 46,
+  "outlets_in_feed": 46,
+  "unmatched": 0
+ },
+ "AVA": {
+  "ids": 269,
+  "outlets_in_feed": 245,
+  "unmatched": 0
+ },
+ "Top Player (peserta Nov)": {
+  "ids": 5,
+  "outlets_in_feed": 4,
+  "unmatched": 1
+ },
+ "Kotkab": {
+  "ids": 4383,
+  "outlets_in_feed": 3414,
+  "unmatched": 10
+ }
+}

@@ -68,6 +68,8 @@ def main():
     build_dsf_manpower.main()
     import build_program_participants   # AVA / Kotkab / Tebus Murah / Top Player participants of 11 Nov 2026 override the lists above
     build_program_participants.main()
+    import build_whitelist_program   # whitelist v1 of 11 Nov 2026 (newer than the participants files) overrides AVA / Promotor / Tebus Murah / Top Player
+    build_whitelist_program.main()
 
 
 if __name__ == '__main__':

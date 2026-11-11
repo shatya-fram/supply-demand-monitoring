@@ -1,0 +1,250 @@
+{
+ "before": {
+  "BOSS": null,
+  "Tebus Murah": {
+   "outlets": 24,
+   "pjp": 9,
+   "ga_mtd": 3327,
+   "ga_lm": 1404,
+   "ga_fm": 21595,
+   "sp_mtd": 44,
+   "sp_lm": 15,
+   "sp_fm": 16513
+  },
+  "DSF": {
+   "outlets": 22,
+   "pjp": 2,
+   "ga_mtd": 918,
+   "ga_lm": 87,
+   "ga_fm": 297,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 0
+  },
+  "DSE": null,
+  "DTU": {
+   "outlets": 87,
+   "pjp": 80,
+   "ga_mtd": 1325,
+   "ga_lm": 2238,
+   "ga_fm": 13223,
+   "sp_mtd": 181,
+   "sp_lm": 58,
+   "sp_fm": 1825
+  },
+  "KRO (katalog 202610)": {
+   "outlets": 371,
+   "pjp": 367,
+   "ga_mtd": 4406,
+   "ga_lm": 6752,
+   "ga_fm": 22279,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 0
+  },
+  "AVA TM": {
+   "outlets": 40,
+   "pjp": 11,
+   "ga_mtd": 6055,
+   "ga_lm": 2270,
+   "ga_fm": 56209,
+   "sp_mtd": 56,
+   "sp_lm": 0,
+   "sp_fm": 13621
+  },
+  "KAM": {
+   "outlets": 73,
+   "pjp": 3,
+   "ga_mtd": 1171,
+   "ga_lm": 1297,
+   "ga_fm": 11340,
+   "sp_mtd": 1476,
+   "sp_lm": 0,
+   "sp_fm": 8497
+  },
+  "KRO (program Nov)": {
+   "outlets": 151,
+   "pjp": 149,
+   "ga_mtd": 5767,
+   "ga_lm": 6106,
+   "ga_fm": 18571,
+   "sp_mtd": 736,
+   "sp_lm": 53,
+   "sp_fm": 6020
+  },
+  "Promotor": {
+   "outlets": 84,
+   "pjp": 82,
+   "ga_mtd": 2949,
+   "ga_lm": 3341,
+   "ga_fm": 12812,
+   "sp_mtd": 430,
+   "sp_lm": 35,
+   "sp_fm": 1536
+  },
+  "Wholesaler (katalog 202611)": {
+   "outlets": 43,
+   "pjp": 12,
+   "ga_mtd": 6572,
+   "ga_lm": 2299,
+   "ga_fm": 59501,
+   "sp_mtd": 66,
+   "sp_lm": 15,
+   "sp_fm": 13636
+  },
+  "AVA": {
+   "outlets": 200,
+   "pjp": 198,
+   "ga_mtd": 4010,
+   "ga_lm": 3036,
+   "ga_fm": 11788,
+   "sp_mtd": 736,
+   "sp_lm": 98,
+   "sp_fm": 3372
+  },
+  "Top Player (peserta Nov)": {
+   "outlets": 2,
+   "pjp": 2,
+   "ga_mtd": 30,
+   "ga_lm": 49,
+   "ga_fm": 137,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 5
+  },
+  "Kotkab": {
+   "outlets": 1504,
+   "pjp": 1491,
+   "ga_mtd": 7396,
+   "ga_lm": 7105,
+   "ga_fm": 26598,
+   "sp_mtd": 13042,
+   "sp_lm": 626,
+   "sp_fm": 45349
+  }
+ },
+ "after": {
+  "BOSS": null,
+  "Tebus Murah": {
+   "outlets": 24,
+   "pjp": 9,
+   "ga_mtd": 3327,
+   "ga_lm": 1404,
+   "ga_fm": 21595,
+   "sp_mtd": 44,
+   "sp_lm": 15,
+   "sp_fm": 16513
+  },
+  "DSF": {
+   "outlets": 22,
+   "pjp": 2,
+   "ga_mtd": 918,
+   "ga_lm": 87,
+   "ga_fm": 297,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 0
+  },
+  "DSE": null,
+  "DTU": {
+   "outlets": 87,
+   "pjp": 80,
+   "ga_mtd": 1325,
+   "ga_lm": 2238,
+   "ga_fm": 13223,
+   "sp_mtd": 181,
+   "sp_lm": 58,
+   "sp_fm": 1825
+  },
+  "KRO (katalog 202610)": {
+   "outlets": 371,
+   "pjp": 367,
+   "ga_mtd": 4406,
+   "ga_lm": 6752,
+   "ga_fm": 22279,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 0
+  },
+  "AVA TM": {
+   "outlets": 40,
+   "pjp": 11,
+   "ga_mtd": 6055,
+   "ga_lm": 2270,
+   "ga_fm": 56209,
+   "sp_mtd": 56,
+   "sp_lm": 0,
+   "sp_fm": 13621
+  },
+  "KAM": {
+   "outlets": 73,
+   "pjp": 3,
+   "ga_mtd": 1171,
+   "ga_lm": 1297,
+   "ga_fm": 11340,
+   "sp_mtd": 1476,
+   "sp_lm": 0,
+   "sp_fm": 8497
+  },
+  "KRO (program Nov)": {
+   "outlets": 151,
+   "pjp": 149,
+   "ga_mtd": 5767,
+   "ga_lm": 6106,
+   "ga_fm": 18571,
+   "sp_mtd": 736,
+   "sp_lm": 53,
+   "sp_fm": 6020
+  },
+  "Wholesaler (katalog 202611)": {
+   "outlets": 43,
+   "pjp": 12,
+   "ga_mtd": 6572,
+   "ga_lm": 2299,
+   "ga_fm": 59501,
+   "sp_mtd": 66,
+   "sp_lm": 15,
+   "sp_fm": 13636
+  },
+  "Kotkab": {
+   "outlets": 1504,
+   "pjp": 1491,
+   "ga_mtd": 7396,
+   "ga_lm": 7105,
+   "ga_fm": 26598,
+   "sp_mtd": 13042,
+   "sp_lm": 626,
+   "sp_fm": 45349
+  },
+  "AVA": {
+   "outlets": 237,
+   "pjp": 235,
+   "ga_mtd": 4676,
+   "ga_lm": 3524,
+   "ga_fm": 13687,
+   "sp_mtd": 814,
+   "sp_lm": 143,
+   "sp_fm": 3928
+  },
+  "Promotor": {
+   "outlets": 126,
+   "pjp": 124,
+   "ga_mtd": 4624,
+   "ga_lm": 5356,
+   "ga_fm": 19505,
+   "sp_mtd": 648,
+   "sp_lm": 48,
+   "sp_fm": 2252
+  },
+  "Top Player (peserta Nov)": {
+   "outlets": 18,
+   "pjp": 2,
+   "ga_mtd": 22292,
+   "ga_lm": 635,
+   "ga_fm": 12524,
+   "sp_mtd": 0,
+   "sp_lm": 0,
+   "sp_fm": 10
+  }
+ }
+}
