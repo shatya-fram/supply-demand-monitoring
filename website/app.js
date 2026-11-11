@@ -8601,6 +8601,27 @@
     return R;
   }
   var PT_CH_GROUP = { 'AVA': 'PRG', 'PROMOTOR': 'PRG', 'KOTKAB': 'PRG', 'TEBUS MURAH | KAM': 'WS', 'TOP PLAYER': 'WS', 'DTU DSE': 'DIR', 'DSF': 'DIR', 'RETAIL & KRO NATURAL': 'RET' };
+  /* Summary Achievement reconciliation (owner, 11 Nov 2026): the sum of the channels is not the total GA. Total = every MC total of the feed (all outlets, incl. non-PJP outside the master);
+     the 7 target areas hold the rest; an outlet in two channels is counted in both. Lines: sum of channels · overlap (plug) · outside master · TOTAL GA, for MTD / LMTD / Last FM. */
+  function ptReconcile(P, K, C, chs, R0, f0) {
+    if (state.dse || !chs.length || !chs.every(function (c) { return c.measure === 'ga'; })) return '';
+    var all = pdMcScope(P, K, null), out = pdMcScope(P, K, function (e) { return e.br === 'OUTSIDE MASTER TERRITORY'; });
+    var sum = function (l, i) { return l.reduce(function (t, e) { return t + ((e.t && e.t.ga && e.t.ga[i]) || 0); }, 0); };
+    var cols = [['MTD', 2, R0.mtd], ['LMTD', 1, R0.lm], ['Last FM', 0, R0.fm]];
+    var cell = function (v, b) { return '<td class="num">' + (b ? '<b>' + f0(v) + '</b>' : (v < 0 ? '−' + f0(-v) : f0(v))) + '</td>'; }, row = function (label, vals, ink) { return '<tr' + (ink ? ' style="background:var(--ink); color:#fff;"' : '') + '><td class="cur">' + label + '</td>' + vals.map(function (v) { return cell(v, ink); }).join('') + '</tr>'; };
+    var vSum = cols.map(function (c) { return c[2]; }), vOut = cols.map(function (c) { return sum(out, c[1]); }), vAll = cols.map(function (c) { return sum(all, c[1]); }), vOv = cols.map(function (c, i) { return -(vSum[i] + vOut[i] - vAll[i]); });
+    /* outlets in more than one channel (programs of the channels) and the pairs that overlap most */
+    var by = {}, pairs = {}, nMulti = 0;
+    chs.forEach(function (c) { if (!c.program || c.program === '~NP' || !C.by[c.program]) return; Object.keys(C.by[c.program]).forEach(function (k) { var r = C.by[c.program][k]; if (kroInScope(r)) (by[k] = by[k] || []).push(c.label); }); });
+    Object.keys(by).forEach(function (k) { if (by[k].length > 1) { nMulti++; var pk = by[k].slice().sort().join(' + '); pairs[pk] = (pairs[pk] || 0) + 1; } });
+    var top = Object.keys(pairs).sort(function (x, y) { return pairs[y] - pairs[x]; }).slice(0, 5).map(function (k) { return esc(k) + ' <b>' + fmtCount(pairs[k]) + '</b>'; }).join(' · ');
+    var head = '<tr>' + th('Rekonsiliasi dengan total GA') + cols.map(function (c) { return th(c[0], 1); }).join('') + '</tr>';
+    var body = row('Jumlah channel (tabel di atas)', vSum, false) + row('− Tumpang tindih antar-channel (outlet di lebih dari satu channel, selisih pembulatan)', vOv, false) +
+      row('+ Di luar master territory (non-PJP, tanpa area dan tanpa target)', vOut, false) + row('TOTAL semua GA (sama dengan Daily GA Trend dan Gross Add)', vAll, true);
+    return card('Rekonsiliasi · jumlah channel vs total GA', '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="note">Target dibagi per channel dan per 7 area master, jadi GA di outlet tanpa area master (ID <code>SH…</code>, outlet non-PJP) tidak ada di channel mana pun; baris "Di luar master territory" menutup selisih itu. ' +
+      'Outlet yang masuk lebih dari satu program dihitung di tiap channel: <b>' + fmtCount(nMulti) + '</b> outlet' + (top ? ' (' + top + ')' : '') + '. Baris tumpang tindih = jumlah channel + di luar master − total GA, jadi kolom selalu menutup ke total.</p>');
+  }
   function ptSum(Rs) {   // sum of the channels that have an actual (a channel without actual, e.g. PROMOTOR as persons, is left out of the total)
     var live = Rs.filter(function (r) { return !r.na; }), b = Rs[0], tgt = 0, mtd = 0, units = 0, lm = 0, fm = 0, days = null, outlets = 0;
     live.forEach(function (r) { tgt += r.tgt; mtd += r.mtd; units += r.units || 0; lm += r.lm || 0; fm += r.fm || 0; outlets += r.outlets || 0; if (r.days) { if (!days) days = r.days.map(function () { return 0; }); r.days.forEach(function (v, i) { days[i] += v; }); } });
@@ -8762,7 +8783,7 @@
     chs.forEach(function (c) { mr += '<tr><td class="cur" style="' + DK_STICKY + ' background:#fff;"><b>' + esc(c.label) + '</b></td>' + areas.map(function (a) { return cellM(c.areas[a] ? R(c, a) : null); }).join('') + cellM(R(c, null)) + '</tr>'; });
     mr += '<tr style="background:var(--ink); color:#fff;"><td class="cur" style="' + DK_STICKY + ' background:var(--ink); color:#fff;"><b>TOTAL</b></td>' + areas.map(function (a) { var x = areaR(a); return '<td class="num">' + (met === 'ach' ? (x.ach == null ? 'n/a' : x.ach.toFixed(0) + '%') : (met === 'gap' ? (x.gap == null ? 'n/a' : (x.gap >= 0 ? '+' : '−') + f0(Math.abs(x.gap))) : (met === 'mtd' ? f0(x.mtd) : f0(x.tgt)))) + '</td>'; }).join('') + '<td class="num">' + (met === 'ach' ? (regionR.ach == null ? 'n/a' : regionR.ach.toFixed(0) + '%') : (met === 'gap' ? (regionR.gap == null ? 'n/a' : (regionR.gap >= 0 ? '+' : '−') + f0(Math.abs(regionR.gap))) : (met === 'mtd' ? f0(regionR.mtd) : f0(regionR.tgt)))) + '</td></tr>';
     var mx = card('Matriks Channel × Area · ' + ({ ach: '% vs pro-rata', gap: 'gap vs pro-rata', mtd: 'MTD aktual', tgt: 'target Nov' }[met]), '<div class="tbl-wrap"><table class="tbl wide" data-nosort="1"><thead>' + mh + '</thead><tbody>' + mr + '</tbody></table></div><p class="note">Sel kosong = channel tanpa target di area itu (KOTKAB hanya di 3 area). Hijau ≥ 100% pro-rata, kuning 80–100%, merah &lt; 80%.</p>');
-    return card('Program & Tipe Outlet · Summary Achievement', pdSwitch('summary') + '<div class="map-toolbar" style="margin-top:8px;">' + bar + '</div>') + cards + tbl + ch1 + ch2 + mx + chVisitCard(K, 'ga');
+    return card('Program & Tipe Outlet · Summary Achievement', pdSwitch('summary') + '<div class="map-toolbar" style="margin-top:8px;">' + bar + '</div>') + cards + tbl + ptReconcile(P, K, C, chs, regionR, f0) + ch1 + ch2 + mx + chVisitCard(K, 'ga');
   }
   /* ================= Katalog · Program & Partisipasi Program (owner, 6 Nov 2026) =================
      List of outlet ids per program and the performance of every program (participation, MTD / LMTD / FM, visits), down to the outlet and its performance.

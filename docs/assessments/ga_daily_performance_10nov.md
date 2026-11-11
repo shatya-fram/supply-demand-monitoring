@@ -89,3 +89,9 @@ Rule: an outlet-brand is **bulk** on a day when it carries >= 150 GA that day. O
 1. Report the headline growth with bulk (+24.4%) together with the without-bulk figure (-11.8%).
 2. Ask the data owner what the `SH...` ids are (distributor / SaleSHub / event accounts) so they can be mapped to an MC; they stay non-PJP meanwhile.
 3. Targets are still the October targets carried forward (`M2S KECAMATAN`).
+
+## 8. Summary Achievement vs total GA (11 Nov 2026)
+
+`mb_program` > Summary Achievement showed MTD 67,537 (LMTD 63,313, Last FM 298,448) against the total GA 77,209 (62,071, 287,269). Reasons: (1) target channels cover the 7 master areas only, so the
+21 outside-master ids (10,283 GA, non-PJP, no area) are in no channel; (2) outlets in two programs (129 outlets; DtU + KOTKAB 62, AVA + KOTKAB 31, KOTKAB + PROMOTOR 14 ...) are counted in each channel,
+which is why LMTD and Last FM of the channels are above the total. The new card **Rekonsiliasi** shows sum of channels, overlap, outside master and TOTAL semua GA for MTD, LMTD and Last FM so every column closes to the total.
