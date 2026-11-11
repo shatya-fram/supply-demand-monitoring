@@ -1418,7 +1418,7 @@
   }
   /* Status of the governed catalogue (flags per outlet and per DSE / login); a button filters the outlet table below by that flag */
   var TERR_FLAG_ORDER = ['TIDAK_ADA_DI_FINAL_20OKT', 'DSE_TUKAR_PERLU_CEK', 'ID_PERLU_VERIFIKASI', 'BARU_DARI_FINAL', 'IOH_NON_BERTENTANGAN', 'DSE_IM3_3ID_BEDA', 'PAIR_3ID_GANDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH',
-    'NON_PJP_ADA_TRANSAKSI', 'NON_PJP_KATALOG', 'DSE_HILANG_3NOV', 'DSE_BERUBAH_3NOV', 'TANPA_DSE_HIERARKI', 'HILANG_DARI_HIERARKI', 'BARU_DARI_HIERARKI', 'MC_PINDAH_3NOV', 'PAIR_BARU_HIERARKI', 'PAIR_DILEPAS_HIERARKI', 'KOORDINAT_DIPERBAIKI', 'DSE_BARU_LOGIN', 'CSO_TIDAK_DIKENAL'];
+    'NON_PJP_ADA_TRANSAKSI', 'NON_PJP_MANUAL', 'NON_PJP_KATALOG', 'DSE_HILANG_3NOV', 'DSE_BERUBAH_3NOV', 'TANPA_DSE_HIERARKI', 'HILANG_DARI_HIERARKI', 'BARU_DARI_HIERARKI', 'MC_PINDAH_3NOV', 'PAIR_BARU_HIERARKI', 'PAIR_DILEPAS_HIERARKI', 'KOORDINAT_DIPERBAIKI', 'DSE_BARU_LOGIN', 'CSO_TIDAK_DIKENAL'];
   /* ---------- Outlet catalogue following the sheet OUTLET IOH (catalogue 202610): Outlet ID IOH, IM3 id / name / type, 3ID id / name / type, status pairing, long / lat ---------- */
   var IOH_COLS = [['outlet_id_ioh', 'Outlet ID IOH'], ['outlet_id_im3', 'Outlet ID IM3'], ['outlet_name_im3', 'Nama Outlet IM3'], ['outlet_type_im3', 'Tipe Outlet IM3'], ['outlet_id_3id', 'Outlet ID 3ID'], ['outlet_name_3id', 'Nama Outlet 3ID'], ['outlet_type_3id', 'Tipe Outlet 3ID'], ['status_pairing', 'Status Pairing'], ['long', 'Long'], ['lat', 'Lat']];
   var IOH_EXTRA = [['lokasi_dari', 'Lokasi dari'], ['flag_pairing_baru', 'Flag pairing (analisis baru)'], ['cek_dse', 'Cek DSE IM3 vs 3ID'], ['catatan', 'Catatan'], ['micro_cluster', 'Micro Cluster'], ['kecamatan', 'Kecamatan']];
@@ -8314,7 +8314,7 @@
         g.items.forEach(function (it) { out += prgLine(lbl(it.name), 'program', 'P:' + it.name, it.rows, key, '', 22); });
         if (g.slabs.length !== undefined && g.np) {
           out += prgLine('Non-program (di luar flag)', 'Retail dan KRO', 'Q:~NP|T', g.np, key, '', 22);
-          g.slabs.forEach(function (sl) { out += prgLine((sl.cat === 'K' ? 'KRO · ' : 'Retail · ') + esc(sl.label), 'slab ' + esc(kroKeyName(key)), 'Q:~S:' + sl.code + '|T', sl.rows, key, '', 40); });
+          g.slabs.forEach(function (sl) { out += prgLine(esc(chSlabName(sl, key)), 'slab ' + esc(kroKeyName(key)), 'Q:~S:' + sl.code + '|T', sl.rows, key, '', 40); });
         }
       });
       return out;
@@ -8369,7 +8369,19 @@
     { id: 'DIR', label: 'Direct', note: 'DTU · DSF', progs: ['DtU', 'DSF'] },
     { id: 'RET', label: 'Retail & KRO', note: 'natural = sisanya: outlet di luar semua program flag', progs: [], slabs: true }
   ];
-  var CH_SLAB_ORDER = ['W4', 'W3', 'W2', 'W1', 'K3', 'K2', 'K1', 'R2', 'R1', 'N'];
+  /* Non-program outlets are shown as plain slabs of last month's performance, smallest first, one list without the Retail / KRO / Wholesaler words (owner, 11 Nov 2026):
+     pcs ladder 1-10 · 11-30 · 31-60 · 61-100 · 101-200 · 201-500 · 501-1000 · > 1000, then Tanpa volume (upper bound in the lower slab). */
+  var CH_SLAB_ORDER = ['R1', 'R2', 'K1', 'K2', 'K3', 'W1', 'W2', 'W3', 'W4', 'N'];
+  function chSlabName(sl, key) {
+    if (sl.code === 'N') return 'Tanpa volume';
+    var l = kroLad(key), i, pcs = !kroIsVal(key);
+    for (i = 0; i < l.length; i++) if (l[i].k === sl.code) {
+      if (!pcs) return String(l[i].label).replace(/^(Retail|KRO|Wholesaler)\s+/, '');
+      var lo = l[i].lo, hi = i > 0 ? l[i - 1].lo : null;
+      return hi === null ? '> ' + fmtCount(lo) : (lo + 1) + '–' + fmtCount(hi);
+    }
+    return sl.label;
+  }
   function chOpen(id) { return !(state.chOpen && state.chOpen[id] === false); }
   function chBtn(id) { var o = chOpen(id); return '<button type="button" class="map-btn" data-ch-tog="' + id + '" aria-expanded="' + o + '" style="padding:0 6px; margin-right:6px;">' + (o ? '▼' : '▶') + '</button>'; }
   function chGroupsFor(names) {
@@ -8409,7 +8421,7 @@
       g.items.forEach(function (it) { rows += ln(esc(prgLabel(it.name)), 'program', it.rows, 22); });
       if (g.slabs && g.slabs.length !== undefined) {
         rows += ln('Non-program (di luar flag)', 'Retail dan KRO', g.np, 22);
-        g.slabs.forEach(function (s) { rows += ln((s.cat === 'K' ? 'KRO · ' : 'Retail · ') + esc(s.label), 'slab', s.rows, 40); });
+        g.slabs.forEach(function (s) { rows += ln(esc(chSlabName(s, key)), 'slab', s.rows, 40); });
       }
     });
     rows += ln('<b>TOTAL semua outlet</b>', 'program + non-program', uni, 0, false, true);
@@ -8507,7 +8519,7 @@
         g.items.forEach(function (it) { rowsHtml += pdLine('<b>' + esc(prgLabel(it.name)) + '</b>' + (sel.indexOf(it.name) >= 0 ? '' : ' <span class="note">(mati)</span>'), 'program', it.rows, pdDays(P, key, it.rows), key, P, { indent: 22, col: it.name + '|T', dayOk: true, tgt: pdTgt([it.name], key, null) }); });
         if (g.np) {
           rowsHtml += pdLine('Non-program (di luar flag)', 'Retail dan KRO · harian dari total MC', g.np, npDays, key, P, { indent: 22, col: '~NP|T', tgt: pdTgt(['~NP'], key, null) });
-          g.slabs.forEach(function (sl) { rowsHtml += pdLine((sl.cat === 'K' ? 'KRO · ' : 'Retail · ') + esc(sl.label), 'slab · harian n/a', sl.rows, null, key, P, { indent: 40, col: '~S:' + sl.code + '|T' }); });
+          g.slabs.forEach(function (sl) { rowsHtml += pdLine(esc(chSlabName(sl, key)), 'slab bulan lalu · harian n/a', sl.rows, null, key, P, { indent: 40, col: '~S:' + sl.code + '|T' }); });
         }
       });
       var comb = pdLine('<b>Program terpilih (gabungan)</b>', mode === 'all' ? 'irisan' : 'gabungan', L, pdDays(P, key, L), key, P, { wash: true, col: '~GAB|T', dayOk: true, tgt: mode === 'all' ? null : pdTgt(sel, key, null) });
@@ -11929,6 +11941,7 @@
     IOH_NON_BERTENTANGAN: ['IOH = NON', 'warn', 'FINAL memetakan outlet ini ke DSE, tetapi IOH_Outlet (19 Okt) menyebutnya NON-PJP: sumber saling bertentangan.'],
     NON_PJP_ADA_TRANSAKSI: ['Non-PJP · ada transaksi', 'alert', 'Outlet non-PJP (tanpa DSE di hierarki 3 Nov) yang punya transaksi bulan ini di MOBII, MOBO, GA atau kunjungan PJP: lihat sumbernya di data/catalogues/nonpjp_tx_flags.csv.'],
     NON_PJP_KATALOG: ['Non-PJP · label NON', 'warn', 'Punya CSO di hierarki 3 Nov, tetapi katalog 5 Nov melabelnya NON: dikategorikan non-PJP.'],
+    NON_PJP_MANUAL: ['Non-PJP · keputusan owner', 'warn', 'Dikategorikan non-PJP oleh owner (11 Nov 2026, data/catalogues/nonpjp_manual.csv); transaksinya tetap masuk performa semua, tanpa DSE untuk insentif.'],
     DSE_HILANG_3NOV: ['DSE hilang 3 Nov', 'warn', 'Sebelumnya punya DSE (FINAL 20 Okt), tanpa DSE di hierarki 3 Nov: non-PJP.'],
     DSE_BERUBAH_3NOV: ['DSE berubah 3 Nov', 'warn', 'DSE outlet ini berbeda dari FINAL 20 Okt (hierarki 3 Nov dipakai).'],
     TANPA_DSE_HIERARKI: ['Tanpa DSE (hierarki)', '', 'Ada di hierarki 3 Nov tanpa CSO: non-PJP.'],

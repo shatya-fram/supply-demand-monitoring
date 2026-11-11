@@ -64,7 +64,7 @@ def main():
     for k, st in streams.items():
         m = nonpjp[k]
         flags = m['flags'].split('|')
-        reasons = [f for f in ('NON_PJP_KATALOG', 'DSE_HILANG_3NOV', 'TANPA_DSE_HIERARKI', 'HILANG_DARI_HIERARKI', 'TIDAK_ADA_DI_FINAL_20OKT') if f in flags]
+        reasons = [f for f in ('NON_PJP_MANUAL', 'NON_PJP_KATALOG', 'DSE_HILANG_3NOV', 'TANPA_DSE_HIERARKI', 'HILANG_DARI_HIERARKI', 'TIDAK_ADA_DI_FINAL_20OKT') if f in flags]
         cnt['non_pjp_outlets'] += 1
         if st:
             cnt['with_transactions'] += 1

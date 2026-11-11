@@ -208,6 +208,8 @@ for (k, b), x in REC.items():
             if q >= OUTLIER:
                 anomalies.append({'brand': b, 'id': x['i'], 'name': name, 'month': 'prev' if per == 's' else 'cur', 'day': d, 'qty': q})
     sg = (t0 or {}).get('sg') or ('PJP' if m and dse != 'UNASSIGNED' else 'NON')
+    if tier == 'M' and sg != 'KAM':
+        sg = 'PJP' if dse != 'UNASSIGNED' else 'NON'      # PJP follows the current master (11 Nov 2026): the October template kept 216 outlets PJP although the 3 Nov hierarchy / owner list made them non-PJP
     row = {'k': k, 'i': x['i'], 'b': b, 't': tier, 'n': name, 'mc': mc, 'br': br, 'dse': dse, 'sg': sg}
     lkey = x['kk'] or (loc_labels[t0['lk']] if t0 and t0.get('lk') is not None and t0['lk'] < len(loc_labels) else '')
     if t0 and t0.get('lm'):

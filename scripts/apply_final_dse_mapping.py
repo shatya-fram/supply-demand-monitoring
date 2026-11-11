@@ -80,7 +80,7 @@ def latest_hierarchy():
     return ds[-1] if ds and os.path.exists(os.path.join(ds[-1], 'outlet_hierarchy.csv')) else None
 
 
-F_STALE = ('TIDAK_ADA_DI_FINAL_20OKT', 'DSE_IM3_3ID_BEDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH', 'PAIR_3ID_GANDA', 'ID_PERLU_VERIFIKASI')   # FINAL-era flags, recomputed from the hierarchy
+F_STALE = ('TIDAK_ADA_DI_FINAL_20OKT', 'DSE_IM3_3ID_BEDA', 'PAIR_DIUBAH_CATALOGUE', 'PAIR_DIPISAH', 'PAIR_3ID_GANDA', 'ID_PERLU_VERIFIKASI', 'NON_PJP_MANUAL')   # FINAL-era flags, recomputed from the hierarchy
 KNOWN_BRANCH = {'CENTRAL NORTH JAKARTA', 'EAST JAKARTA', 'BEKASI', 'KAB BEKASI', 'KARAWANG', 'SOUTH JAKARTA DEPOK', 'WEST JAKARTA'}
 
 
@@ -165,6 +165,10 @@ def overlay_hierarchy(outlets, rep, canon):
             share[nm_][1] += groups.get((br_, id_)) == 'NON'
     non_ignored = {n_ for n_, (a_, b_) in share.items() if a_ >= 10 and b_ / a_ >= 0.8}
     rep['hier_dse_non_label_ignored'] = sorted(non_ignored)
+    manual_non = set()
+    mn = os.path.join(CAT, 'nonpjp_manual.csv')      # outlet ids the owner decided to treat as non-PJP (their transactions stay in every performance total)
+    if os.path.exists(mn):
+        manual_non = {nid(r['outlet_id']) for r in read_csv(mn) if r.get('outlet_id')}
     claimed, new_rows, consumed = set(), [], set()
     tpl = {k: ('' if isinstance(v, str) else (False if isinstance(v, bool) else (None if v is None else 0))) for k, v in outlets[0].items()}
     for a, b in sorted(ents):
@@ -206,6 +210,9 @@ def overlay_hierarchy(outlets, rep, canon):
         labels = [g for g in (groups.get(('IM3', a)) if a else None, groups.get(('3ID', b)) if b else None) if g]
         has_cso = bool(cso_i or cso_3)
         pjp = has_cso and not (labels and all(g == 'NON' for g in labels) and (ni or n3) not in non_ignored)
+        manual = bool(manual_non and ((a and a in manual_non) or (b and b in manual_non)))     # owner list data/catalogues/nonpjp_manual.csv (11 Nov 2026)
+        if manual and pjp:
+            pjp = False; add_flag(r, 'NON_PJP_MANUAL'); rep['hier_non_pjp_manual'] = rep.get('hier_non_pjp_manual', 0) + 1
         r['dse_hierarki'] = ''
         if pjp:
             r['dse_code_im3'], r['dse_code_3id'] = cso_i, cso_3

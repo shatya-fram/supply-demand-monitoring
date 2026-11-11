@@ -60,10 +60,32 @@ Brand shift on D10: IM3 4,935 (7,000+ on D6-D9) and 3ID 5,383 (2,000-3,700 befor
 West Jakarta is down 36% and Central North and East are flat; Karawang, Kota Bekasi and South Jakarta Depok are up partly because of bulk ids tagged to them
 (`17452102` 3,005 in Karawang, `17768382` 4,793 in Kota Bekasi, `153825` / `17138808` in South Jakarta Depok).
 
-## 5. Reading and open points
+## 5. October on the same bulk rule (owner request 11 Nov 2026)
 
-1. The headline growth (+24.4%) is bulk-driven; without ids >= 150 GA per day MTD is about 52.7k (5.3k per day, flat against D1-D5). Report both.
-2. October LMTD also contains bulk (see the Oct anomaly list in `ga_feed` metadata), so the like-for-like growth without bulk needs the same rule on October (not done here).
-3. 21 outside-master ids carry 13% of MTD: ask the data owner what the `SH...` ids are (distributor / SaleSHub / event accounts?) and which MC they belong to.
-4. `17768382` (PJP, Bekasi) 4,793 GA in 10 days and `17452102` 3,005: validate before DSE incentives are read from them.
-5. Targets are still the October targets carried forward (`M2S KECAMATAN`).
+Rule: an outlet-brand is **bulk** on a day when it carries >= 150 GA that day. October from `rguga_daily_outlet_202610.csv` (outlets of the 36 IJ micro clusters), November from the inner file.
+
+| | Nov 1-10 | Oct 1-10 | Growth |
+|---|---|---|---|
+| **With bulk (all performance)** | 77,209 | 62,071 | **+24.4%** |
+| Bulk ids (>= 150 GA/day) | 24,502 | 2,321 | |
+| **Without bulk** | 52,707 | 59,750 | **-11.8%** |
+
+- October D1-D10 daily with bulk: 6,313 · 5,259 · 5,863 · 5,366 · 5,996 · 6,173 · 5,522 · 6,822 · 7,695 · 7,062; without bulk 5,259-6,991 (bulk only from D8: 886 · 704 · 402).
+- **October full month 287,269 GA, of which 105,606 (37%) is bulk** (ids >= 150 GA/day) and 181,663 without; the bulk grows from D14 and peaks D26-D29 (13,000-14,000 GA per day, 16-25 ids).
+  So bulk is a recurring pattern, not only of November; the headline growth of the month depends on whether bulk is counted.
+- **Reading**: the +24.4% with bulk becomes **-11.8% without bulk**. Both are reported; all performance views keep bulk (owner decision below).
+
+## 6. Owner decisions (11 Nov 2026) and what changed
+
+1. **`SH...` ids = non-PJP.** The 21 outside-master ids (10,283 GA) are not in the territory master, so they are already non-PJP rows (`G:` keys, segment NON) and stay in every total. No change.
+2. **`17768382` and `17452102` = non-PJP, GA stays in all performance.** `17452102` (Karawang) was already outside the master. `17768382` (Kota Bekasi, MC Pondok Gede, DSE ADNAN S BADRUN, 4,793 GA) was a PJP master outlet:
+   it is listed in the new owner file **`data/catalogues/nonpjp_manual.csv`** (`outlet_id, brand, alasan, diputuskan_oleh, tanggal`); `apply_final_dse_mapping.py` reads it (flag `NON_PJP_MANUAL`, DSE UNASSIGNED),
+   so it leaves the PJP base, the DSE incentive and the PJP visit measures, while its GA / sell-in / demand stay in every total (Sumber outlet = Semua). The flag is listed in Territory Management and `build_nonpjp_flags.py`.
+3. **GA segment now follows the current master** (`build_ga_feed_month.py`): the October template kept 216 master outlets as PJP (248 GA) although the 3 Nov hierarchy made them non-PJP; PJP is now taken from the master DSE (KAM kept).
+4. October with bulk is included next to the without-bulk figure (section 5).
+
+## 7. Reading and open points
+
+1. Report the headline growth with bulk (+24.4%) together with the without-bulk figure (-11.8%).
+2. Ask the data owner what the `SH...` ids are (distributor / SaleSHub / event accounts) so they can be mapped to an MC; they stay non-PJP meanwhile.
+3. Targets are still the October targets carried forward (`M2S KECAMATAN`).
