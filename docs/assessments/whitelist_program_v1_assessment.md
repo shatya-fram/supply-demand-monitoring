@@ -104,3 +104,8 @@ Pemeriksaan ulang sesudah keputusan: render_check lulus, audit_kro reconciles, k
 ## 10. Koreksi (11 Nov 2026): Top Player = 24 id
 
 Gambar alokasi memuat **24 id** (bukan 23): `562979` (Centini Cell, KAB BEKASI, Sannin Brother Megah) tidak ada di sheet TOP PLAYER workbook. Gambar menjadi acuan: `build_whitelist_program.py` menambahkan semua id `top_player_allocation_nov.csv` ke Top Player (peserta Nov), sehingga daftar = 24 id. Angka "23" di bagian di atas = isi sheet saja.
+
+## 11. Area untuk outlet program non-master (owner, 12 Nov 2026: "Ya, bangun")
+
+Kasus SH159810 dan SH241506: keduanya sudah di Top Player tetapi bukan outlet master, jadi tanpa Area (GA Top Player Central North Jakarta tampil 0; 8,585 dari 22,293 GA MTD jatuh ke OUTSIDE MASTER TERRITORY).
+Perubahan: `build_kro_feed.py` memberi outlet non-master yang ada di whitelist program **Area = branch whitelist** (30 outlet; field baris `pbr = 1`; MC dan DSE tetap kosong, status tetap non-PJP). Hasil: tidak ada lagi outlet Top Player di luar wilayah; Central North Jakarta memuat SH241506 (GA MTD 1,977); West Jakarta memuat 4 outlet (GA MTD 6,608). SH159810 tidak punya baris GA / supply di feed KRO (hanya saldo sell-out Rp 946,200 di Demand) sehingga belum tampil di tabel program.

@@ -198,6 +198,25 @@ def main():
         if id(x) not in claimed and dem_rel(x):
             n_dem_only += add_only(x, "dm")
 
+    # Area of a program member that is not in the master (owner, 12 Nov 2026): the branch written in the program whitelist
+    # (data/catalogues/catalogue_202611/whitelist_program_v1.csv) becomes the row's Area (row field pbr = 1), so the program views
+    # (Target, Summary, Matriks, Harian) count the outlet in its Area. Status stays non-PJP; MC and DSE stay empty.
+    _wl_br = {}
+    _wl = os.path.join("data", "catalogues", "catalogue_202611", "whitelist_program_v1.csv")
+    if os.path.exists(_wl):
+        with open(_wl, newline="", encoding="utf-8") as _f:
+            for _r in csv.DictReader(_f):
+                if _r["program"] != "DSF":
+                    _wl_br.setdefault(_r["outlet_id"], _r["branch"])
+    n_pbr = 0
+    for _k, _o in out.items():
+        if (_o.get("br") or "") in ("", "OUTSIDE MASTER TERRITORY") and not _o.get("mc"):
+            for _i in _o["ids"].values():
+                if str(_i) in _wl_br:
+                    _o["br"] = _wl_br[str(_i)]; _o["pbr"] = 1; n_pbr += 1
+                    break
+    print("program members given the Area of the whitelist:", n_pbr)
+
     def supply_of(k, ids):
         # the master row of the key plus every other row that carries one of the outlet's ids (a stale key such as 0_317011 / NA_sh013732 for the same 3ID id is the same outlet; deduplicated by object below)
         rows = ([sup[k]] if k in sup else []) + [x for b, i in ids.items() for x in sup_bid.get((b, str(i)), [])]
@@ -412,7 +431,7 @@ def main():
             continue
         maxday = max(o["o"][1:32]) if GA_BEHIND else max(o["o"][1:ga_cut + 1] + o["s"][1:GA_BASE_DAYS + 1])
         rows.append({
-            "k": k, "t": o["t"], "n": o["n"] or m.get("outlet_name", ""), "id": o["ids"], "br": o["br"], "mc": o["mc"], "hoa": info.get("hoa", ""), "dso": info.get("dso", ""),
+            "k": k, "t": o["t"], "n": o["n"] or m.get("outlet_name", ""), "id": o["ids"], "br": o["br"], "mc": o["mc"], **({"pbr": 1} if o.get("pbr") else {}), "hoa": info.get("hoa", ""), "dso": info.get("dso", ""),
             "dse": o["dse"], "sg": o["sg"], "kec": m.get("kecamatan") or o["kec"], "desa": m.get("desa", ""), "site": o["site"],
             "lat": m.get("lat"), "lon": m.get("long"),
             "ga": {"fm": ga_fm, "lm": ga_lm, "mtd": ga_mtd, "pr": None if ga_pr is None else round(ga_pr, 1), "im3": [o["bs"]["IM3"][0], o["bs"]["IM3"][1]], "3id": [o["bs"]["3ID"][0], o["bs"]["3ID"][1]],
