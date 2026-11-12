@@ -109,3 +109,23 @@ Gambar alokasi memuat **24 id** (bukan 23): `562979` (Centini Cell, KAB BEKASI, 
 
 Kasus SH159810 dan SH241506: keduanya sudah di Top Player tetapi bukan outlet master, jadi tanpa Area (GA Top Player Central North Jakarta tampil 0; 8,585 dari 22,293 GA MTD jatuh ke OUTSIDE MASTER TERRITORY).
 Perubahan: `build_kro_feed.py` memberi outlet non-master yang ada di whitelist program **Area = branch whitelist** (30 outlet; field baris `pbr = 1`; MC dan DSE tetap kosong, status tetap non-PJP). Hasil: tidak ada lagi outlet Top Player di luar wilayah; Central North Jakarta memuat SH241506 (GA MTD 1,977); West Jakarta memuat 4 outlet (GA MTD 6,608). SH159810 tidak punya baris GA / supply di feed KRO (hanya saldo sell-out Rp 946,200 di Demand) sehingga belum tampil di tabel program.
+
+## 12. Whitelist_Outlet_Program_Nov_2026.xlsb (12 Nov 2026, dari Downloads)
+
+Versi baru workbook yang sama (sheet AVA 50,150, PROMOTOR, TEBUS MURAH, TOP PLAYER, DTU, DSF, ALL OUTLET, SUMMARY) ditambah sheet **RETAILER_DISTRIBUTOR** ("Outlet produksi 5GB/28 & 7GB": 37 outlet, qty 5,000, kategori Retailer Distributor / Outlet Regular / Outlet Server / Wholesaler) dan kolom bantu pasangan IM3 / 3ID di sheet PROMOTOR. Salinan disimpan di `raw/Catalogue/`; `build_whitelist_program.py` kini memilih file `Whitelist_Outlet_Program*.xlsb` terbaru menurut waktu upload.
+
+| Sheet / program | v1 (11 Nov) | Nov 2026 (12 Nov) | Perubahan |
+|---|---:|---:|---|
+| AVA 50,150 | 325 baris Inner Jakarta | 325 | **tidak berubah** (322 id, sama dengan daftar aktif) |
+| PROMOTOR | 215 baris / 213 id | 228 baris / **228 id** | **+16 id baru, 1 keluar (172682)**; 13 outlet 3ID bertambah; branch Kota Bekasi 26 → 32, East Jakarta 27 → 32, Central North Jakarta 30 → 32, Kab Bekasi 21 → 23 |
+| TEBUS MURAH | 29 | 29 | tidak berubah |
+| DTU | 59 login | 59 | tidak berubah (program DTU tetap 331 outlet tipe DTU, keputusan 11 Nov) |
+| DSF | 40 | 40 | tidak berubah (semua sudah ada di daftar DSF 96 id) |
+| TOP PLAYER | 23 | 23 | tidak berubah (24 id dari gambar tetap) |
+| RETAILER_DISTRIBUTOR | tidak ada | 37 outlet | **belum dipakai** (bukan salah satu dari lima program yang diminta) |
+
+Id Promotor baru: 12303351, 144847, 1771717, 294861, 299996, 307714, 322880, 39589, 409410, 53540, 60798, 654762, 84663, 88263, 88663, SH024192. 61 dari 228 baris tidak punya nama outlet ('0'), kebanyakan sisi 3ID dari pasangan hybrid.
+
+Hasil di feed (Promotor): id 213 → **228**, outlet terukur di feed KRO 141 → **150**. Program lain tidak berubah.
+
+Performa Promotor (GA / SP, MTD 1-10 Nov): outlet dengan baris performa 126 → **131** (PJP 124 → 129); GA MTD 4,624 → **4,636**, LMTD 5,356 → 5,389, FM Okt 19,505 → 19,626; SP MTD 682 → 705 pcs, LMTD 48 → 54. Perubahan kecil karena 16 id baru hampir tidak bertransaksi.

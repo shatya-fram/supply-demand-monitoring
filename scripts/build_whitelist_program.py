@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Whitelist outlet per program (owner upload 11 Nov 2026): raw/Catalogue/Whitelist_Outlet_Program_v*.xlsb (newest by name).
+"""Whitelist outlet per program (owner upload 11 Nov 2026): raw/Catalogue/Whitelist_Outlet_Program*.xlsb (newest by upload time).
 
 Sheets AVA 50,150 / PROMOTOR / TEBUS MURAH / TOP PLAYER / DTU / DSF hold BRAND, BRANCH, PARTNER_TERRITORY, ID_OUTLET, OUTLET_NAME, PROGRAM
 (AVA also TARGET 50 / 150 pcs per outlet). Only the 7 Inner Jakarta branches are kept (the AVA sheet covers all of Java; branch spelling is
@@ -34,7 +34,7 @@ def branch(v):
 
 
 def main():
-    files = sorted(glob.glob(os.path.join(ROOT, 'raw', 'Catalogue', 'Whitelist_Outlet_Program_v*.xlsb')))
+    files = sorted(glob.glob(os.path.join(ROOT, 'raw', 'Catalogue', 'Whitelist_Outlet_Program*.xlsb')), key=os.path.getmtime)   # newest upload wins (v1, Nov_2026, ...)
     if not files:
         print('  no Whitelist_Outlet_Program_v*.xlsb in raw/Catalogue: whitelist not applied'); return
     sh = read_sheets(files[-1], set(SHEETS))
