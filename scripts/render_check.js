@@ -20,7 +20,7 @@ global.document = {
   createElement: el, body: el(), documentElement: el(), addEventListener: noop
 };
 
-for (const f of ['period_history.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'program_target_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js', 'dsf_feed.js']) {
+for (const f of ['period_history.js', 'target_kpi_feed.js', 'feed.js', 'territory_feed.js', 'jakarta_map_feed.js', 'dse_visits_feed.js', 'sellin_feed.js', 'penjualan_feed.js', 'demand_feed.js', 'dse_kpi_feed.js', 'endbal_feed.js', 'stock_feed.js', 'target_feed.js', 'dse_coverage.js', 'ga_feed.js', 'ga_site_feed.js', 'kro_feed.js', 'kro_slim.js', 'program_daily_feed.js', 'program_target_feed.js', 'pjp_mapping_feed.js', 'dse_flags.js', 'dse_catalogue_feed.js', 'outlet_catalogue_feed.js', 'vanguard_feed.js', 'dsf_feed.js']) {
   require(require('./feed_dir')(root, f));
 }
 // dse_visits_feed.js declares `var dseVisitsFeed`, which is module-scoped under
@@ -396,6 +396,18 @@ for (const dt of ['2026-10-12', '2026-10-15', '2026-10-18', '']) { state.prDoc =
 state.prMode = 'print'; state.kec = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0]; check('print/pjp/print-mode/mc', VIEWS.mb_ringkasan); state.kec = ''; state.prMode = 'preview';
 state.prDate = '2026-10-15'; check('print/pjp/all', VIEWS.mb_ringkasan); state.prDoc = 'opp'; state.rkTab = 'dse';
 state.pmTab = 'harian'; for (const dt of ['2026-10-12', '2026-10-16', '2026-10-18', '']) { state.pmDate = dt; check('cfg_pjp/harian/' + (dt || 'kosong'), VIEWS.cfg_pjp); } state.pmDate = '2026-10-15'; state.pmTab = 'ringkasan';
+// Target KPI IE per HoA / DSO / partner, month by month: every tab x month x brand x KPI group, with the achievement cells for the running month
+{ const TK = global.TARGET_KPI_FEED;
+  if (!TK || !TK.metadata.months.length) { failures++; console.log('✗ target_kpi_feed not loaded'); }
+  else for (const tb of ['hoa', 'dso', 'pt', 'bridge']) for (const mo of TK.metadata.months.map(m => m.m)) for (const br of ['IOH', 'IM3', '3ID']) for (const kg of ['all', 'Sell-In', 'Gross Add', 'Revenue & Trade']) {
+    state.view = 'cfg_target'; state.cfTab = tb; state.cfMonth = mo; state.cfBrand = br; state.cfKg = kg; state.branch = ''; state.kec = '';
+    check('cfg_target/kpi/' + tb + '/' + mo + '/' + br + '/' + kg, VIEWS.cfg_target); }
+  // reconcile the feed: Area and MC sums = Region (IOH, additive KPIs) for every month, partner sums = Region (Nov)
+  for (const mo of TK.metadata.months) { const D = TK.months[mo.m];
+    for (const k of mo.kpis.filter(x => !/KAM/.test(x))) { const rg = (D.region.IOH || {})[k]; if (rg == null) continue;
+      const sa = D.areas.reduce((a, x) => a + ((x.IOH || {})[k] || 0), 0), sm = D.mcs.reduce((a, x) => a + ((x.IOH || {})[k] || 0), 0);
+      if (Math.abs(sa - rg) > Math.max(1, Math.abs(rg) * 1e-5) || Math.abs(sm - rg) > Math.max(1, Math.abs(rg) * 1e-5)) { failures++; console.log('✗ target_kpi ' + mo.m + ' ' + k + ': region ' + rg + ' area ' + sa + ' mc ' + sm); } } }
+  state.cfTab = 'ringkasan'; state.cfMonth = ''; state.cfBrand = 'IOH'; state.cfKg = 'all'; }
 for (const tb of ['ringkasan', 'dse', 'rebalancing']) for (const bs of ['prorata', 'full']) { state.view = 'cfg_target'; state.cfTab = tb; state.cfBasis = bs; state.cfPage = 1; check('cfg_target/' + tb + '/' + bs, VIEWS.cfg_target); }
 state.cfBasis = 'prorata'; state.cfCollapsed = { BEKASI: true }; state.cfTab = 'ringkasan'; check('cfg_target/collapsed', VIEWS.cfg_target); state.cfCollapsed = {};
 state.branch = fb.branch; for (const tb of ['ringkasan', 'dse', 'rebalancing']) { state.cfTab = tb; check('cfg_target/' + tb + '/branch', VIEWS.cfg_target); }
