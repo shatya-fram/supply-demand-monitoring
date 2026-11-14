@@ -333,7 +333,7 @@ def main():
                 'sp_target': 'official Sell-In SP target in pcs per DSE (rebalanced), prorated MTD in the app',
                 'sp3_pcs': 'SP 3GB pcs sold in to DSE-mapped outlets = the SP KPI (SP Data Sell-In) together with spi_pcs (September baseline on the same basis: sp3_lpcs + spi_lpcs for LMTD, sp3_sep + spi_sep for the full month); SP Zero / 3ID KPK and empty-card bundles / FWA are in sp0_pcs and are not counted, other SP in spx_pcs', 'sp_pcs': 'SP pcs sold in (all brands, all SP products, memo) to DSE-mapped outlets; SP injection (digital, MOBO) is in spi_pcs / spi_amt / spi_out, MTD only; the app adds it to SP achievement (switch on by default)',
                 'uar': 'DSE-mapped outlets with >= 5 SP pcs in the period',
-                'effective_call': 'productive visits (executed visit with SP/VC qty > 0 or saldo > Rp 50K) / planned visits (fix PJP); toggle: executed visits',
+                'effective_call': 'productive visits (executed visit with SP/VC qty > 0 or saldo >= Rp 75K; Hybrid outlet: IM3 + 3ID saldo combined, owner 13 Nov 2026) / planned visits (fix PJP); toggle: executed visits',
                 'class': 'urban/rural by branch rule (KARAWANG, KAB BEKASI = rural) unless the targets file gives U|R',
             },
             'unmatched_penjualan_outlets': unmatched, 'duplicate_visit_rows': dup,

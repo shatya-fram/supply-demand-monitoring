@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 14 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 13 Nov; GA tetap D10
+- MOBII, MOBO, SALMO 14 Nov 06:13, PJP D13, ENDBAL snapshot 13 Nov (27.197 outlet). GA by Outlet dan Fav Locs tidak berubah (file 11 Nov, cut D10; D11-D13 belum ada). KRO, Stock, flag non-PJP dan period history dibangun manual.
+- Penjualan MTD: SP Rp 692,8 jt, SALMO Rp 10.929,3 jt; Demand SALMO Rp 61,51 B; PJP 93.184 planned, 88.330 actual (94,8%), productive 49.321 (aturan Effective Call baru, aturan lama 49.372). ENDBAL: baris naik ke 189.379 karena ~57 ribu baris kosong bersaldo 0 (saldo tidak terpengaruh). Semua audit lulus kecuali audit_sp (de-dup SP Injection 27,5% > batas 15%; D13 +4.508 pcs di 3 id, tetap dihitung sebagai performa). Detail: `docs/assessments/daily_update_2026-11-14.md`.
+
 ## 13 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 12 Nov; GA tetap D10
 - MOBII dan SALMO 12 Nov 23:05, PJP D12 (12 Nov 23:06), ENDBAL snapshot 12 Nov (27.192 outlet). MOBO Demand D12 masuk saat scan ulang 06:12 dengan nama `DAILY_DATA_MOBO_202611 (1).xlsb` (terbaca otomatis; berkas lama sudah tidak ada). GA by Outlet dan Fav Locs tidak berubah (file 11 Nov, cut D10).
 - Penjualan MTD: SP Rp 574,9 jt, SALMO Rp 9.469,4 jt; Demand SALMO Rp 54,81 B; PJP 84.636 planned, 80.050 actual (94,6%). KRO, Stock, flag non-PJP dan period history dibangun manual. Semua audit lulus kecuali audit_sp (de-dup SP Injection 19,9% > batas 15%, tidak ada de-dup baru; menunggu keputusan pemilik). Ikut di commit: Promotor 213 -> 228 dari whitelist Nov (sesi lain). Detail: `docs/assessments/daily_update_2026-11-13.md`.

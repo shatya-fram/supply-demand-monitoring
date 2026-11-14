@@ -15,7 +15,7 @@ Grain and definitions
   * Planned stops           = distinct PJP stops.
   * Executed stops (actual) = stops with at least one "Check In" / "Completed" row.
   * Productive stops        = executed stops whose "Sell In" row carries SP or VC quantity > 0, or whose
-                              "Balance Transfer" row carries saldo > Rp 50,000 (SALDO_MIN_RP). The older
+                              "Balance Transfer" row carries saldo >= Rp 75,000 (SALDO_MIN_RP; Hybrid outlets combine IM3 + 3ID, owner 13 Nov 2026). The older
                               status-only rule ("Sell In" or "Balance Transfer" = Completed) is kept as
                               "flow completed" because the app marks those steps Completed on nearly every
                               check-in (97%) regardless of whether anything was sold.
@@ -138,7 +138,8 @@ MISSING_DAYS = [_fmt(d) for d in range(1, _last_day + 1) if d not in _covered]
 N_BUSINESS_DAYS = sum(1 for d in range(1, _last_day + 1) if d in _covered and datetime(_year, _month, d).weekday() != 6)   # Sundays and days without data excluded
 
 OUTSIDE = "OUTSIDE MASTER TERRITORY"
-SALDO_MIN_RP = 50000          # a balance transfer counts as productive only above this amount
+SALDO_MIN_RP = 75000          # owner 13 Nov 2026: a balance transfer counts as effective from this amount (was > 50,000 per stop); a Hybrid outlet combines the IM3 and 3ID saldo of the day
+SALDO_MIN_RP_V1 = 50000       # previous rule, kept only to report the old count (regional_summary.productive_visits_old_rule)
 # Raw BRANCH names that are the same territory as a master branch (used only when the raw MC is unknown).
 BRANCH_ALIAS = {
     "KOTA BEKASI": "BEKASI",
@@ -620,15 +621,43 @@ for brand, zpath in FILES:
 if skipped_region:
     print(f"  Rows of other regionals skipped (Inner Jakarta only): {sum(skipped_region.values()):,} {dict(skipped_region)}")
 prod_without_ci = 0
+# Effective Call, hybrid approach (owner, 13 Nov 2026): one physical outlet per day. Effective = SP / Voucher pcs > 0 or saldo >= SALDO_MIN_RP; for a Hybrid outlet the IM3 and 3ID
+# saldo of the day are COMBINED (one brand or both can make the outlet effective); otherwise every sale counts on its own. A stop is productive when its outlet-day is effective and
+# the stop carried Sell-In itself (Hybrid) or met the rule alone (not Hybrid).
+_EM0 = entity_map.get()
+_acc = {}
+for (_b, _sc, _bp, _og), _s in stops.items():
+    if not _s["ci"]:
+        continue
+    _a = _acc.setdefault((_s["k"] or _EM0.entity_of(_b, _og), _sc), {"phys": False, "sal": 0, "own": False, "hy": False})
+    _a["phys"] = _a["phys"] or _s["sp"] > 0 or _s["vc"] > 0
+    _a["sal"] += _s["saldo"]
+    _a["own"] = _a["own"] or _s["saldo"] >= SALDO_MIN_RP
+    _a["hy"] = _a["hy"] or _EM0.brand_flag_of(_b, _og) == "HYBRID"
+def _ent_eff(a):
+    return a["phys"] or ((a["sal"] >= SALDO_MIN_RP) if a["hy"] else a["own"])
+old_rule_productive = 0
 for (brand, sched, _bp, _org), s in stops.items():
-    phys = s["sp"] > 0 or s["vc"] > 0
-    sal = s["saldo"] > SALDO_MIN_RP
+    if s["ci"] and not s["x"] and (s["sp"] > 0 or s["vc"] > 0 or s["saldo"] > SALDO_MIN_RP_V1):
+        old_rule_productive += 1
+    _a = _acc.get((s["k"] or _EM0.entity_of(brand, _org), sched))
+    _tx = s["sp"] > 0 or s["vc"] > 0 or s["saldo"] > 0
+    if _a is not None and _a["hy"]:
+        _pf = _ent_eff(_a) and _tx
+    else:
+        _pf = s["sp"] > 0 or s["vc"] > 0 or s["saldo"] >= SALDO_MIN_RP
+    phys = _pf and (s["sp"] > 0 or s["vc"] > 0)
+    sal = _pf and not phys
     flow = s["si"] or s["bt"]
     s["pf"] = bool(phys or sal)
     if not s["ci"]:
         if phys or sal:
             prod_without_ci += 1
         continue
+    _od = op_outlet_days[s["pid"]].get((brand, _org))
+    if _od is not None and (s["sp"] or s["vc"] or s["saldo"]):    # Sell-In transacted during the visit, per outlet and day (13 Nov 2026: Effective Call per outlet)
+        _e = _od.setdefault("e", {}).setdefault(sched, [0, 0, 0])
+        _e[0] += s["sp"]; _e[1] += s["vc"]; _e[2] += s["saldo"]
     if phys or sal:       # productive visit per day for branch / MC / person (Effective Call D-1)
         for lvl, key in ((("br", s["br"]), ("mc", s["mc"])) if not s["x"] else ()) + ((("op", s["pid"]),) if s["x"] != "adhoc" else ()):
             daily_by[lvl][key][sched][6] += 1
@@ -694,7 +723,7 @@ def ent_fields(c):
 pjp_stops = {k_: v_ for k_, v_ in stops.items() if not v_["x"]}      # promotor and ad-hoc visits are not PJP measures
 total_planned = len(pjp_stops)
 total_actual = sum(1 for s in pjp_stops.values() if s["ci"])
-total_productive = sum(1 for s in pjp_stops.values() if s["ci"] and (s["sp"] > 0 or s["vc"] > 0 or s["saldo"] > SALDO_MIN_RP))
+total_productive = sum(1 for s in pjp_stops.values() if s["ci"] and s["pf"])
 total_flow = sum(1 for s in pjp_stops.values() if s["ci"] and (s["si"] or s["bt"]))
 print(f"  Stops: planned={total_planned:,} executed={total_actual:,} ({total_actual / total_planned * 100:.1f}%), "
       f"productive={total_productive:,} (qty/saldo rule), flow-completed={total_flow:,}, sales-without-check-in={prod_without_ci:,}")
@@ -857,9 +886,13 @@ for pid, S in op_stats.items():
     row["daily"] = daily_series("op", pid)
     row["outlets"] = sorted(
         [{"id": f"{b}:{org}", "b": b, "n": od["n"], "mc": od["mc"], "k": od["k"], "d": "".join(od["d"].get(d, ".") for d in DAYS),
+          **({"hy": 1} if entity_map.brand_flag_of(b, org) == "HYBRID" else {}),
           **({"a": "".join("a" if (d in od["ah"] and d not in od.get("pl", ())) else "." for d in DAYS)} if od.get("ah") and any(d in od["ah"] and d not in od.get("pl", ()) for d in DAYS) else {})}      # a = ad-hoc visit (no BEATPLANID) on a day the outlet had no planned stop
          for (b, org), od in op_outlet_days[pid].items()],
         key=lambda o: (o["n"].upper(), o["id"]))
+    for _o, ((_b, _org), _od) in zip(row["outlets"], sorted(op_outlet_days[pid].items(), key=lambda kv: (kv[1]["n"].upper(), f"{kv[0][0]}:{kv[0][1]}"))):
+        if _od.get("e"):   # e = [[day index, SP pcs, voucher pcs, saldo Rp]] of the visits that carried Sell-In (feeds the per-outlet Effective Call view)
+            _o["e"] = [[DAYS.index(d), int(v[0]), int(v[1]), int(v[2])] for d, v in sorted(_od["e"].items()) if d in DAYS]
     dse_list.append(row)
 dse_list.sort(key=lambda r: (-r["planned_visits"], r["dse_name"]))
 ops_summary = {
@@ -972,7 +1005,8 @@ regional_summary = {
     "im3_visits": sum(d["im3"] for d in daily_stats.values()), "3id_visits": sum(d["3id"] for d in daily_stats.values()),
     "productive_visits": total_productive, "productive_rate": round(total_productive / total_actual * 100, 1) if total_actual else 0.0,
     "productive_phys": sum(d["prod_phys"] for d in daily_stats.values()), "productive_saldo": sum(d["prod_saldo"] for d in daily_stats.values()),
-    "productive_rule": f"Sell In SP or VC qty > 0, or Balance Transfer saldo > Rp {SALDO_MIN_RP:,}", "saldo_min_rp": SALDO_MIN_RP,
+    "productive_rule": f"Effective Call per outlet-day: Sell In SP or VC qty > 0, or Balance Transfer saldo >= Rp {SALDO_MIN_RP:,} (Hybrid outlet: IM3 + 3ID saldo of the day combined; otherwise each sale on its own)", "saldo_min_rp": SALDO_MIN_RP,
+    "productive_visits_old_rule": old_rule_productive, "productive_old_rule": f"previous rule (until 12 Nov 2026): SP or VC qty > 0, or saldo > Rp {SALDO_MIN_RP_V1:,} per brand stop",
     "flow_completed": total_flow, "flow_rate": round(total_flow / total_actual * 100, 1) if total_actual else 0.0,
     "sp_qty": int(sum(d["sp_qty"] for d in daily_stats.values())), "vc_qty": int(sum(d["vc_qty"] for d in daily_stats.values())), "saldo_rp": int(sum(d["saldo_rp"] for d in daily_stats.values())),
     "sellin_visits": sum(d["sellin"] for d in daily_stats.values()), "balance_visits": sum(d["balance"] for d in daily_stats.values()),

@@ -2707,7 +2707,7 @@
           drill: { lv: 'dse', dse: d.person_id } });
       });
     } else {
-      var brand = state.visitsBrandFilter || 'all';
+      var brand = state.visitsBrandFilter || 'all', ecWant = state.pjpMetric === 'ec' && pvHasE(feed);
       visitsDseInScope(feed).forEach(function (d) {
         var groups = {}, order = [];
         (d.outlets || []).forEach(function (o) {
@@ -2721,17 +2721,17 @@
         order.forEach(function (gk) {
           var G = groups[gk], o = G[0], ids = G.map(function (x) { return x.id; }).join(' / ');
           if (!okQ(G.map(function (x) { return x.n; }).join(' ') + ' ' + ids + ' ' + o.mc + ' ' + d.dse_name)) return;
-          var daily = [], pl = 0, ac = 0, n = o.d.length;
+          var daily = [], pl = 0, ac = 0, n = o.d.length, km = ecWant ? (ecDseMaps(feed)[d.person_id] || {})[o.k || o.id] : null;
           for (var i = 0; i < n; i++) {
             var any = 0, ex = 0, allA = 1;
             G.forEach(function (x) { var ch = x.d[i]; if (ch !== '.') { any = 1; if (!(x.a && x.a[i] === 'a')) allA = 0; } if (ch === 'x') ex = 1; });
-            var p = any, a = any && allA ? 1 : 0; pl += p; ac += ex; daily.push([p, ex, 0, a]);
+            var p = any, a = any && allA ? 1 : 0, eff = ex && !ent && km && km.e[i] ? 1 : 0; pl += p; ac += ex; daily.push([p, ex, eff, a]);
           }
-          out.push({ key: d.person_id + '|' + ids, label: G.reduce(function (m, x) { return m || x.n; }, '') || o.id, sub: ids, parent: o.mc + ' · ' + d.dse_name, planned: pl, actual: ac, prod: null, daily: daily, master: o.k, br: d.branch, mc: o.mc || d.micro_cluster, dse: d.dse_name, dso: d.dso_leader, hoa: d.hoa_leader, drill: null });
+          out.push({ key: d.person_id + '|' + ids, label: G.reduce(function (m, x) { return m || x.n; }, '') || o.id, sub: ids, parent: o.mc + ' · ' + d.dse_name, planned: pl, actual: ac, prod: null, daily: daily, master: o.k, hasE: pvHasE(feed), br: d.branch, mc: o.mc || d.micro_cluster, dse: d.dse_name, dso: d.dso_leader, hoa: d.hoa_leader, drill: null });
         });
       });
     }
-    out.forEach(function (r) { r.ah = (r.daily || []).reduce(function (a, c) { return a + (c[3] || 0); }, 0); });
+    out.forEach(function (r) { r._lv = level; r.ah = (r.daily || []).reduce(function (a, c) { return a + (c[3] || 0); }, 0); });
     out.sort(function (a, b) { return b.planned - a.planned || String(a.label).localeCompare(String(b.label)); });
     return out;
   }
@@ -3537,7 +3537,7 @@
     // 2. KPI cards: follow the filter bar (Branch / HoA / MC), the temporal window and the brand filter
     var sc = visitsScope(feed);
     var gw = summary.growth_wow || {};
-    var prodRule = summary.productive_rule || 'SP/VC qty > 0 or saldo > Rp 50K';
+    var prodRule = summary.productive_rule || 'SP/VC qty > 0 or saldo >= Rp 75K (Hybrid: IM3 + 3ID combined)';
     var kpisHtml = '<div class="kpis" style="margin-top:10px;">' +
       kpi('Target Hit Rate · PJP (P)', sc.hitP + '%', fmtCount(sc.actP) + ' of ' + fmtCount(sc.planP) + ' PJP stops on a beat plan', sc.hitP >= 60 ? 'up' : 'down', sc.scoped ? 'Scope: ' + esc(sc.label) : 'W2 ' + gw.w2_compliance + '% vs W1 ' + gw.w1_compliance + '% (total, P + A)') +
       kpi('Ad-hoc Visits (A)', fmtCount(sc.ah), pctOf(sc.ah, sc.actual) + '% of ' + fmtCount(sc.actual) + ' visits · total (P + A) hit ' + sc.hit + '%', 'up', 'Check-in without a beat plan (BEATPLANID empty), never in the plan') +
@@ -10779,52 +10779,182 @@
       '<td>' + (best ? esc(best.d.slice(0, 6)) + ' · ' + Math.round(best.h * 100) + '%' : '—') + '</td><td>' + (worst ? esc(worst.d.slice(0, 6)) + ' · ' + Math.round(worst.h * 100) + '%' : '—') + '</td></tr>';
     return card('Scorecard PJP · ' + esc(sc.label) + ' · ' + pjpPeriod('mtd',{id:1}) + ' 2026',
       '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + scPjpHead(false) + th('Rencana / hari aktif', 1) + th('Terlaksana / hari aktif', 1) + th('Hari aktif', 1) + th('% Produktif', 1) + th('Outlet PJP', 1) + th('Divisit MTD', 1) + th('Belum pernah divisit', 1) + th('Site gelap MTD', 1) + th('Hari terbaik') + th('Hari terburuk') + '</tr></thead><tbody>' + row + '</tbody></table></div>' +
-      '<p class="note">Rata-rata harian dihitung atas hari yang punya rencana kunjungan dalam cakupan ini. Produktif = SP/VC qty &gt; 0 atau saldo &gt; Rp 50 rb. Site gelap = site DSO tanpa satu pun outlet divisit.</p><p class="note"><b>Entity:</b> ' + (entityLine(vf, true) || 'tidak dipisah per brand (Hybrid punya dua brand); kosongkan filter brand.') + '</p>');
+      '<p class="note">Rata-rata harian dihitung atas hari yang punya rencana kunjungan dalam cakupan ini. Produktif = SP/VC qty &gt; 0 atau saldo ≥ Rp 75 rb (outlet Hybrid: saldo IM3 + 3ID digabung per hari). Site gelap = site DSO tanpa satu pun outlet divisit.</p><p class="note"><b>Entity:</b> ' + (entityLine(vf, true) || 'tidak dipisah per brand (Hybrid punya dua brand); kosongkan filter brand.') + '</p>');
+  }
+  /* ===== Effective Call per outlet and day (owner, 13 Nov 2026) =====
+     A visit is EFFECTIVE when the outlet bought Sell-In that day: SP or Voucher qty > 0, or saldo >= Rp 75,000 (Hybrid: IM3 + 3ID combined; same rule as the PJP feed). The visits feed carries only
+     counts per day, so per outlet and day the rule is applied to the penjualan feed (daily lines of each outlet). Days after the Sell-In cut are unknown (n/a, never 0). */
+  var _pvIdx = null;
+  function pvIndex() {
+    var F = pjFeed(); if (!F) return null;
+    if (_pvIdx && _pvIdx.F === F) return _pvIdx;
+    var m = {}; (F.outlets || []).forEach(function (o) { m[o.k] = o; });
+    return (_pvIdx = { F: F, by: m, cut: (F.metadata || {}).cut_day || 0 });
+  }
+  function pvDayNo(vf, i) { var d = ((vf.metadata || {}).days || [])[i]; return d ? parseInt(d, 10) : 0; }
+  function pvCat(o, cat, dayNo) { var v = 0, q = 0; ((o && o.c && o.c[cat] && o.c[cat][10]) || []).forEach(function (e) { if (e[0] === dayNo) { v += e[1]; q += e[2]; } }); return [v, q]; }
+  /* Effective visit = the visit carried Sell-In: SP or Voucher pcs > 0, or saldo >= Rp 75,000. The visits feed keeps, per outlet row, the Sell-In of its visits as
+     o.e = [[day index, SP pcs, voucher pcs, saldo Rp]] (the rule of the feed itself, so the numbers agree with the Produktif counts). Feeds built before 13 Nov 2026 have no o.e (n/a). */
+  var EC_SALDO_MIN = 75000;   /* owner 13 Nov 2026: Effective Call needs saldo of at least Rp 75,000 (IM3 + 3ID of a Hybrid outlet combined) or SP / Voucher pcs > 0 */
+  var _pvHasE = null;
+  function pvHasE(vf) { if (_pvHasE && _pvHasE.vf === vf) return _pvHasE.v; var v = (vf.dses || []).some(function (d) { return (d.outlets || []).some(function (o) { return !!o.e; }); }); _pvHasE = { vf: vf, v: v }; return v; }
+  function pvEntry(o, i) { var e = null; (o.e || []).some(function (x) { if (x[0] === i) { e = x; return true; } return false; }); return e; }
+  function pvE(vf, o, i) {   // 1 effective, 0 visit without Sell-In, null = feed has no per-visit Sell-In
+    if (!pvHasE(vf)) return null; var e = pvEntry(o, i);
+    return e && (e[1] > 0 || e[2] > 0 || e[3] >= EC_SALDO_MIN) ? 1 : 0;
+  }
+  /* Effective Call per outlet and day, hybrid approach (owner, 13 Nov 2026):
+     - one physical outlet (key k) is ONE visited outlet per day, whatever the brand (IM3, 3ID, both);
+     - Hybrid outlet (master brand_flag HYBRID): the saldo of the IM3 and the 3ID visit of that day is COMBINED; effective when the combined saldo >= Rp 75,000 or any SP / Voucher
+       pcs > 0, so one brand alone or both together can make the outlet effective;
+     - not Hybrid: every sale counts on its own (SP / Voucher pcs > 0, or saldo >= Rp 75,000), for IM3 or 3ID standalone. */
+  var _ecHy = null;
+  function ecHybrid() {
+    var T = (typeof window !== 'undefined') ? window.TERRITORY_FEED : null; if (!T) return {};
+    if (_ecHy && _ecHy.T === T) return _ecHy.m;
+    var m = {}; (T.outlets || []).forEach(function (o) { if (o.brand_flag === 'HYBRID' && o.outlet_key) m[o.outlet_key] = 1; });
+    _ecHy = { T: T, m: m }; return m;
+  }
+  var _ecMaps = null;
+  function ecDseMaps(vf) {   // person id -> outlet key -> { v: [visited per day], e: [effective per day], hy }
+    if (_ecMaps && _ecMaps.vf === vf && _ecMaps.T === window.TERRITORY_FEED) return _ecMaps.by;
+    var HY = ecHybrid(), n = ((vf.metadata || {}).days || []).length, by = {};
+    (vf.dses || []).forEach(function (d) {
+      var G = {};
+      (d.outlets || []).forEach(function (o) { var k = o.k || o.id; (G[k] = G[k] || []).push(o); });
+      var M = {};
+      Object.keys(G).forEach(function (k) {
+        var rows = G[k], hy = !!HY[k] || rows.some(function (x) { return x.hy; }), v = [], e = [];
+        for (var i = 0; i < n; i++) {
+          var ex = rows.filter(function (x) { return x.d[i] === 'x'; }), eff = 0;
+          if (ex.length) {
+            var sal = 0, phys = false, own = false;
+            ex.forEach(function (x) { var en = pvEntry(x, i); if (!en) return; if (en[1] > 0 || en[2] > 0) phys = true; sal += en[3]; if (en[3] >= EC_SALDO_MIN) own = true; });
+            eff = (phys || (hy ? sal >= EC_SALDO_MIN : own)) ? 1 : 0;
+          }
+          v.push(ex.length ? 1 : 0); e.push(eff);
+        }
+        M[k] = { v: v, e: e, hy: hy };
+      });
+      by[d.person_id] = M;
+    });
+    _ecMaps = { vf: vf, T: window.TERRITORY_FEED, by: by }; return by;
+  }
+  function ecSum(vf, maps) {   // union over DSE maps: an outlet visited by two DSEs the same day counts once
+    var n = ((vf.metadata || {}).days || []).length, u = {}, dayV = [], dayE = [], i, oV = 0, oE = 0;
+    maps.forEach(function (M) { if (!M) return; Object.keys(M).forEach(function (k) { var a = M[k], b = u[k]; if (!b) u[k] = { v: a.v.slice(), e: a.e.slice() }; else for (i = 0; i < n; i++) { b.v[i] |= a.v[i]; b.e[i] |= a.e[i]; } }); });
+    for (i = 0; i < n; i++) { dayV.push(0); dayE.push(0); }
+    Object.keys(u).forEach(function (k) { var a = u[k], av = 0, ae = 0; for (i = 0; i < n; i++) { dayV[i] += a.v[i]; dayE[i] += a.e[i]; av |= a.v[i]; ae |= a.e[i]; } oV += av; oE += ae; });
+    return { dayV: dayV, dayE: dayE, oV: oV, oE: oE };
+  }
+  function ecRowStats(vf, r, level) {
+    var by = ecDseMaps(vf), maps;
+    if (level === 'dse') maps = [by[r.key]];
+    else if (level === 'outlet') { var pid = String(r.key).split('|')[0], M = by[pid], k = r.master || String(r.sub || '').split(' / ')[0], one = {}; if (M && M[k]) one[k] = M[k]; maps = [one]; }
+    else maps = visitsDseInScope(vf).filter(function (d) { return level === 'mc' ? d.micro_cluster === r.key : d.branch === r.key; }).map(function (d) { return by[d.person_id]; });
+    return ecSum(vf, maps);
+  }
+  function ecUnionStats(vf, list) {   // several rows (group / total): outlets of different rows are different outlets, except the same outlet visited by two rows
+    var by = ecDseMaps(vf), maps = [], seen = {};
+    list.forEach(function (r, ix) {
+      var lv = r._lv;
+      if (lv === 'dse') { if (!seen['d' + r.key]) { seen['d' + r.key] = 1; maps.push(by[r.key]); } }
+      else if (lv === 'outlet') { var pid = String(r.key).split('|')[0], M = by[pid], k = r.master || String(r.sub || '').split(' / ')[0], o = {}; if (M && M[k]) { o[k] = M[k]; maps.push(o); } }
+      else visitsDseInScope(vf).forEach(function (d) { if ((lv === 'mc' ? d.micro_cluster === r.key : d.branch === r.key) && !seen['d' + d.person_id]) { seen['d' + d.person_id] = 1; maps.push(by[d.person_id]); } });
+    });
+    return ecSum(vf, maps);
+  }
+  function ecDayCell(S, i) {
+    var p = S.dayV[i], x = S.dayE[i];
+    if (!p) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
+    var pct = Math.round(x / p * 100), band = heatBand(Math.round(pct / EC_TARGET * 100));
+    return '<td class="num" title="' + x + ' outlet melakukan Effective Call dari ' + p + ' outlet yang divisit hari itu; target Eff Call ' + EC_TARGET + '%" style="background:' + band.bg + '; color:' + band.fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + x + '/' + p + '</span></td>';
+  }
+  function ecOverallCells(S, bold) {
+    var o = bold ? '<b>' : '', c = bold ? '</b>' : '', V = 0, E = 0; S.dayV.forEach(function (x) { V += x; }); S.dayE.forEach(function (x) { E += x; });
+    return '<td class="num">' + o + fmtCount(V) + c + '</td><td class="num cur">' + o + fmtCount(E) + c + '</td><td class="num">' + o + (V ? (E / V * 100).toFixed(1) : '0.0') + '%' + c + '</td>' +
+      '<td class="num" title="Outlet unik: minimal satu Effective Call di bulan ini ÷ outlet unik yang pernah divisit">' + o + fmtCount(S.oE) + ' / ' + fmtCount(S.oV) + c + '<br><span style="font-size:11px; font-weight:500;">' + (S.oV ? Math.round(S.oE / S.oV * 100) + '%' : '—') + '</span></td>';
+  }
+  /* cell of one outlet and day in the Eff Call view: green = effective, amber = visit without an effective Sell-In, grey = feed without Sell-In per visit; click = what was transacted */
+  function ecOutletCell(vf, r, i) {
+    var c = (r.daily || [])[i] || [0, 0, 0, 0], key = 'pv|' + (r.master || '') + '|' + i + '|' + r.sub;
+    var visited = !!c[1], adhoc = !!c[3] && !!c[1], planned = !!c[0];
+    if (!planned && !visited) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
+    if (!visited) return '<td title="Target Permanent, tidak dikunjungi" style="background:#fee2e2; color:#991b1b; text-align:center; font-weight:800;">○</td>';
+    var e = r.hasE ? (c[2] ? 1 : 0) : null, sym = adhoc ? 'A' : '✓', bg, fg, tip;
+    if (e === 1) { bg = '#16a34a'; fg = '#fff'; tip = 'Visit EFEKTIF (SP / Voucher, atau saldo >= Rp 75 Rb; Hybrid: IM3 + 3ID digabung). Klik: nilai yang ditransaksikan'; }
+    else if (e === 0) { bg = '#fde68a'; fg = '#92400e'; tip = 'Visit TIDAK efektif (tanpa SP / Voucher dan saldo < Rp 75 Rb). Klik: detail'; }
+    else { bg = '#e5e7eb'; fg = '#374151'; tip = 'Visit terlaksana; Sell-In per visit belum ada di feed ini (n/a). Klik: detail'; }
+    return '<td data-ov="' + esc(key) + '" role="button" tabindex="0" title="' + tip + (adhoc ? ' · adhoc' : '') + '" style="cursor:pointer; background:' + bg + '; color:' + fg + '; text-align:center; font-weight:800;">' + sym + '</td>';
+  }
+  /* popup of one outlet visit: Sell-In of that day by category (Rp and qty) + SP Injection (MOBO) */
+  function pvLazy(key) {
+    var p = String(key).split('|'), k = p[1], i = +p[2], id = p[3] || '', vf = mbVisitsFeed(), X = pvIndex(); if (!vf) return null;
+    var dayNo = pvDayNo(vf, i), dayLbl = ((vf.metadata || {}).days || [])[i] || '', o = X ? X.by[k] : null, name = id, dse = '', mc = '', same = [], hy = !!ecHybrid()[k];
+    (vf.dses || []).forEach(function (d) { var hit = (d.outlets || []).filter(function (x) { return x.k === k; }); if (!hit.length) return; if (hit.some(function (x) { return x.id === id; })) { dse = d.dse_name; hit.forEach(function (x) { if (x.d[i] === 'x') same.push(x); if (x.id === id) { name = x.n || id; mc = x.mc || d.micro_cluster; if (x.hy) hy = true; } }); } });
+    var rows = [], tv = 0, sal = 0, phys = false, own = false, ok = X && dayNo <= X.cut;
+    var brandRows = same.map(function (x) { var en = pvEntry(x, i) || [i, 0, 0, 0]; sal += en[3]; if (en[1] > 0 || en[2] > 0) phys = true; if (en[3] >= EC_SALDO_MIN) own = true; return [x.id, fmtCount(en[1]) + ' pcs', fmtCount(en[2]) + ' pcs', pjRp(en[3])]; });
+    var eff = phys || (hy ? sal >= EC_SALDO_MIN : own);
+    var cats = [['SP', 'Starter Pack (SP)'], ['VCF', 'Voucher isi'], ['VCB', 'Voucher blank'], ['SALMO', 'Saldo Mobo']];
+    cats.forEach(function (c) { var x = pvCat(o, c[0], dayNo); tv += x[0]; rows.push([c[1], c[0] === 'SALMO' ? 'n/a' : (ok ? fmtCount(x[1]) : 'n/a'), ok ? pjRp(x[0]) : 'n/a']); });
+    var D = poFeed(), dc = null; if (D) (D.outlets || []).some(function (x) { if (x.k === k) { dc = x; return true; } return false; });
+    var spi = [0, 0]; if (dc && dc.c && dc.c.SPI) (dc.c.SPI[4] || []).forEach(function (e) { if (e[0] === dayNo) { spi[0] += e[1]; spi[1] += e[2]; } });
+    rows.push(['SP Injection (MOBO, sell-out)', fmtCount(spi[1]), pjRp(spi[0])]);
+    rows.push(['Total Sell-In outlet (SP + Voucher + Saldo)', '', ok ? pjRp(tv) : 'n/a']);
+    var st = !pvHasE(vf) ? 'n/a (feed ini belum memuat Sell-In per visit)' : (eff ? 'EFEKTIF' : 'TIDAK efektif');
+    return { title: 'Visit ' + name + ' · ' + dayLbl.slice(0, 6) + ' · ' + (dse || '—'), cols: ['Kategori', 'Qty', 'Nilai (Rp)'], rows: rows,
+      lines: ['Hasil Effective Call outlet: ' + st + (hy ? ' · outlet HYBRID: saldo IM3 + 3ID digabung ' + pjRp(sal) + ' (minimum ' + pjRp(EC_SALDO_MIN) + ')' : ' · bukan Hybrid: tiap penjualan berdiri sendiri (minimum saldo ' + pjRp(EC_SALDO_MIN) + ')'),
+        'Sell-In saat visit (feed MOBI) per brand id: ' + (brandRows.length ? brandRows.map(function (b) { return b[0] + ' → SP ' + b[1] + ', Voucher ' + b[2] + ', Saldo ' + b[3]; }).join(' · ') : 'tidak ada'),
+        'ID ' + id + ' · ' + (mc || '—') + ' · outlet ' + k, 'Efektif = SP atau Voucher > 0 pcs, atau saldo >= ' + pjRp(EC_SALDO_MIN) + '. Tabel: Sell-In outlet pada hari itu dari feed MOBII (semua brand id outlet), sampai ' + (X ? X.cut : '—') + '.'] };
   }
   function mbDayAttr(cell, i) { return cell.replace('<td', '<td data-pjp-day="' + i + '"' + (/^<td[^>]* title="/.test(cell) ? '' : ' title="Klik: performa hari ini"')); }
   function mbHeat(vf) {
+    ovLazy('pv', pvLazy);
     var level = visitsLevel(), rows = visitsRowsAt(vf, level), days = (vf.metadata || {}).days || [], binary = level === 'outlet';
     var page = state.visitsPage || 1, pageSize = 50, paged = level === 'dse' || level === 'outlet';
     var totalPages = paged ? (Math.ceil(rows.length / pageSize) || 1) : 1;
     if (page > totalPages) { page = totalPages; state.visitsPage = page; }
     var start = paged ? (page - 1) * pageSize : 0, slice = paged ? rows.slice(start, start + pageSize) : rows;
-    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && !binary && ecBrandOk && !entBasis(), view = pjView();
+    var sel = state.pjpDay, ecBrandOk = (state.visitsBrandFilter || 'all') === 'all', ecOn = state.pjpMetric === 'ec' && ecBrandOk && !entBasis() && pvHasE(vf), view = pjView();
     rows.forEach(function (r) { r.pr = 0; r.daily.forEach(function (c) { r.pr += c[2] || 0; }); });
     var tot = days.map(function () { return [0, 0, 0, 0]; }), TP = 0, TA = 0, TR = 0, TH = 0;
     rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][2] += c[2] || 0; tot[i][3] += c[3] || 0; }); TP += r.planned; TA += r.actual; TR += r.pr; TH += r.ah || 0; });
     var cellFn = function (c, i, bin) { return mbDayAttr(ecOn ? heatCellEc(c[0], c[2] || 0) : pjCell(c, view, bin), i); };
     var seenParent = {}; rows.forEach(function (r) { seenParent[r.parent] = 1; });
     var showParent = Object.keys(seenParent).length > 1;
-    function overall(pl, ac, bold, pr, ah) { if (!ecOn) return pjOverallCells(pl, ac, ah || 0, bold); var o = bold ? '<b>' : '', c = bold ? '</b>' : '', x = ecOn ? pr : ac; return '<td class="num">' + o + fmtCount(pl) + c + '</td><td class="num cur">' + o + fmtCount(x) + c + '</td><td class="num">' + o + (ecOn ? (pl ? (x / pl * 100).toFixed(1) : '0.0') : hitPct({ planned: pl, actual: ac })) + '%' + c + '</td>'; }
+    function overall(pl, ac, bold, pr, ah, S) { if (!ecOn) return pjOverallCells(pl, ac, ah || 0, bold); return ecOverallCells(S, bold); }
     var head = days.map(function (d, i) {
       var dt = new Date(d.replace(/-/g, ' ')), wd = isNaN(dt) ? '' : HARI_ID[dt.getDay()];
       return '<th class="num" data-pjp-day="' + i + '" title="Klik untuk lihat performa hari ini" style="text-align:center; min-width:56px; cursor:pointer;' + (sel === i ? ' background:var(--ij-ink); color:#fff;' : '') + '">' + esc(d.slice(0, 2)) + '<br><span style="font-weight:500;">' + wd + '</span></th>';
     }).join('');
+    var ecTot = null;
     var totalRow = '<tr style="background:var(--ij-wash); font-weight:800;"><td class="cur">Semua dalam cakupan (' + fmtCount(rows.length) + ' baris)</td>' + (showParent ? '<td>' + esc(scopeText()) + '</td>' : '') +
-      overall(TP, TA, true, TR, TH) +
-      tot.map(function (c, i) { return cellFn(c, i, false); }).join('') + '<td></td></tr>';
+      overall(TP, TA, true, TR, TH, ecOn ? (ecTot = ecUnionStats(vf, rows)) : null) +
+      tot.map(function (c, i) { return ecOn ? mbDayAttr(ecDayCell(ecTot, i), i) : cellFn(c, i, false); }).join('') + '<td></td></tr>';
     function heatRow(r) {
+      var RS = ecOn ? ecRowStats(vf, r, level) : null;
       return '<tr' + (r.outside ? ' style="color:var(--ij-muted);"' : '') + '><td class="cur"><b>' + esc(r.label) + '</b>' + (r.sub ? '<br><code style="font-size:13px;">' + esc(r.sub) + '</code>' : '') + '</td>' + (showParent ? '<td>' + esc(r.parent) + '</td>' : '') +
-        overall(r.planned, r.actual, false, r.pr, r.ah) +
-        r.daily.map(function (c, i) { return cellFn(c, i, binary); }).join('') +
+        overall(r.planned, r.actual, false, r.pr, r.ah, RS) +
+        r.daily.map(function (c, i) { return ecOn ? (binary ? ecOutletCell(vf, r, i) : mbDayAttr(ecDayCell(RS, i), i)) : cellFn(c, i, binary); }).join('') +
         '<td>' + detailBtn(r, 'Detail') + '</td></tr>';
     }
     var grouped = level === 'dse' || level === 'outlet', body;
     if (grouped) {
       var hoaOfA = {}, dsoOfM = {}; rows.forEach(function (r) { if (r.br && r.hoa) hoaOfA[r.br] = r.hoa; if (r.mc && r.dso) dsoOfM[r.mc] = r.dso; });
       body = grpBody('pjpheat', { items: rows, area: function (r) { return r.br; }, mc: function (r) { return r.mc; }, hoa: function (a) { return hoaOfA[a] || '—'; }, dso: function (m) { return dsoOfM[m] || '—'; },
-        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + (ecOn ? 3 : 6) + days.length + 1, cap: 100, search: !!state.visitsSearch,
+        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + (ecOn ? 4 : 6) + days.length + 1, cap: 100, search: !!state.visitsSearch,
         sub: function (items) {
           var pl = 0, ac = 0, pr = 0, ah = 0, dd = days.map(function () { return [0, 0, 0, 0]; });
           items.forEach(function (r) { pl += r.planned; ac += r.actual; pr += r.pr; ah += r.ah || 0; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][2] += c[2] || 0; dd[i][3] += c[3] || 0; }); });
-          return overall(pl, ac, true, pr, ah) + dd.map(function (c, i) { return cellFn(c, i, false); }).join('') + '<td></td>';
+          var GS = ecOn ? ecUnionStats(vf, items) : null;
+          return overall(pl, ac, true, pr, ah, GS) + dd.map(function (c, i) { return ecOn ? mbDayAttr(ecDayCell(GS, i), i) : cellFn(c, i, false); }).join('') + '<td></td>';
         }, row: heatRow });
     } else body = slice.map(heatRow).join('');
     var entity = { area: 'Area', mc: 'Micro Cluster', dse: 'DSE', outlet: 'Outlet' }[level], parent = { area: 'Head of Area', mc: 'Area · DSO', dse: 'MC · Area', outlet: 'MC · DSE' }[level];
     var pag = grouped ? '<p class="note">' + fmtCount(rows.length) + ' baris, dikelompokkan Area › Micro Cluster; klik panah untuk membuka.</p>' : paged ? mbPager('visits-page', page, totalPages, 'Menampilkan ' + (rows.length ? start + 1 : 0) + '–' + Math.min(start + pageSize, rows.length) + ' dari ' + fmtCount(rows.length) + ' baris') : '';
-    var legend = ecOn ? 'Sel = Effective Call hari itu: kunjungan produktif (Sell-In SP/VC > 0 atau saldo > Rp 50 Rb) ÷ rencana kunjungan, yaitu % outlet PJP yang berhasil sell-in. Warna = EC ÷ target KPI ' + EC_TARGET + '% pada standar: ' + heatLegend(true) + '; · = tidak ada rencana.' : binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu. Warna: ' + heatLegend(true) + '; · = tidak ada rencana.';
+    var legend = ecOn ? 'Effective Call (aturan 13 Nov 2026): sel = outlet yang melakukan Effective Call pada hari itu ÷ outlet yang divisit hari itu (outlet fisik, satu outlet dihitung sekali per hari walau dikunjungi IM3 dan 3ID). Efektif = ada Sell-In SP atau Voucher, atau saldo minimal Rp 75 Rb. Outlet HYBRID (IM3 + 3ID berpasangan): saldo kedua brand digabung, jadi salah satu atau keduanya bertransaksi cukup untuk dihitung efektif; bukan Hybrid: tiap penjualan berdiri sendiri untuk IM3 atau 3ID. Warna = % EC ÷ target ' + EC_TARGET + '%: ' + heatLegend(true) + '; · = tidak ada visit.' + (binary ? ' Per outlet: hijau ✓ = efektif, kuning ✓ = visit tidak efektif, merah ○ = direncanakan tidak dikunjungi, A = adhoc; klik sel visit untuk nilai Sell-In, saldo, voucher yang ditransaksikan.' : ''): binary ? '✓ = check-in terlaksana · ○ = direncanakan, tidak dikunjungi · · = tidak ada di PJP hari itu.' : 'Sel = check-in terlaksana ÷ rencana kunjungan pada hari itu. Warna: ' + heatLegend(true) + '; · = tidak ada rencana.';
     return card('Heatmap PJP Harian · per ' + entity + ' · ' + mbScopeLabel(vf),
-      '' + '<div class="map-toolbar" style="margin-bottom:8px;">' + pjBasisBar() + '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.concat([['ec', 'Eff Call of the day (produktif ÷ rencana)']]).map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : view) === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && (binary || !ecBrandOk) ? '<span class="note">' + (binary ? 'Eff Call per outlet tidak dihitung harian; tampilan outlet memakai ✓ / ○.' : 'Eff Call hanya untuk semua brand; kosongkan filter brand.') + '</span>' : '') + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + (ecOn ? th('Rencana', 1) + th('Produktif', 1) + th('% Eff Call', 1) : pjOverallHead()) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
+      '' + '<div class="map-toolbar" style="margin-bottom:8px;">' + pjBasisBar() + '<div class="map-toolbar-group"><span class="map-label">Tampilan sel:</span>' + PJ_VIEWS.concat([['ec', 'Eff Call of the day (produktif ÷ rencana)']]).map(function (m) { return '<button type="button" class="map-btn' + ((ecOn ? 'ec' : view) === m[0] ? ' active' : '') + '" data-pjp-metric="' + m[0] + '">' + m[1] + '</button>'; }).join('') + (state.pjpMetric === 'ec' && !ecBrandOk ? '<span class="note">Eff Call hanya untuk semua brand; kosongkan filter brand.</span>' : (state.pjpMetric === 'ec' && !pvHasE(vf) ? '<span class="note">Eff Call per outlet memerlukan feed dengan Sell-In per visit (feed periode ini belum memilikinya).</span>' : '')) + '</div></div>' + (grouped ? '<div class="map-toolbar" style="margin-bottom:8px;">' + grpBar('pjpheat') + '</div>' : '') + '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + th(grouped ? 'Area › MC › ' + entity : entity) + (showParent ? th(parent) : '') + (ecOn ? th('Outlet-hari divisit', 1) + th('Outlet-hari efektif', 1) + th('% Eff Call', 1) + th('Outlet unik efektif ÷ divisit', 1) : pjOverallHead()) + head + th('Detail') + '</tr></thead><tbody>' + totalRow + body + '</tbody></table></div>' + pag +
       '<p class="note">' + (ecOn ? '' : PJ_VIEW_NOTE.trim() + ' ') + legend + ' Klik tanggal (kolom) atau sel mana pun untuk membuka performa hari itu per DSE dan per outlet. "Detail" memperkecil cakupan ke tingkat di bawahnya.</p>');
   }
   function mbDayDetail(vf) {
