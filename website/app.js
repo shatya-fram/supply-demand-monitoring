@@ -246,7 +246,7 @@
     mb_opportunity: ['Morning DSE Briefing · Opportunity', 'Program (UAR Improvement dari gross add RGUGA, Rabu Mantap dan Kota/Kab Khusus dari sell-in) per profil MC/DSO, DSE dan outlet yang eligible; plus Zero Improvement: outlet nol Sell-In MTD.'],
     sellin: ['Inner Jakarta · Sell-In Monitoring (MOBI)', 'Physical starter packs and vouchers, and electronic saldo, sold in to outlets by DSEs and distributors. Region → Area → MC → Kecamatan → Site → DSE → Outlet, with daily performance.'],
     visits: ['Inner Jakarta · DSE Visits & Beat Plans Tracking', 'Field route execution, daily target hits, visit durations, GPS compliance, unvisited outlets and inactive site tracking across Inner Jakarta.'],
-    cat_program: ['Catalogue · Program & Partisipasi Program', 'Daftar outlet ID per program (AVA, Promotor, TOP PLAYER, KAM, KOTKAB, AVA TM, DtU, DSF) dan performanya: partisipasi, MTD, LMTD, Last FM, kunjungan, sampai level outlet.'],
+    cat_program: ['Catalogue · Program & Partisipasi Program', 'Daftar outlet ID per program (AVA, Promotor, TOP PLAYER, KAM, KOTKAB, TEBUS MURAH (termasuk AVA TM), DtU, DSF) dan performanya: partisipasi, MTD, LMTD, Last FM, kunjungan, sampai level outlet.'],
     territory: ['Catalogue · Territory Management (Static Master)', 'Static Catalogue Master: Outlet ➔ Cellular NBS Site ➔ Field DSE Canvasser ➔ DSO Leader ➔ HoA Area Leader.'],
     map:       ['Catalogue · Jakarta Inner Map (Spatial Intelligence)', 'Static Spatial Catalogue: 4,249 DSO-mapped NBS site instances (3,992 physical sites), master Outlets (lat/long), 185 Kecamatans, 36 MCs, and 7 Area Borders.'],
     data:      ['Catalogue · Master Data & Mappings', 'Static catalogue master files and territory reference datasets.']
@@ -8204,8 +8204,8 @@
   var _prgSet = {}, _prgBy = {}, _prgList = [];
   /* Program & Tipe Outlet (owner, 4 Nov 2026): one flag per program, in the order asked. The October lists (catalogue 202610 outlet types) are used until new lists arrive;
      TEBUS MURAH, DSF and DSE have no list yet (upload program,outlet_id). TOP PLAYER = the Wholesaler flag of the catalogue (whitelist), not the Wholesaler performance class of KRO Management. */
-  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Top Player (peserta Nov)'] }, { id: 'KAM', label: 'KAM', src: ['KAM'] }, { id: 'KOTKAB', label: 'KOTKAB', src: ['Kotkab'] }, { id: 'AVA TM', label: 'AVA TM', src: ['AVA TM'] },
-    { id: 'DtU', label: 'DtU · Direct to Users', src: ['DTU'] }, { id: 'TEBUS MURAH', label: 'TEBUS MURAH', src: ['Tebus Murah'] }, { id: 'DSF', label: 'DSF', src: ['DSF'] }, { id: 'DSE', label: 'DSE', src: ['DSE'] }];
+  var PRG_SPEC = [{ id: 'AVA', label: 'AVA', src: ['AVA'] }, { id: 'PROMOTOR', label: 'PROMOTOR', src: ['Promotor'] }, { id: 'TOP PLAYER', label: 'TOP PLAYER', src: ['Top Player (peserta Nov)'] }, { id: 'KAM', label: 'KAM', src: ['KAM'] }, { id: 'KOTKAB', label: 'KOTKAB', src: ['Kotkab'] }, 
+    { id: 'DtU', label: 'DtU · Direct to Users', src: ['DTU'] }, { id: 'TEBUS MURAH', label: 'TEBUS MURAH', src: ['Tebus Murah', 'AVA TM'] }, { id: 'DSF', label: 'DSF', src: ['DSF'] }, { id: 'DSE', label: 'DSE', src: ['DSE'] }];
   function prgLabel(n) { var x = PRG_SPEC.filter(function (y) { return y.id === n; })[0]; return x ? x.label : n; }
   function prgMembers(K, id) {
     var spec = PRG_SPEC.filter(function (y) { return y.id === id; })[0], names = [id].concat(spec ? spec.src : []), out = [], seen = {};
@@ -8279,7 +8279,7 @@
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
     _kroLazy = kroLazy; ovLazy('kr', kroLazy); var slim = kroSlim();
     var key = kroKey(), prod = kroProd(), meas = kroMeas(), names = prgNames(K), all = prgAll(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
-    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by;
+    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = chExclBy(C.by);
     var L = C.rows.filter(kroInScope); _prgList = L;
     _ovScope = scopeText() + ' · Program ' + (sel.join(mode === 'all' ? ' ∩ ' : ' + ') || '—') + ' · ' + kroKeyName(key) + ' · FM = September penuh · LMTD = 1–cut September · MTD = Oktober';
     var bar = sellinBtnGroup('Produk', 'kro-prod', KRO_PRODS, prod) + ((prod === 'vc' || prod === 'sl') ? sellinBtnGroup('Ukuran', 'kro-meas', [['si', '⬇️ SELL IN · MOBII'], ['so', prod === 'vc' ? '⬆️ SELL OUT · Voucher Injection (MOBO)' : '⬆️ SELL OUT · Saldo Mobo SALMO (MOBO)']], meas) : '');
@@ -8310,7 +8310,7 @@
       '<p class="note">Flag aksi pada outlet program: ' + esc(flLine) + '.</p>';
     var slab = kroSlabTable(K, L, key, { uni: L, grp: 'pg', gk: 'T', visitAll: true, title: 'Slab standar · outlet dan volume per periode · ' + kroKeyName(key) + ' · program ' + esc(sel.join(mode === 'all' ? ' ∩ ' : ' + ')) });
     var progRows = (function () {
-      var uniR = kroUniv(K).filter(kroInScope), tree = chTree(names, key, uniR, C.by), out = '', lbl = function (nm) { return '<b>' + esc(prgLabel(nm)) + '</b>' + (sel.indexOf(nm) >= 0 ? '' : ' <span class="note">(mati)</span>'); };
+      var uniR = kroUniv(K).filter(kroInScope), tree = chTree(names, key, uniR, _prgBy), out = '', lbl = function (nm) { return '<b>' + esc(prgLabel(nm)) + '</b>' + (sel.indexOf(nm) >= 0 ? '' : ' <span class="note">(mati)</span>'); };
       tree.forEach(function (g) {
         out += prgLine(chBtn(g.id) + '<b>' + esc(g.label) + '</b>', esc(g.note), 'Q:~G:' + g.id + '|T', g.rows, key, 'background:var(--ij-wash, #f6f4f1);');
         if (!chOpen(g.id)) return;
@@ -8336,7 +8336,7 @@
       '<p class="note">FM = September penuh · LMTD = 1–' + cuts.supply + ' September · MTD = 1–' + cut + ' Oktober · Proyeksi = ' + (key === 'ga' ? 'MTD ÷ cut × ' + kroDays(key).proj : 'run-rate ' + kroR7(kroFeed().metadata.cuts) + ' hari terakhir × ' + kroDays(key).proj) + '. UAR = outlet dengan volume &gt; 0 pada periode itu. KRO + Wholesaler = outlet berslab KRO ke atas ' + (hasFm ? 'pada September' : 'pada proyeksi Oktober') + '.</p>');
     var q = (state.kroSearch || '').toLowerCase(), Ls = L.filter(function (r) { return kroMatchSearch(r, q); }).sort(function (a, c) { return (c.q[key][3] || 0) - (a.q[key][3] || 0); });
     var list = kroTable(Ls, key, false, 'Daftar outlet program · ' + kroKeyName(key), kroSearchBar(), 'Diurutkan menurut volume proyeksi Oktober.');
-    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS), KAM dan AVA TM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH dan DSE belum punya daftar. <b>DSF</b> memakai ID outlet DSF di sheet manpower DSF (OUTLET DSF dan QR CODE 3ID DSF) ditambah kategori DSF katalog November; ID itu hampir semuanya outlet non-PJP. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
+    var bench = prgBench(K, key, L, ag), noteO = '<p class="note" style="margin-top:8px;">Daftar <b>AVA, PROMOTOR, TOP PLAYER (WS) dan KAM</b> memakai <b>katalog November</b> (CATALOGUE_OUTLET_NOVEMBER, MAPPING GROUP; satu outlet Hybrid dihitung sekali, program = salah satu id). DtU memakai daftar Oktober (katalog 202610, Direct to Users). TEBUS MURAH dan DSE belum punya daftar. <b>DSF</b> memakai ID outlet DSF di sheet manpower DSF (OUTLET DSF dan QR CODE 3ID DSF) ditambah kategori DSF katalog November; ID itu hampir semuanya outlet non-PJP. <b>TOP PLAYER</b> adalah flag whitelist katalog; kelas kinerja Wholesaler (historis, slab volume) ada di menu Outlet &amp; KRO Management.</p>';
     var wl = kroSlim() ? '<details style="margin-top:10px;"><summary class="note" style="cursor:pointer;"><b>Daftar manual (whitelist ID)</b> · tempel atau unggah id outlet untuk melihat slab, kunjungan dan flag</summary>' + kroWhitelist(K, key) + '</details>' : '';
     return card('Program & Tipe Outlet', pdSwitch('ring') + head) + noteO + form + kroProgUploadForm(K) + cards + bench + slab + progTbl + amTbl + list + wl + chVisitCard(K, key);
   }
@@ -8366,8 +8366,21 @@
   /* ================= Channel grouping (owner, 6 Nov 2026): Wholesaler · Program · Direct · Retail & KRO, collapsible =================
      Used by every view of Program & Tipe Outlet (Ringkasan, Harian, Matriks, Target, Review kunjungan). A group row counts its outlets once (union of its programs);
      Retail & KRO = KOTKAB plus the outlets outside every program flag, broken down by slab (Retail R1 R2 · KRO K1.. and Wholesaler classes on the chosen product). */
+  /* One outlet belongs to ONE channel (owner, 15 Nov 2026: no double counting between the program channels): in the channel views the program sets are made exclusive; an outlet in
+     several programs goes to the first of this order (Wholesaler tier first, the broad Kab/Kota Fokus geography last). Program flags in Ringkasan keep the overlap (union / intersection).
+     AVA TM is part of TEBUS MURAH (PRG_SPEC src). */
+  var CH_PRIO = ['TOP PLAYER', 'TEBUS MURAH', 'KAM', 'DSF', 'PROMOTOR', 'AVA', 'DtU', 'KOTKAB'];
+  /* The channel 'TEBUS MURAH | KAM' (target TM 500 | KAM) counts the members of KAM and of TEBUS MURAH (incl. AVA TM) together: without it the Tebus Murah outlets sat in no channel (owner, 15 Nov 2026). */
+  var CH_ALSO = { 'KAM': ['TEBUS MURAH'] };
+  function chMembers(C, prog) { var o = {}; [prog].concat(CH_ALSO[prog] || []).forEach(function (n) { var m = C.by[n] || {}; Object.keys(m).forEach(function (k) { o[k] = m[k]; }); }); return o; }
+  function chExclBy(by) {
+    var names = Object.keys(by), order = CH_PRIO.filter(function (n) { return by[n]; }).concat(names.filter(function (n) { return CH_PRIO.indexOf(n) < 0; })), out = {}, taken = {};
+    names.forEach(function (n) { out[n] = {}; });
+    order.forEach(function (n) { Object.keys(by[n]).forEach(function (k) { if (!taken[k]) { taken[k] = n; out[n][k] = by[n][k]; } }); });
+    return out;
+  }
   var CH_GROUPS = [
-    { id: 'WS', label: 'Wholesaler', note: 'TOP PLAYER · TM & KAM', progs: ['TOP PLAYER', 'TEBUS MURAH', 'KAM', 'AVA TM'] },
+    { id: 'WS', label: 'Wholesaler', note: 'TOP PLAYER · TM & KAM', progs: ['TOP PLAYER', 'TEBUS MURAH', 'KAM'] },
     { id: 'PRG', label: 'Program', note: 'AVA · Promotor · Kab/Kota Fokus (KOTKAB)', progs: ['AVA', 'PROMOTOR', 'KOTKAB'] },
     { id: 'DIR', label: 'Direct', note: 'DTU · DSF', progs: ['DtU', 'DSF'] },
     { id: 'RET', label: 'Retail & KRO', note: 'natural = sisanya: outlet di luar semua program flag', progs: [], slabs: true }
@@ -8442,7 +8455,7 @@
   function pdTgOn(key) { var T = ptFeed(); return !!(T && T.channels.some(function (c) { return c.measure === key && c.program; })); }
   function pdTgt(names, key, area) {   // monthly target of the channels of these programs on this measure (area null = every area in scope); null = no target for this line
     var T = ptFeed(); if (!T) return null; var s = 0, hit = false;
-    T.channels.forEach(function (c) { if (c.measure === key && c.program && names.indexOf(c.program) >= 0) Object.keys(c.areas).forEach(function (a) { if ((area == null || a === area) && (!state.branch || a === state.branch)) { s += c.areas[a].target || 0; hit = true; } }); });
+    T.channels.forEach(function (c) { if (c.measure === key && c.program && names.indexOf(c.program) >= 0 && (names.length > 1 || !CH_ALSO[c.program])) Object.keys(c.areas).forEach(function (a) { if ((area == null || a === area) && (!state.branch || a === state.branch)) { s += c.areas[a].target || 0; hit = true; } }); });
     return hit ? s : null;
   }
   function pdHead(first, P, key, vis, nc) {
@@ -8497,7 +8510,7 @@
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
     _kroLazy = kroLazy; ovLazy('kr', kroLazy);
     var slim = kroSlim(), key = kroKey(), prod = kroProd(), names = prgNames(K), all = prgAll(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
-    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by;
+    var C = prgCohort(K, sel, mode); _prgSet = C.set; C.by = _prgBy = chExclBy(C.by);
     var tab = state.pdTab === 'det' ? 'det' : 'kat', grp = ['am', 'area', 'dso', 'dse'].indexOf(state.pdGroup) >= 0 ? state.pdGroup : 'am';
     _ovScope = scopeText() + ' · Program harian · ' + kroKeyName(key);
     var bar = sellinBtnGroup('Produk', 'kro-prod', KRO_PRODS, prod) + ((prod === 'vc' || prod === 'sl') ? sellinBtnGroup('Ukuran', 'kro-meas', [['si', '⬇️ SELL IN · MOBII'], ['so', prod === 'vc' ? '⬆️ SELL OUT · Voucher Injection (MOBO)' : '⬆️ SELL OUT · Saldo Mobo (MOBO)']], kroMeas()) : '') +
@@ -8596,7 +8609,7 @@
       rows = uni.filter(chNP); mtd = pdAgg(rows, key).mtd;
       days = state.dse ? null : pdSub(P, key, pdMcScope(P, K2, function (e) { return inA(e.br); }), mem);
     } else {
-      rows = ok && C.by[ch.program] ? Object.keys(C.by[ch.program]).map(function (k) { return C.by[ch.program][k]; }).filter(function (r) { return kroInScope(r) && inA(r.br); }) : [];
+      rows = ok && C.by[ch.program] ? (function (m) { return Object.keys(m).map(function (k) { return m[k]; }); })(chMembers(C, ch.program)).filter(function (r) { return kroInScope(r) && inA(r.br); }) : [];
       days = ok ? pdDays(P, key, rows) : null; mtd = days ? days.reduce(function (s, v) { return s + v; }, 0) : 0;
     }
     var R = ptRates(tgt, mtd, cut, n), ag = ok ? pdAgg(rows, key) : { lm: 0, fm: 0 }; R.days = days; R.n = n; R.cut = cut; R.key = key; R.units = units; R.outlets = rows.length; R.na = !ok; R.lm = ag.lm; R.fm = ag.fm;
@@ -8613,17 +8626,12 @@
     var cols = [['MTD', 2, R0.mtd], ['LMTD', 1, R0.lm], ['Last FM', 0, R0.fm]];
     var cell = function (v, b) { return '<td class="num">' + (b ? '<b>' + f0(v) + '</b>' : (v < 0 ? '−' + f0(-v) : f0(v))) + '</td>'; }, row = function (label, vals, ink) { return '<tr' + (ink ? ' style="background:var(--ink); color:#fff;"' : '') + '><td class="cur">' + label + '</td>' + vals.map(function (v) { return cell(v, ink); }).join('') + '</tr>'; };
     var vSum = cols.map(function (c) { return c[2]; }), vOut = cols.map(function (c) { return sum(out, c[1]); }), vAll = cols.map(function (c) { return sum(all, c[1]); }), vOv = cols.map(function (c, i) { return -(vSum[i] + vOut[i] - vAll[i]); });
-    /* outlets in more than one channel (programs of the channels) and the pairs that overlap most */
-    var by = {}, pairs = {}, nMulti = 0;
-    chs.forEach(function (c) { if (!c.program || c.program === '~NP' || !C.by[c.program]) return; Object.keys(C.by[c.program]).forEach(function (k) { var r = C.by[c.program][k]; if (kroInScope(r)) (by[k] = by[k] || []).push(c.label); }); });
-    Object.keys(by).forEach(function (k) { if (by[k].length > 1) { nMulti++; var pk = by[k].slice().sort().join(' + '); pairs[pk] = (pairs[pk] || 0) + 1; } });
-    var top = Object.keys(pairs).sort(function (x, y) { return pairs[y] - pairs[x]; }).slice(0, 5).map(function (k) { return esc(k) + ' <b>' + fmtCount(pairs[k]) + '</b>'; }).join(' · ');
     var head = '<tr>' + th('Rekonsiliasi dengan total GA') + cols.map(function (c) { return th(c[0], 1); }).join('') + '</tr>';
-    var body = row('Jumlah channel (tabel di atas)', vSum, false) + row('− Tumpang tindih antar-channel (outlet di lebih dari satu channel, selisih pembulatan)', vOv, false) +
+    var body = row('Jumlah channel (tabel di atas)', vSum, false) + row('− Selisih residu (satu outlet hanya masuk satu channel; sisa = outlet program yang tidak ada di feed GA)', vOv, false) +
       row('+ Di luar master territory (non-PJP, tanpa area dan tanpa target)', vOut, false) + row('TOTAL semua GA (sama dengan Daily GA Trend dan Gross Add)', vAll, true);
     return card('Rekonsiliasi · jumlah channel vs total GA', '<div class="tbl-wrap"><table class="tbl" data-nosort="1"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="note">Target dibagi per channel dan per 7 area master, jadi GA di outlet tanpa area master (ID <code>SH…</code>, outlet non-PJP) tidak ada di channel mana pun; baris "Di luar master territory" menutup selisih itu. ' +
-      'Outlet yang masuk lebih dari satu program dihitung di tiap channel: <b>' + fmtCount(nMulti) + '</b> outlet' + (top ? ' (' + top + ')' : '') + '. Baris tumpang tindih = jumlah channel + di luar master − total GA, jadi kolom selalu menutup ke total.</p>');
+      'Setiap outlet hanya dihitung di satu channel (urutan prioritas: TOP PLAYER, TEBUS MURAH termasuk AVA TM, KAM, DSF, PROMOTOR, AVA, DtU, KOTKAB); baris selisih = jumlah channel + di luar master − total GA, jadi kolom selalu menutup ke total.</p>');
   }
   function ptSum(Rs) {   // sum of the channels that have an actual (a channel without actual, e.g. PROMOTOR as persons, is left out of the total)
     var live = Rs.filter(function (r) { return !r.na; }), b = Rs[0], tgt = 0, mtd = 0, units = 0, lm = 0, fm = 0, days = null, outlets = 0;
@@ -8656,7 +8664,7 @@
     var K = kroFeed(), P = pdFeed(), T = ptFeed();
     if (!K || !P || !T || (typeof window !== 'undefined' && window.IJ_PER === 'oct')) return card('Program & Tipe Outlet · Target', pdSwitch('target') + '<p class="note">Target vs aktual hanya untuk periode berjalan dan memerlukan <code>kro_feed.js</code>, <code>program_daily_feed.js</code> dan <code>program_target_feed.js</code> (<code>python3 scripts/build_program_target_feed.py</code>).</p>');
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
-    kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; _prgBy = C.by;
+    kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; C.by = _prgBy = chExclBy(C.by);
     var view = state.ptView === 'd' ? 'd' : 'm', mode = state.ptMode === 'cum' ? 'cum' : 'day', n = P.metadata.days_cur;
     var chs = T.channels, sel = chs.filter(function (c) { return c.id === state.ptCh; })[0] || chs[0];
     var unitOf = function (R) { return fmtCount; };
@@ -8730,7 +8738,7 @@
     var K = kroFeed(), P = pdFeed(), T = ptFeed();
     if (!K || !P || !T || (typeof window !== 'undefined' && window.IJ_PER === 'oct')) return card('Program & Tipe Outlet · Summary Achievement', pdSwitch('summary') + '<p class="note">Summary achievement hanya untuk periode berjalan dan memerlukan <code>kro_feed.js</code>, <code>program_daily_feed.js</code> dan <code>program_target_feed.js</code>.</p>');
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
-    kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; _prgBy = C.by;
+    kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; C.by = _prgBy = chExclBy(C.by);
     var dim = ['ch', 'area', 'chArea', 'areaCh'].indexOf(state.smDim) >= 0 ? state.smDim : 'ch', met = ['ach', 'gap', 'mtd', 'tgt'].indexOf(state.smMetric) >= 0 ? state.smMetric : 'ach', f0 = function (v) { return fmtCount(Math.round(v)); };
     var chs = T.channels, areas = []; chs.forEach(function (c) { Object.keys(c.areas).forEach(function (a) { if (areas.indexOf(a) < 0 && (!state.branch || a === state.branch)) areas.push(a); }); });
     var cache = {}, R = function (c, a) { var k = c.id + '|' + (a || ''); return cache[k] = cache[k] || ptCalc(P, C, c, a); }, chsIn = function (a) { return chs.filter(function (c) { return c.areas[a]; }); };
@@ -8867,7 +8875,7 @@
       '<p class="note"><b>D2U DSE · CB 10K</b>: dapat dipakai untuk Event dan Seeding dengan harga sangat kompetitif. <b>DSF · CB 10K</b>: DMO/DMP membuat program dengan support budget region untuk menyalurkan distribusi SP dengan subsidi maksimal. # DSF = target DSF ÷ 500. Harian = bulanan ÷ 25 hari kerja.</p>');
     var t3 = '';
     if (K && P && typeof window !== 'undefined' && window.IJ_PER !== 'oct') {
-      kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; _prgBy = C.by;
+      kroSlim(); var C = prgCohort(K, prgSelected(K), 'any'); _prgSet = C.set; C.by = _prgBy = chExclBy(C.by);
       var lab = { nat: 'Retail & KRO natural', prg: 'Retail program', ws: 'Wholesaler', d2u: 'D2U', dsf: 'DSF' }, hd = '<tr>' + dkStickyTh('Sales area', 1) + Object.keys(COMP).map(function (k) { return th(lab[k] + ' · % vs pro-rata', 1) + th('gap', 1); }).join('') + '</tr>', body3 = '';
       var cl = {}; T.channels.forEach(function (c) { cl[c.id] = c; });
       areas.forEach(function (a) {
@@ -8894,7 +8902,7 @@
     Object.keys(_ovReg).forEach(function (k) { if (k.indexOf('kr|') === 0) delete _ovReg[k]; });
     _kroLazy = kroLazy; ovLazy('kr', kroLazy); var slim = kroSlim();
     var key = kroKey(), prod = kroProd(), names = prgNames(K), all = prgAll(K), sel = prgSelected(K), mode = state.prgMode === 'all' ? 'all' : 'any';
-    var C = prgCohort(K, sel, mode); _prgSet = C.set; _prgBy = C.by; _ovScope = scopeText() + ' · Matriks program × wilayah · ' + kroKeyName(key);
+    var C = prgCohort(K, sel, mode); _prgSet = C.set; C.by = _prgBy = chExclBy(C.by); _ovScope = scopeText() + ' · Matriks program × wilayah · ' + kroKeyName(key);
     var met = PM_METRICS.some(function (m) { return m[0] === state.pmMetric; }) ? state.pmMetric : 'mtd', lvl = ['am', 'area', 'mc'].indexOf(state.pmLevel) >= 0 ? state.pmLevel : 'am';
     var mt = kroHasP(key, 'mt'), hasFm = kroHasFm(key), mi = K.metadata.mc_info || {};
     var bar = sellinBtnGroup('Produk', 'kro-prod', KRO_PRODS, prod) + ((prod === 'vc' || prod === 'sl') ? sellinBtnGroup('Ukuran', 'kro-meas', [['si', '⬇️ SELL IN · MOBII'], ['so', prod === 'vc' ? '⬆️ SELL OUT · Voucher Injection (MOBO)' : '⬆️ SELL OUT · Saldo Mobo (MOBO)']], kroMeas()) : '') +

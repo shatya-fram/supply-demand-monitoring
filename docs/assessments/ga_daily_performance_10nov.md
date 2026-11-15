@@ -95,3 +95,9 @@ Rule: an outlet-brand is **bulk** on a day when it carries >= 150 GA that day. O
 `mb_program` > Summary Achievement showed MTD 67,537 (LMTD 63,313, Last FM 298,448) against the total GA 77,209 (62,071, 287,269). Reasons: (1) target channels cover the 7 master areas only, so the
 21 outside-master ids (10,283 GA, non-PJP, no area) are in no channel; (2) outlets in two programs (129 outlets; DtU + KOTKAB 62, AVA + KOTKAB 31, KOTKAB + PROMOTOR 14 ...) are counted in each channel,
 which is why LMTD and Last FM of the channels are above the total. The new card **Rekonsiliasi** shows sum of channels, overlap, outside master and TOTAL semua GA for MTD, LMTD and Last FM so every column closes to the total.
+
+## 9. Channels without double counting, AVA TM in TEBUS MURAH (15 Nov 2026)
+
+- Before: 129 outlets sat in two program channels (DtU + KOTKAB 62, AVA + KOTKAB 31, KOTKAB + PROMOTOR 14 ...) and the Tebus Murah / AVA TM outlets (about 8k GA MTD) sat in **no** channel, because the target channel `TEBUS MURAH | KAM` only read KAM.
+- Now: one outlet = one channel by priority TOP PLAYER > TEBUS MURAH (incl. AVA TM) > KAM > DSF > PROMOTOR > AVA > DtU > KOTKAB (`CH_PRIO`); channel `TEBUS MURAH | KAM` = KAM + TEBUS MURAH members.
+- Result (GA MTD to D13, 7 target areas): sum of channels 108,878 vs 108,885 in the areas; Rekonsiliasi: overlap 0 outlets, residual 7 MTD / 0 LMTD / 31 Last FM (program ids missing from the GA feed).
