@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 16 Nov 2026 (sore) · Sell-In, Demand, PJP dan ENDBAL sampai 15 Nov; GA D15
+- MOBII, MOBO, SALMO 16 Nov 07:09 (D15), PJP D14 dan D15 (file IM3 15 Nov tidak ada; hari Minggu, hanya 15 kunjungan 3ID), ENDBAL snapshot 15 Nov (27.201 outlet). GA tidak berubah (D15). Semua feed kini D15. KRO, Stock, flag non-PJP dan period history dibangun manual.
+- Penjualan MTD: SP Rp 926,9 jt, SALMO Rp 11.729,3 jt; Demand SALMO Rp 72,15 B; PJP 102.098 planned, 97.071 actual (95,1%). Stok ENDBAL Rp 3,74 B (Minggu). Semua audit lulus kecuali audit_sp (de-dup SP Injection 39% > 15%; D14 +9.182 pcs SP HAPPY S PLUS V2 di 8 id, tetap dihitung sebagai performa). Detail: `docs/assessments/daily_update_2026-11-16.md`.
+
 ## 16 Nov 2026 · Refresh GA D15
 - GA by Outlet dan Fav Locs baru (16 Nov 05:47, D1-D15); GA tagging MTD 131.738 (IM3 78.650, 3ID 53.088), Fav Locs 153.971 baris. Fav Locs D13 direvisi naik 11.203 -> 12.651; D14 (1,13x tagging) dan D15 (1,04x) mungkin belum lengkap. Tagging D1-D13 direvisi sangat kecil (max -26 pcs). Sell-In, Demand, PJP, ENDBAL tidak berubah (file 14 Nov, D13; D14 dan D15 belum ada).
 - Semua audit lulus kecuali audit_sp (de-dup SP Injection, tidak berubah). Detail: `docs/assessments/daily_update_2026-11-16_ga.md`.
