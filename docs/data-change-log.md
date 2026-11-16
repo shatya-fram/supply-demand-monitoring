@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 16 Nov 2026 · Refresh GA D15
+- GA by Outlet dan Fav Locs baru (16 Nov 05:47, D1-D15); GA tagging MTD 131.738 (IM3 78.650, 3ID 53.088), Fav Locs 153.971 baris. Fav Locs D13 direvisi naik 11.203 -> 12.651; D14 (1,13x tagging) dan D15 (1,04x) mungkin belum lengkap. Tagging D1-D13 direvisi sangat kecil (max -26 pcs). Sell-In, Demand, PJP, ENDBAL tidak berubah (file 14 Nov, D13; D14 dan D15 belum ada).
+- Semua audit lulus kecuali audit_sp (de-dup SP Injection, tidak berubah). Detail: `docs/assessments/daily_update_2026-11-16_ga.md`.
+
 ## 15 Nov 2026 · Refresh GA D13
 - GA by Outlet dan Fav Locs baru (15 Nov 00:42, D1-D13); GA tagging MTD 110.187 (IM3 69.633, 3ID 40.554), Fav Locs 128.512 baris. Fav Locs D9 dan D10 yang sebelumnya rendah sudah lengkap; D13 Fav Locs 1,08x tagging (pola 1,17-1,23x), mungkin belum lengkap. Sell-In, Demand, PJP, ENDBAL tidak berubah (D13).
 - File bulan sebelumnya `rguga_daily_outlet_202610.csv` hilang dari `raw/GA*` dan dipulihkan dari folder OneDrive KPI (FM Oktober 287.269 cocok). Semua audit lulus kecuali audit_sp (de-dup SP Injection, tidak berubah). Detail: `docs/assessments/daily_update_2026-11-15_ga.md`.
