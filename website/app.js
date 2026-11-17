@@ -9206,8 +9206,8 @@
   function cfFeed() { return (typeof window !== 'undefined' && window.TARGET_FEED) ? window.TARGET_FEED : null; }
   function cfIn(o) { return (!state.branch || o.br === state.branch) && (!state.hoa || o.hoa === state.hoa) && (!state.kec || o.mc === state.kec) && (!state.dse || dseNorm(o.n) === state.dse); }
   function cfF(K) { return state.cfBasis === 'full' ? 1 : K.metadata.cut_day / K.metadata.month_days; }
-  function cfEmpty() { return { dses: 0, out: 0, sp: [0, 0, 0], osa: [0, 0, 0], sp0: [0, 0, 0], osa0: [0, 0, 0], spA: 0, osaA: 0 }; }
-  function cfAdd(a, d) { a.dses++; a.out += d.out; for (var j = 0; j < 3; j++) { a.sp[j] += d.sp[j]; a.osa[j] += d.osa[j]; a.sp0[j] += d.sp0[j]; a.osa0[j] += d.osa0[j]; } }
+  function cfEmpty() { return { dses: 0, out: 0, sp: [0, 0, 0], osa: [0, 0, 0], sp0: [0, 0, 0], osa0: [0, 0, 0], ga: [0, 0, 0], spA: 0, osaA: 0 }; }
+  function cfAdd(a, d) { a.dses++; a.out += d.out; for (var j = 0; j < 3; j++) { a.sp[j] += d.sp[j]; a.osa[j] += d.osa[j]; a.sp0[j] += d.sp0[j]; a.osa0[j] += d.osa0[j]; a.ga[j] += (d.ga || [0, 0, 0])[j]; } }
   function cfGroup(T, K, keyf) {
     // targets per DSE row (T.dses), actuals from the KPI feed grouped the same way (KPI rows are keyed by DSE name)
     var g = {}, kmap = {};
@@ -9229,23 +9229,27 @@
     var spAch = cfAch(a.spA, a.sp[2], f), osaAch = cfAch(a.osaA, a.osa[2], f);
     return '<tr' + (style ? ' style="' + style + '"' : '') + '><td class="cur" style="' + DK_STICKY + ' background:' + (style && /ink/.test(style) ? 'var(--ij-ink)' : (style && /wash/.test(style) ? 'var(--ij-wash)' : '#fff')) + ';">' + label + '</td><td>' + ket + '</td><td class="num">' + fmtCount(a.out) + '</td>' +
       '<td class="num">' + fmtCount(a.sp[0]) + '</td><td class="num">' + fmtCount(a.sp[1]) + '</td><td class="num cur"><b>' + fmtCount(a.sp[2]) + '</b></td><td class="num">' + (a.spA == null ? '—' : fmtCount(a.spA)) + '</td><td class="num">' + (spAch == null || a.spA == null ? '—' : dkPctTag(spAch, 1, 0.9)) + '</td>' +
-      '<td class="num">' + pjRp(a.osa[0]) + '</td><td class="num">' + pjRp(a.osa[1]) + '</td><td class="num cur"><b>' + pjRp(a.osa[2]) + '</b></td><td class="num">' + (a.osaA == null ? '—' : pjRp(a.osaA)) + '</td><td class="num">' + (osaAch == null || a.osaA == null ? '—' : dkPctTag(osaAch, 1, 0.9)) + '</td></tr>';
+      '<td class="num">' + pjRp(a.osa[0]) + '</td><td class="num">' + pjRp(a.osa[1]) + '</td><td class="num cur"><b>' + pjRp(a.osa[2]) + '</b></td><td class="num">' + (a.osaA == null ? '—' : pjRp(a.osaA)) + '</td><td class="num">' + (osaAch == null || a.osaA == null ? '—' : dkPctTag(osaAch, 1, 0.9)) + '</td>' +
+      '<td class="num">' + fmtCount(a.ga[0]) + '</td><td class="num">' + fmtCount(a.ga[1]) + '</td><td class="num cur"><b>' + fmtCount(a.ga[2]) + '</b></td></tr>';
   }
   function cfHead(first) {
     return '<tr>' + dkStickyTh(first, 2) + '<th rowspan="2" style="vertical-align:bottom;">Keterangan</th><th rowspan="2" class="num" style="vertical-align:bottom;">Outlet mapped</th>' +
-      dkBandTh('sp', 'Sell-In SP (pcs)', 'target bulanan · IOH = IM3 + 3ID', 5) + dkBandTh('osa', 'OSA (Rp)', 'target bulanan · IOH = IM3 + 3ID', 5) + '</tr>' +
+      dkBandTh('sp', 'Sell-In SP (pcs)', 'target bulanan · kolom IOH file target', 5) + dkBandTh('osa', 'OSA (Rp)', 'target bulanan · kolom IOH file target', 5) + dkBandTh('ga', 'GA (pcs)', 'target bulanan · IM3 · 3ID · IOH', 3) + '</tr>' +
       '<tr>' + dkSubTh('sp', 'IM3', true, true) + dkSubTh('sp', '3ID', false, true) + dkSubTh('sp', 'IOH', false, true) + dkSubTh('sp', 'Aktual MTD', false, true) + dkSubTh('sp', 'Ach.', false, true) +
-      dkSubTh('osa', 'IM3', true, true) + dkSubTh('osa', '3ID', false, true) + dkSubTh('osa', 'IOH', false, true) + dkSubTh('osa', 'Aktual MTD', false, true) + dkSubTh('osa', 'Ach.', false, true) + '</tr>';
+      dkSubTh('osa', 'IM3', true, true) + dkSubTh('osa', '3ID', false, true) + dkSubTh('osa', 'IOH', false, true) + dkSubTh('osa', 'Aktual MTD', false, true) + dkSubTh('osa', 'Ach.', false, true) +
+      dkSubTh('ga', 'IM3', true, true) + dkSubTh('ga', '3ID', false, true) + dkSubTh('ga', 'IOH', false, true) + '</tr>';
   }
   function cfRingkasan(T, K) {
-    var f = cfF(K), M = K.metadata, mc = cfGroup(T, K, function (d) { return d.br + '||' + d.mc; }), ar = cfGroup(T, K, function (d) { return d.br; }), tot = cfEmpty();
-    Object.keys(ar).forEach(function (k) { var a = ar[k]; tot.dses += a.dses; tot.out += a.out; tot.spA += a.spA; tot.osaA += a.osaA; for (var j = 0; j < 3; j++) { tot.sp[j] += a.sp[j]; tot.osa[j] += a.osa[j]; } });
+    var GR = T.metadata && T.metadata.ga_remainder, f = cfF(K), M = K.metadata, mc = cfGroup(T, K, function (d) { return d.br + '||' + d.mc; }), ar = cfGroup(T, K, function (d) { return d.br; }), tot = cfEmpty();
+    Object.keys(ar).forEach(function (k) { var a = ar[k]; tot.dses += a.dses; tot.out += a.out; tot.spA += a.spA; tot.osaA += a.osaA; for (var j = 0; j < 3; j++) { tot.sp[j] += a.sp[j]; tot.osa[j] += a.osa[j]; tot.ga[j] += a.ga[j]; } });
     var spAch = cfAch(tot.spA, tot.sp[2], f), osaAch = cfAch(tot.osaA, tot.osa[2], f), ft = f < 1 ? ' (target × ' + M.cut_day + '/' + M.month_days + ')' : '';
     var cards = '<div class="kpis" style="margin-top:10px;">' +
-      kpi('DSE bertarget', fmtCount(tot.dses), fmtCount(Object.keys(mc).length) + ' MC · ' + fmtCount(Object.keys(ar).length) + ' area', 'up', 'Target DSE Hybrid FINAL REBALANCING') +
-      kpi('Target Sell-In SP (IOH)', fmtCount(tot.sp[2]) + ' pcs', 'IM3 ' + fmtCount(tot.sp[0]) + ' · 3ID ' + fmtCount(tot.sp[1]), 'up', 'bulan Oktober 2026') +
+      kpi('DSE bertarget', fmtCount(tot.dses), fmtCount(Object.keys(mc).length) + ' MC · ' + fmtCount(Object.keys(ar).length) + ' area', 'up', (T.metadata && /November/.test(T.metadata.period || '') ? 'Update Target KPI DSE November' : 'Target DSE Hybrid FINAL REBALANCING')) +
+      kpi('Target Sell-In SP (IOH)', fmtCount(tot.sp[2]) + ' pcs', 'IM3 ' + fmtCount(tot.sp[0]) + ' · 3ID ' + fmtCount(tot.sp[1]), 'up', 'bulan ' + (T.metadata && T.metadata.period ? T.metadata.period.replace(' (target bulanan)', '') : 'berjalan')) +
       kpi('Aktual SP MTD', fmtCount(tot.spA) + ' pcs', spAch == null ? '—' : (spAch * 100).toFixed(1) + '% dari target' + ft, spAch != null && spAch >= 0.9 ? 'up' : 'down', 'SP gabungan DSE yang punya target (aktual belum dipisah IM3 / 3ID)') +
       kpi('Target OSA (IOH)', pjRp(tot.osa[2]), 'IM3 ' + pjRp(tot.osa[0]) + ' · 3ID ' + pjRp(tot.osa[1]), 'up', 'amount outlet produktif') +
+      kpi('Target GA per DSE (IOH)', fmtCount(tot.ga[2]) + ' pcs', 'IM3 ' + fmtCount(tot.ga[0]) + ' · 3ID ' + fmtCount(tot.ga[1]), 'up', 'target DSE November') +
+      (GR && GR.remainder_pjp_nonpjp != null ? kpi('Sisa target GA · PJP dan non-PJP', fmtCount(GR.remainder_pjp_nonpjp) + ' pcs', 'dari total ' + fmtCount(GR.total_rgu_ga) + ' − DSE ' + fmtCount(GR.dse_ga), 'up', 'target GA wilayah dikurangi target GA DSE') : '') +
       kpi('Aktual OSA MTD', pjRp(tot.osaA), osaAch == null ? '—' : (osaAch * 100).toFixed(1) + '% dari target' + ft, osaAch != null && osaAch >= 0.9 ? 'up' : 'down', 'nilai SP + saldo + voucher outlet ≥ Rp 300K (aturan GAPLOK)') + '</div>';
     var col = state.cfCollapsed || {}, rows = [];
     var byA = {}; Object.keys(mc).forEach(function (k) { var p = k.split('||'); (byA[p[0]] || (byA[p[0]] = [])).push(p[1]); });
@@ -9880,7 +9884,7 @@
     return '<div style="display:flex; height:22px; border:1px solid var(--ij-ink); margin:4px 0;">' + parts.map(function (x) { return x[1] ? '<div title="' + esc(x[0]) + ': ' + x[1] + '" style="flex:' + x[1] + '; background:' + DK_COL[x[2]][0] + '; color:' + DK_COL[x[2]][1] + '; font:700 12px/20px var(--ij-font); text-align:center; overflow:hidden;">' + x[1] + '</div>' : ''; }).join('') + '</div>' +
       '<div style="font:500 12px var(--ij-font); color:var(--ij-muted);">' + parts.map(function (x) { return '<span style="margin-right:10px;"><span style="display:inline-block; width:10px; height:10px; background:' + DK_COL[x[2]][0] + '; border:1px solid ' + DK_COL[x[2]][1] + '; vertical-align:middle;"></span> ' + x[0] + '</span>'; }).join('') + '</div>';
   }
-  var DK_BAND = { osa: ['#e3eefb', '#16365c'], sp: ['#fdeedb', '#6b3a00'], cmp: ['#e2f3e2', '#17441a'], inc: ['#efe3f7', '#42175e'] };
+  var DK_BAND = { ga: ['#e6f5ee', '#14452e'], osa: ['#e3eefb', '#16365c'], sp: ['#fdeedb', '#6b3a00'], cmp: ['#e2f3e2', '#17441a'], inc: ['#efe3f7', '#42175e'] };
   var DK_BL = ' border-left:2px solid var(--ij-ink);';
   var DK_STICKY = ' position:sticky; left:0; z-index:2;';
   function dkMini(parts) {

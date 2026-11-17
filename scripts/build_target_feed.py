@@ -12,6 +12,12 @@ Columns used (0-based) in the rebalancing sheet:
   15-23 ORIGINAL per-DSE target (uniform inside an MC, before rebalancing)
   25-27 REBALANCED Sell-In SP (IM3, 3ID, IOH)   29-31 REBALANCED OSA in Rp (IM3, 3ID, IOH)   <- the targets used
 Target period is the month (October 2026); achievement is prorated MTD in the app.
+
+November 2026 (owner, 18 Nov 2026): raw/Targets/Update Target KPI DSE*.xlsb (Sheet1, one row per DSE: USERID_IM3 / USERID_3ID, OSA Rp, Sell-In SP pcs and
+GA pcs, each IM3 / 3ID / IOH) REPLACES the SP and OSA targets of the October file and adds GA per DSE (`ga` = [IM3, 3ID, IOH]). IOH is the column of the file
+(not IM3 + 3ID: 165 DSE differ). Rows are matched to the DSE of the system by login; a login that is in neither the outlet master nor the hierarchy is placed on the
+one DSE of its MC that has no target row (`id_nov` keeps the new login). The Region GA target (Target KPI IE, TOTAL RGU GA 361,750) minus the DSE GA targets is the
+remainder for PJP and non-PJP outlets (`metadata.ga_remainder`). Period label = November 2026, so the carry-forward banner of the app disappears.
 """
 import csv, glob, json, os, re, struct, sys, zipfile
 import xml.etree.ElementTree as ET
@@ -37,6 +43,28 @@ def find_dse_workbook():
     """Newest SELL-IN_TAG_RGUGA_OSA_OUTLET_*.xlsb (owner, 19 Oct 2026): its sheet 'DSE' carries the target per DSE, IM3 / 3ID / IOH."""
     c = [p for p in glob.glob(os.path.join(ROOT, 'raw', '**', '*SELL-IN_TAG*.xlsb'), recursive=True) if not os.path.basename(p).startswith('~$')]
     return max(c, key=os.path.getmtime) if c else None
+
+
+def find_nov_workbook():
+    c = [p for p in glob.glob(os.path.join(ROOT, 'raw', 'Targets', '*Target KPI DSE*.xlsb')) if not os.path.basename(p).startswith('~$')]
+    return max(c, key=os.path.getmtime) if c else None
+
+
+def read_nov_sheet(path):
+    """Rows of Sheet1: 0 branch, 1 MC, 2 PT, 3 / 4 USERID IM3 / 3ID, 6-8 OSA (IM3, 3ID, IOH), 10-12 Sell-In SP, 14-16 GA."""
+    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+    from xlsb_reader import read_sheets, cell
+    rows = next(iter(read_sheets(path, {'SHEET1'}).values()))
+    out = []
+    for r in rows:
+        i3, i33 = cell(r.get(3)), cell(r.get(4))
+        if not i3 or i3 == 'USERID_IM3' or not isinstance(r.get(8), (int, float)):
+            continue
+        g = lambda k: float(r.get(k) or 0)
+        out.append({'id': i3, 'id3': i33, 'br': cell(r.get(0)), 'mc': cell(r.get(1)),
+                    'osa': [round(g(6), 2), round(g(7), 2), round(g(8), 2)], 'sp': [round(g(10), 2), round(g(11), 2), round(g(12), 2)],
+                    'ga': [round(g(14), 2), round(g(15), 2), round(g(16), 2)]})
+    return out
 
 
 def read_dse_sheet(path):
@@ -102,13 +130,13 @@ def norm(s):
 
 
 def blank():
-    return {'dses': 0, 'out': 0, 'sp': [0, 0, 0], 'osa': [0, 0, 0], 'sp0': [0, 0, 0], 'osa0': [0, 0, 0]}
+    return {'dses': 0, 'out': 0, 'sp': [0, 0, 0], 'osa': [0, 0, 0], 'sp0': [0, 0, 0], 'osa0': [0, 0, 0], 'ga': [0, 0, 0]}
 
 
 def add(a, d):
     a['dses'] += 1; a['out'] += d['out']
     for j in range(3):
-        a['sp'][j] += d['sp'][j]; a['osa'][j] += d['osa'][j]; a['sp0'][j] += d['sp0'][j]; a['osa0'][j] += d['osa0'][j]
+        a['sp'][j] += d['sp'][j]; a['osa'][j] += d['osa'][j]; a['sp0'][j] += d['sp0'][j]; a['osa0'][j] += d['osa0'][j]; a['ga'][j] += (d.get('ga') or [0, 0, 0])[j]
 
 
 def main():
@@ -164,6 +192,59 @@ def main():
         src_note = os.path.relpath(new_path, ROOT) + " (sheet DSE; outlets and original target from " + os.path.basename(path) + ")"
         print(f"target source: {os.path.basename(new_path)} sheet DSE | DSEs in sheet {len(new)} | DSEs whose target changed or were added {changed}")
 
+    nov_path = find_nov_workbook()
+    period = 'Oktober 2026 (target bulanan)'
+    ga_rem = None
+    if nov_path:
+        nov = read_nov_sheet(nov_path)
+        cat_name, sem = {}, {}              # login -> DSE name of the catalogue; temporary login -> presumed owner (dse_login_sementara.csv)
+        with open(os.path.join(ROOT, 'data', 'catalogues', 'dse_login_sementara.csv'), encoding='utf-8-sig') as f:
+            for r in csv.DictReader(f):
+                sem[norm(r['login'])] = norm(r['dugaan_pemilik'])
+        alias = {}                          # every login of one DSE (catalogue login, master-file login, IM3 / 3ID) -> the same set
+        with open(os.path.join(ROOT, 'data', 'catalogues', 'dse_catalogue.csv'), encoding='utf-8-sig') as f:
+            for r in csv.DictReader(f):
+                ids = {norm(r.get(k)) for k in ('login_im3', 'login_3id', 'master_file_login_im3', 'master_file_login_3id') if r.get(k)}
+                for i in ids:
+                    alias.setdefault(i, set()).update(ids); cat_name[i] = norm(r.get('dse_name'))
+        by_id = {}
+        for d in dses:
+            for i in {norm(d['id']), norm(d['id3'])} | alias.get(norm(d['id']), set()) | alias.get(norm(d['id3']), set()):
+                by_id.setdefault(i, d)
+        used, loose = set(), []
+        for n in nov:
+            d = by_id.get(norm(n['id'])) or by_id.get(norm(n['id3']))
+            if d is not None and id(d) not in used:
+                used.add(id(d)); d.update(sp=n['sp'], osa=n['osa'], ga=n['ga'], sp0=list(n['sp']), osa0=list(n['osa']))
+            else:
+                loose.append(n)
+        placed = []
+        for n in loose:                     # new login: the one DSE of the MC without a target row (owner, 18 Nov 2026)
+            c = [d for d in dses if d['mc'] == n['mc'] and id(d) not in used]
+            if len(c) > 1:                  # several free DSE in the MC: the temporary login whose presumed owner is this login's DSE
+                c2 = [d for d in c if sem.get(norm(d['id'])) and sem.get(norm(d['id'])) == cat_name.get(norm(n['id']))]
+                c = c2 if len(c2) == 1 else c
+            if len(c) == 1:
+                d = c[0]; used.add(id(d)); d['id_nov'] = n['id']; d['id3_nov'] = n['id3']
+                if not d['n']:
+                    d['n'] = cat_name.get(norm(n['id']), '').title() or d['n']
+                d.update(sp=n['sp'], osa=n['osa'], ga=n['ga'], sp0=list(n['sp']), osa0=list(n['osa'])); placed.append({'login': n['id'], 'dse': d['n'], 'mc': n['mc']})
+            else:
+                print('WARNING: target row without a DSE:', n['id'], n['mc'], len(c))
+        missing = [d['n'] for d in dses if id(d) not in used]
+        period = 'November 2026 (target bulanan)'
+        src_note = os.path.relpath(nov_path, ROOT) + ' (Sheet1: OSA, Sell-In SP, GA per DSE, IM3 / 3ID / IOH; outlet counts from ' + os.path.basename(path) + ')'
+        tk = os.path.join(ROOT, 'data', 'catalogues', 'target_kpi', '202611.csv')
+        tot = None
+        if os.path.exists(tk):
+            for r in csv.DictReader(open(tk, encoding='utf-8')):
+                if r['month'] == '2026-11' and r['brand'] == 'IOH' and r['level'] == 'region' and r['kpi'] == 'TOTAL RGU GA':
+                    tot = float(r['value'])
+        dga = sum(d['ga'][2] for d in dses if d.get('ga'))
+        ga_rem = {'total_rgu_ga': tot, 'dse_ga': round(dga, 2), 'remainder_pjp_nonpjp': None if tot is None else round(tot - dga, 2),
+                  'rule': 'Target GA region (Target KPI IE, TOTAL RGU GA) minus the DSE GA targets = target of PJP and non-PJP outlets outside the DSE targets (owner, 18 Nov 2026)'}
+        print(f"November targets: {os.path.basename(nov_path)} | rows {len(nov)} | placed by MC {placed} | DSE without row {missing}")
+
     def roll(keyf):
         g = defaultdict(blank)
         for d in dses:
@@ -176,7 +257,7 @@ def main():
     feed = {
         'metadata': {
             'generated_at': datetime.now().isoformat(timespec='seconds'), 'source': src_note, 'sheet': SHEET_NAME,
-            'period': 'Oktober 2026 (target bulanan)', 'dses': len(dses), 'mcs': len(mcs), 'areas': len(areas), 'unmatched_ids': unmatched,
+            'period': period, 'ga_remainder': ga_rem, 'dses': len(dses), 'mcs': len(mcs), 'areas': len(areas), 'unmatched_ids': unmatched,
             'rules': {
                 'sp': 'Sell-In SP target in pcs per DSE, split IM3 / 3ID; IOH = IM3 + 3ID (rebalanced columns)',
                 'osa': 'OSA target in Rp per DSE, split IM3 / 3ID; IOH = IM3 + 3ID',
@@ -194,7 +275,7 @@ def main():
     with open(OUT_JSON, 'w', encoding='utf-8') as f:
         json.dump(feed, f, ensure_ascii=False, separators=(',', ':'))
     with open(OUT_JS, 'w', encoding='utf-8') as f:
-        f.write('/* DSE target setting (Sell-In SP, OSA), generated by scripts/build_target_feed.py */\nwindow.TARGET_FEED = ')
+        f.write('/* DSE target setting (Sell-In SP, OSA, GA), generated by scripts/build_target_feed.py */\nwindow.TARGET_FEED = ')
         json.dump(feed, f, ensure_ascii=False, separators=(',', ':'))
         f.write(';\n')
     print(f"{os.path.basename(path)} | DSEs {len(dses)} | MCs {len(mcs)} | areas {len(areas)} | unmatched ids {len(unmatched)}")
