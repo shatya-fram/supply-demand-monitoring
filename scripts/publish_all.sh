@@ -3,7 +3,8 @@
 #   scripts/publish_all.sh              both sites (render check first)
 #   scripts/publish_all.sh --sd-only    Supply & Demand only      scripts/publish_all.sh --portal-only   landing page (portal) only
 #   scripts/publish_all.sh --check      only report the live state (no push)
-#   SKIP_CHECK=1 skips node scripts/render_check.js;  INNER_HTML=<file> overrides the report-01 source of the portal.
+#   scripts/publish_all.sh --align      only run the alignment gate (portal numbers == S&D site numbers, scripts/verify_portal_alignment.js)
+#   SKIP_CHECK=1 skips node scripts/render_check.js; SKIP_ALIGN=1 skips the alignment gate;  INNER_HTML=<file> overrides the report-01 source of the portal.
 # Why: the 265 MB Pages deploy sometimes hangs at "syncing_files" and times out; re-running the same artifact keeps failing, a NEW commit (empty) builds a new
 # artifact and works. This script waits for the run of the pushed commit, retries with an empty commit (max 3), then checks version.json on the live site.
 set -uo pipefail
@@ -12,8 +13,8 @@ ROOT="$(pwd)"
 SD=shatya-fram/supply-demand-monitoring; PT=shatya-fram/inner-jakarta-portal
 SD_URL=https://shatya-fram.github.io/supply-demand-monitoring; PT_URL=https://shatya-fram.github.io/inner-jakarta-portal
 INNER_HTML="${INNER_HTML:-$ROOT/../../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html}"
-MODE=all; CHECK=0
-for a in "$@"; do case "$a" in --sd-only) MODE=sd;; --portal-only) MODE=portal;; --check) CHECK=1;; esac; done
+MODE=all; CHECK=0; ALIGN_ONLY=0
+for a in "$@"; do case "$a" in --sd-only) MODE=sd;; --portal-only) MODE=portal;; --check) CHECK=1;; --align) ALIGN_ONLY=1;; esac; done
 SHA="$(git rev-parse --short HEAD)"
 say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 gh_retry() { local i out; for i in 1 2 3 4 5 6; do out="$("$@" 2>/dev/null)" && { printf '%s' "$out"; return 0; }; sleep 10; done; return 1; }   # api.github.com drops now and then
@@ -74,5 +75,17 @@ if [ "$CHECK" = 0 ] && [ -z "${SKIP_CHECK:-}" ]; then say "render_check (SKIP_CH
 RC=0
 [ "$MODE" != portal ] && { publish_sd || RC=1; }
 [ "$MODE" != sd ] && { publish_portal || RC=1; }
+# Alignment gate (owner, 11 Nov 2026): after a push the landing page (Menu 02) must show the same numbers as the S&D site. The portal is built from the same
+# committed HEAD, so the feeds must be equal value by value (only names that the public release masks may differ). A portal-only push also requires the S&D site to
+# be live at this HEAD; an S&D-only push leaves the portal behind until it is published too, which is reported, not hidden.
+align_gate() {
+  say "alignment gate: portal vs S&D site (SKIP_ALIGN=1 to skip)"
+  EXPECT_SHA="$SHA" node --max-old-space-size=8192 scripts/verify_portal_alignment.js 2>&1 | grep -E "^\[align\]|FAIL" ; return "${PIPESTATUS[0]}"
+}
+if [ "$ALIGN_ONLY" = 1 ]; then align_gate; exit $?; fi
+if [ "$CHECK" = 0 ] && [ "$RC" = 0 ] && [ -z "${SKIP_ALIGN:-}" ]; then
+  if [ "$MODE" = sd ]; then say "NOTE: S&D published alone, the portal still shows the previous commit; run scripts/publish_all.sh --portal-only so both show the same numbers"
+  else align_gate || RC=1; fi
+fi
 [ "$RC" = 0 ] && say "DONE: everything verified" || say "NOT DONE: see the lines above"
 exit "$RC"

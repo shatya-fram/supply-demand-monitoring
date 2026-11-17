@@ -8453,10 +8453,45 @@
     return nm + (g === 'T' ? '' : ' · ' + g.replace(/^(A|M|N):/, ''));
   }
   function pdTgOn(key) { var T = ptFeed(); return !!(T && T.channels.some(function (c) { return c.measure === key && c.program; })); }
+  /* Channel targets exist per Area only (ALOKASI PROGRAM NOVEMBER). Under an MC or Head of Area filter the Area target was shown whole for that MC, so MC / HoA targets did not add up to the Area
+     (owner, 17 Nov 2026). The Area target is now allocated to the MCs by a weight, so the MCs of an Area add up to its target and the Areas add up to the Region:
+       AVA (rule "/MC") = equal per MC · DSF = DSF persons of the roster in the MC (500 each) · other program channels = members of the channel in the MC (exclusive sets)
+       · Retail & KRO natural and any channel without members in the Area = the governed MC target Total RGU GA of the month (Target KPI IE). */
+  var _tsW = { by: null, w: {} };
+  function ptMcList() {   // [{mc, br, hoa, ga}] of the master MCs with the governed GA target of the running month
+    var F = ckFeed(), K = kroFeed(), mi = (K && K.metadata && K.metadata.mc_info) || {}, out = [];
+    if (!F) return out;
+    var ks = Object.keys(F.months || {}).sort(), m = F.months[ks[ks.length - 1]] || {};
+    (m.mcs || []).forEach(function (x) { out.push({ mc: x.mc, br: x.br, hoa: (mi[x.mc] || {}).hoa || '', ga: ((x.IOH || {})['TOTAL RGU GA']) || 0 }); });
+    return out;
+  }
+  function ptMcWeights(ch) {   // {area: {mc: weight}}
+    if (_tsW.by !== _prgBy) _tsW = { by: _prgBy, w: {} };
+    if (_tsW.w[ch.id]) return _tsW.w[ch.id];
+    var mcs = ptMcList(), res = {}, mem = {}, prog = ch.program;
+    var roster = (typeof window !== 'undefined' && window.DSF_FEED) ? window.DSF_FEED.people : [];
+    if (prog && prog !== '~NP' && ch.id === 'DSF') roster.forEach(function (p) { mem[p.mc] = (mem[p.mc] || 0) + 1; });
+    else if (prog && prog !== '~NP' && _prgBy[prog]) [prog].concat(CH_ALSO[prog] || []).forEach(function (n) { Object.keys(_prgBy[n] || {}).forEach(function (k) { var r = _prgBy[n][k]; if (r.mc) mem[r.mc] = (mem[r.mc] || 0) + 1; }); });
+    var equal = /\/MC/i.test(ch.rule || '');
+    mcs.forEach(function (x) { (res[x.br] = res[x.br] || {})[x.mc] = equal ? 1 : (prog === '~NP' ? x.ga : (mem[x.mc] || 0)); });
+    Object.keys(res).forEach(function (a) {   // an Area where the channel has no member: fall back to the governed GA target of the MCs
+      var t = 0; Object.keys(res[a]).forEach(function (m) { t += res[a][m]; });
+      if (!(t > 0)) mcs.forEach(function (x) { if (x.br === a) res[a][x.mc] = x.ga; });
+    });
+    return (_tsW.w[ch.id] = res);
+  }
+  function ptScopeOn() { return !!(state.kec || state.hoa); }
+  function ptShare(ch, area) {   // share of the Area target of this channel that belongs to the MC / HoA in scope (1 when only an Area or the Region is in scope)
+    if (!ptScopeOn()) return 1;
+    var W = (ptMcWeights(ch) || {})[area]; if (!W) return 1;
+    var mi = (kroFeed().metadata.mc_info || {}), tot = 0, own = 0;
+    Object.keys(W).forEach(function (m) { tot += W[m]; if ((!state.kec || m === state.kec) && (!state.hoa || ((mi[m] || {}).hoa || '') === state.hoa)) own += W[m]; });
+    return tot > 0 ? own / tot : 0;
+  }
   function pdTgt(names, key, area) {   // monthly target of the channels of these programs on this measure (area null = every area in scope); null = no target for this line
     var T = ptFeed(); if (!T) return null; var s = 0, hit = false;
-    T.channels.forEach(function (c) { if (c.measure === key && c.program && names.indexOf(c.program) >= 0 && (names.length > 1 || !CH_ALSO[c.program])) Object.keys(c.areas).forEach(function (a) { if ((area == null || a === area) && (!state.branch || a === state.branch)) { s += c.areas[a].target || 0; hit = true; } }); });
-    return hit ? s : null;
+    T.channels.forEach(function (c) { if (c.measure === key && c.program && names.indexOf(c.program) >= 0 && (names.length > 1 || !CH_ALSO[c.program])) Object.keys(c.areas).forEach(function (a) { if ((area == null || a === area) && (!state.branch || a === state.branch)) { s += (c.areas[a].target || 0) * ptShare(c, a); hit = true; } }); });
+    return hit && !(ptScopeOn() && s === 0) ? s : null;
   }
   function pdHead(first, P, key, vis, nc) {
     var n = P.metadata.days_cur, mo = P.metadata.month_cur, d = [], i, tg = pdTgOn(key);
@@ -8524,7 +8559,7 @@
     var NP = uni.filter(function (r) { return !memAll[r.k]; }), noDse = !!state.dse;
     var L = C.rows.filter(kroInScope);
     _pdCsv = [];
-    var body = '', csvHead, noteDay = '<p class="note">Hari setelah data terakhir (' + cut + ' ' + esc(P.metadata.month_cur) + ') tampil "·" (belum ada data, bukan nol). ' + (mt ? '' : '<b>MTD bulan berjalan belum tersedia untuk produk ini</b> (file GA bulan berjalan belum diterima): kolom harian n/a. ') + 'MTD dan LMTD memakai jumlah hari yang sama (1–' + cut + '); Growth = MTD ÷ LMTD − 1; Last FM = bulan lalu penuh. Satu outlet dihitung sekali di Gabungan walau ada di beberapa program, tetapi tampil di setiap program tempat ia terdaftar. ' + (kroIsVal(key) ? 'Rp Jt = juta rupiah.' : '') + '</p>';
+    var body = '', csvHead, noteDay = '<p class="note">Hari setelah data terakhir (' + cut + ' ' + esc(P.metadata.month_cur) + ') tampil "·" (belum ada data, bukan nol). ' + (mt ? '' : '<b>MTD bulan berjalan belum tersedia untuk produk ini</b> (file GA bulan berjalan belum diterima): kolom harian n/a. ') + 'MTD dan LMTD memakai jumlah hari yang sama (1–' + cut + '); Growth = MTD ÷ LMTD − 1; Last FM = bulan lalu penuh. Satu outlet dihitung sekali di Gabungan walau ada di beberapa program, tetapi tampil di setiap program tempat ia terdaftar. ' + (kroIsVal(key) ? 'Rp Jt = juta rupiah.' : '') + '</p>'; noteDay += (ptScopeOn() ? '<p class="note"><b>Target per MC / Head of Area</b> = target Area yang dialokasikan ke MC: AVA rata per MC (600), DSF menurut jumlah DSF di roster (500 per DSF), channel lain menurut jumlah outlet anggotanya di MC, Retail &amp; KRO natural menurut target GA MC (Target KPI IE). Jumlah MC dalam satu Area sama dengan target Area; MC tanpa anggota channel tidak punya target channel itu (·).</p>' : '');
     if (tab === 'kat') {
       var entAll = pdMcScope(P, K), npDays = noDse ? null : pdSub(P, key, entAll, memRows), rowsHtml = '', tree = chTree(names, key, uni, C.by);
       var addD = function (a, b) { if (!a || !b) return null; return a.map(function (v, i) { return v + (b[i] || 0); }); };
@@ -8602,7 +8637,7 @@
   function ptSgn(v, f) { return v == null ? KRO_NA : (v >= 0 ? '+' : '−') + f(Math.abs(v)); }
   function ptCalc(P, C, ch, area) {
     var key = ch.measure, ok = P.metadata.key_order.indexOf(key) >= 0 && kroHasP(key, 'mt') && !!ch.program, n = P.metadata.days_cur, cut = ok ? P.metadata.cuts[key] : (P.metadata.cuts.ga || 0), tgt = 0, units = 0, ar = ptAreas(ch);
-    ar.forEach(function (a) { if (area == null || a === area) { tgt += ch.areas[a].target || 0; units += ch.areas[a].units || 0; } });
+    ar.forEach(function (a) { if (area == null || a === area) { var sh = ptShare(ch, a); tgt += (ch.areas[a].target || 0) * sh; units += (ch.areas[a].units || 0) * sh; } });
     var inA = function (br) { return area == null ? ar.indexOf(br) >= 0 : br === area; }, rows, days, mtd;
     if (ok && ch.program === '~NP') {   // Retail & KRO natural = every outlet outside the program flags; daily = MC totals minus the program members
       var K2 = kroFeed(), uni = kroUniv(K2).filter(kroInScope).filter(function (r) { return inA(r.br); }), mem = uni.filter(function (r) { return !chNP(r); });

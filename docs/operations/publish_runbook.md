@@ -25,3 +25,11 @@ Akibat: dua kali laporan "terbit" padahal belum tayang, sekitar 40 menit terbuan
 * Jangan melaporkan "sudah terbit" sebelum `publish_all.sh` mencetak `DONE`.
 * Portal memakai `portal/users.json` dan `portal/_keys.json` lokal (gitignored) dan laporan 01 dari `../../Inner Jakarta Focus Priority/Inner Jakarta Complete App (offline).html` (relatif terhadap folder proyek) (ubah dengan `INNER_HTML`).
 * Bila situs terus bertambah besar: kurangi `website/archive/` (feed Oktober, 64 MB) atau pindahkan bagian besar ke Release asset; batas keras Pages 1 GB, batas praktis deploy cepat sekitar 100–150 MB.
+
+## Gerbang keselarasan angka (11 Nov 2026)
+`publish_all.sh` menutup setiap publish dengan `scripts/verify_portal_alignment.js`: laporan S&D di landing page (bundle terenkripsi, didekripsi dengan `portal/_keys.json` lokal) harus **sama nilai demi nilai** dengan situs S&D live, untuk periode November dan Oktober (46 file: 13 feed x 2 periode + feed pendukung + kode). Satu-satunya selisih yang ditoleransi: nama outlet yang disamarkan situs publik (teks "disamarkan"). Kode (`app.js`, `stock.js`, dst.) harus identik byte demi byte.
+* `--portal-only` mensyaratkan situs S&D live berada di HEAD yang sama; kalau tidak, hasilnya `NOT COMPARABLE` (exit 2) dan publish dianggap belum selesai: jalankan `publish_all.sh` tanpa `--portal-only`.
+* `--sd-only` meninggalkan portal di commit lama; skrip menulis catatan, dan portal harus dipublish juga.
+* `--align` hanya menjalankan gerbang (sekitar 2 menit, mengunduh sekitar 100 MB). `SKIP_ALIGN=1` melewatinya.
+* Gagal (exit 1) berarti ada angka atau kode yang berbeda: jangan laporkan "terbit"; publish ulang kedua situs dari commit yang sama.
+
