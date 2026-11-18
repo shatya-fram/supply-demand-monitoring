@@ -2947,12 +2947,12 @@
   function heatLegend(id) {
     return HEAT_BANDS.map(function (b) { return '<span style="display:inline-block; width:12px; height:12px; background:' + b[1] + '; border:1px solid rgba(0,0,0,.25); vertical-align:middle; margin-right:3px;"></span>' + b[3] + (id ? ' ' + { green: 'hijau', 'light green': 'hijau muda', orange: 'oranye', yellow: 'kuning', red: 'merah' }[b[4]] : ' ' + b[4]); }).join(' &nbsp; ');
   }
-  /* Effective Call of the day: productive visits (sell-in SP/VC or saldo) ÷ planned stops; colour = EC ÷ KPI target of 50% on the achievement standard */
+  /* Effective Call of the day: productive visits (sell-in SP/VC or saldo) ÷ executed visits incl. ad-hoc (owner, 18 Nov 2026); colour = EC ÷ KPI target of 50% on the achievement standard */
   var EC_TARGET = 50;
   function heatCellEc(p, x) {
     if (!p) return '<td class="num" style="color:var(--ij-hairline); text-align:center;">·</td>';
     var pct = Math.round(x / p * 100), band = heatBand(Math.round(pct / EC_TARGET * 100));
-    return '<td class="num" title="' + x + ' kunjungan efektif dari ' + p + ' rencana; target Eff Call ' + EC_TARGET + '%" style="background:' + band.bg + '; color:' + band.fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + x + '/' + p + '</span></td>';
+    return '<td class="num" title="' + x + ' kunjungan efektif dari ' + p + ' kunjungan terlaksana (PJP + adhoc); target Eff Call ' + EC_TARGET + '%" style="background:' + band.bg + '; color:' + band.fg + '; text-align:center; font-weight:700;">' + pct + '%<br><span style="font-size:10px; font-weight:500; opacity:.85;">' + x + '/' + p + '</span></td>';
   }
   /* PJP heatmap split (owner, 23 Okt 2026): P = PJP stops on a beat plan (executed vs planned); A = ad-hoc visits (stops without BEATPLANID, always executed, never planned); T = P + A: total visits vs plan + ad-hoc (the figures shown before). A series cell is [total planned, total executed, productive, ad-hoc]; P = total minus ad-hoc. */
   var PJ_VIEWS = [['pjp', 'P · PJP terlaksana ÷ rencana'], ['adhoc', 'A · Adhoc (visit di luar rencana)'], ['total', 'T · Total (P + Adhoc) ÷ (rencana + adhoc)']];
@@ -9865,8 +9865,9 @@
     var U = P.compliance.uar, E = P.compliance.ec, cap = P.compliance.cap;
     o.uarTgt = (r.cls === 'R' ? U.target_rural : U.target_urban) * f; o.uar = (!opt.spi && r.sp_uar5_ns != null) ? r.sp_uar5_ns : r.sp_uar5;   // UAR >= 5 pcs = SP 3GB + SP Injection (SP0 excluded); "Tanpa Injection" uses the 3GB-only count
     o.uarAch = o.uarTgt > 0 ? Math.min(cap, o.uar / o.uarTgt) : 0;
-    o.ecNum = opt.ec === 'exec' ? r.actual : r.prod; o.ecDen = r.planned;
-    o.ec = r.planned > 0 ? o.ecNum / r.planned : null;
+    /* owner 18 Nov 2026: Effective Call = productive visits ÷ executed visits (PJP + ad-hoc); 'exec' view = visit productivity (executed ÷ planned) */
+    o.ecNum = opt.ec === 'exec' ? r.actual : r.prod; o.ecDen = (opt.ec === 'exec' || window.IJ_PER === 'oct') ? r.planned : r.actual;   /* October close (per=oct) keeps the old planned denominator */
+    o.ec = o.ecDen > 0 ? o.ecNum / o.ecDen : null;
     o.ecAch = o.ec == null ? 0 : Math.min(cap, o.ec / E.target);
     o.comp = U.weight * o.uarAch + E.weight * o.ecAch;
     o.idx = 0;
@@ -9922,7 +9923,7 @@
     ];
     var cmpRows = [
       'UAR ≥ 5 pcs (SP 3GB' + (opt.spi ? ' + Injection' : '') + '; SP0 tidak dihitung): <b>' + fmtCount(o.uar) + '</b> outlet · target <b>' + (Math.round(o.uarTgt * 10) / 10) + '</b> (' + (r.cls === 'R' ? P.compliance.uar.target_rural + ' rural' : P.compliance.uar.target_urban + ' urban') + (f < 1 ? ' × ' + M.cut_day + '/' + M.month_days : '') + ') → skor ' + dkPctTag(o.uarAch, 1, 0.9),
-      'Effective call: <b>' + fmtCount(o.ecNum) + '</b> ' + (state.dkEc === 'exec' ? 'visit terlaksana' : 'visit produktif') + ' ÷ <b>' + fmtCount(o.ecDen) + '</b> rencana' + (r.vis ? ' = ' + (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : ' <span class="note">(tanpa data PJP)</span>') + ' · target 50% → skor ' + dkPctTag(o.ecAch, 1, 0.9),
+      'Effective call: <b>' + fmtCount(o.ecNum) + '</b> ' + (state.dkEc === 'exec' ? 'visit terlaksana' : 'visit produktif') + ' ÷ <b>' + fmtCount(o.ecDen) + '</b> ' + (state.dkEc === 'exec' ? 'rencana + adhoc' : 'visit terlaksana (PJP + adhoc)') + (r.vis ? ' = ' + (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : ' <span class="note">(tanpa data PJP)</span>') + ' · target 50% → skor ' + dkPctTag(o.ecAch, 1, 0.9),
       'Skor compliance = ' + (P.compliance.uar.weight * 100) + '% × ' + (o.uarAch * 100).toFixed(0) + '% + ' + (P.compliance.ec.weight * 100) + '% × ' + (o.ecAch * 100).toFixed(0) + '% = <b>' + (o.comp * 100).toFixed(1) + '%</b> → index ' + dkIdxTag(o.idx)
     ];
     var incRows = [
@@ -10181,7 +10182,7 @@
       sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD (' + M.cut_day + '/' + M.month_days + ')'], ['full', 'Target penuh bulan']], opt.basis) +
       sellinBtnGroup('Amount OSA', 'dk-osa', [['all', 'Semua outlet'], ['q', 'Outlet ≥ Rp 300K']], opt.osa) +
       sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') +
-      sellinBtnGroup('Effective call', 'dk-ec', [['prod', 'Visit produktif'], ['exec', 'Visit terlaksana']], opt.ec) + '</div>';
+      sellinBtnGroup('Effective call', 'dk-ec', [['prod', 'EC = produktif ÷ terlaksana'], ['exec', 'Visit terlaksana ÷ rencana']], opt.ec) + '</div>';
     // cards
     var cards = moTargetBanner() + '<div class="kpis" style="margin-top:10px;">' +
       kpi('DSE dalam cakupan', fmtCount(A.n), fmtCount(A.withVis) + ' punya data PJP', 'up', scope) +
@@ -10238,7 +10239,7 @@
       '<tr><td class="cur">Outlet mapping sell in SP data ≥ 5 pcs (UAR)</td><td class="num">50%</td><td>30 outlet (urban) · 25 outlet (rural)</td></tr>' +
       '<tr><td class="cur">Effective call berbasis fix PJP</td><td class="num">50%</td><td>50% dari fix PJP</td></tr></tbody></table></div>' +
       '<p class="note" style="margin-top:8px;"><b>Skor compliance</b> ≥ 100% → index × 1 · ≥ 90% sampai &lt; 100% → × 0.97 · ≥ 80% sampai &lt; 90% → × 0.95 · &lt; 80% → 0. <b>Insentif final = (insentif OSA + insentif SP) × compliance index.</b> Tiap komponen compliance dibatasi 100% (seperti kolom "Total EF cap 100%" di GAPLOK).</p>' +
-      '<p class="note"><b>Asumsi yang perlu dikonfirmasi:</b> (1) 0.2% dan 0.4% dibaca sebagai persentase dari amount OSA, dibatasi Rp 1 Jt; amount OSA = nilai uang sell-in SP + saldo Mobo + voucher (isi dan blank) ke semua outlet mapping DSE (default); pilihan "Outlet ≥ Rp 300K" hanya menghitung outlet yang totalnya ≥ Rp 300K (aturan GAPLOK). (2) Slab SP memakai target Sell-In SP resmi per DSE: 90% target membayar 90% dari Rp 1 Jt, 100% target membayar penuh (DSE tanpa target resmi tidak mendapat insentif SP). (3) Bobot 40% / 60% pada slide ditampilkan sebagai informasi, bukan pengali rupiah; tiap KPI maksimal Rp 1 Jt sesuai arahan. (4) Target OSA individual dari file target resmi (rebalancing); proxy September aktual hanya untuk DSE tanpa target. (5) Kelas urban atau rural per DSE memakai aturan Area: Karawang dan Kab Bekasi = rural, lainnya urban (dapat ditimpa lewat file target). (6) Effective call = visit produktif (ada sell-in SP/VC atau saldo &gt; Rp 50 rb) ÷ visit terjadwal (fix PJP), dari data PJP s.d. ' + pjpPeriod('end', {id:1}) + '; visit ad-hoc di luar PJP belum ada di data. (7) SP injection digital (MOBO) belum ikut dihitung; cut sell-in ' + M.cut_day + ' Okt, PJP ' + M.visits_cut_day + ' Okt. (8) Basis prorata mengalikan target bulanan dengan ' + M.cut_day + '/' + M.month_days + ' (OSA, tier SP, UAR); target effective call 50% tidak diprorata.</p></div></details>';
+      '<p class="note"><b>Asumsi yang perlu dikonfirmasi:</b> (1) 0.2% dan 0.4% dibaca sebagai persentase dari amount OSA, dibatasi Rp 1 Jt; amount OSA = nilai uang sell-in SP + saldo Mobo + voucher (isi dan blank) ke semua outlet mapping DSE (default); pilihan "Outlet ≥ Rp 300K" hanya menghitung outlet yang totalnya ≥ Rp 300K (aturan GAPLOK). (2) Slab SP memakai target Sell-In SP resmi per DSE: 90% target membayar 90% dari Rp 1 Jt, 100% target membayar penuh (DSE tanpa target resmi tidak mendapat insentif SP). (3) Bobot 40% / 60% pada slide ditampilkan sebagai informasi, bukan pengali rupiah; tiap KPI maksimal Rp 1 Jt sesuai arahan. (4) Target OSA individual dari file target resmi (rebalancing); proxy September aktual hanya untuk DSE tanpa target. (5) Kelas urban atau rural per DSE memakai aturan Area: Karawang dan Kab Bekasi = rural, lainnya urban (dapat ditimpa lewat file target). (6) Effective call = visit produktif (ada sell-in SP/VC atau saldo ≥ Rp 75 rb) ÷ visit terlaksana (PJP + adhoc, aturan 18 Nov 2026), dari data PJP s.d. ' + pjpPeriod('end', {id:1}) + '; visit ad-hoc di luar PJP belum ada di data. (7) SP injection digital (MOBO) belum ikut dihitung; cut sell-in ' + M.cut_day + ' Okt, PJP ' + M.visits_cut_day + ' Okt. (8) Basis prorata mengalikan target bulanan dengan ' + M.cut_day + '/' + M.month_days + ' (OSA, tier SP, UAR); target effective call 50% tidak diprorata.</p></div></details>';
     return tool + cards + card('Distribusi slab · ' + scope, dist) + groupHtml + dseTable + pol;
   }
 
@@ -10966,7 +10967,7 @@
     rows.forEach(function (r) { r.pr = 0; r.daily.forEach(function (c) { r.pr += c[2] || 0; }); });
     var tot = days.map(function () { return [0, 0, 0, 0]; }), TP = 0, TA = 0, TR = 0, TH = 0;
     rows.forEach(function (r) { r.daily.forEach(function (c, i) { tot[i][0] += c[0]; tot[i][1] += c[1]; tot[i][2] += c[2] || 0; tot[i][3] += c[3] || 0; }); TP += r.planned; TA += r.actual; TR += r.pr; TH += r.ah || 0; });
-    var cellFn = function (c, i, bin) { return mbDayAttr(ecOn ? heatCellEc(c[0], c[2] || 0) : pjCell(c, view, bin), i); };
+    var cellFn = function (c, i, bin) { return mbDayAttr(ecOn ? heatCellEc(window.IJ_PER === 'oct' ? c[0] : c[1], c[2] || 0) : pjCell(c, view, bin), i); };
     var seenParent = {}; rows.forEach(function (r) { seenParent[r.parent] = 1; });
     var showParent = Object.keys(seenParent).length > 1;
     function overall(pl, ac, bold, pr, ah, S) { if (!ecOn) return pjOverallCells(pl, ac, ah || 0, bold); return ecOverallCells(S, bold); }
@@ -11381,11 +11382,11 @@
       ds.forEach(function (r) {
         pl += r.pl; ac += r.ac; pr += r.pr; dpl += r.dpl; dac += r.dac; dpr += r.dpr; ah += r.ah; dah += r.dah;   // totals: every field operator except promotors (same as Ringkasan PJP)
         if (!r.inM) { if (r.pl > 0) { nU++; plU += r.pl; acU += r.ac; } return; }   // DSE counts: only operators mapped to the master; unmapped logins are reported separately
-        if (r.pl > 0) { nD++; if (r.ac >= r.pl) n100m++; if (r.pr / r.pl > 0.8) nEc++; }
-        if (r.dpl > 0) { nDd++; if (r.dac >= r.dpl) n100d++; if (r.dpr / r.dpl > 0.8) nEcD++; }
+        if (r.pl > 0) { nD++; if (r.ac >= r.pl) n100m++; var eA = window.IJ_PER === 'oct' ? r.pl : r.ac; if (eA > 0 && r.pr / eA > 0.8) nEc++; }
+        if (r.dpl > 0) { nDd++; if (r.dac >= r.dpl) n100d++; var eD = window.IJ_PER === 'oct' ? r.dpl : r.dac; if (eD > 0 && r.dpr / eD > 0.8) nEcD++; }
       });
       var pP = pl - ah, aP = ac - ah, dpP = dpl - dah, daP = dac - dah;   // P = PJP on a beat plan (total minus ad-hoc), A = ad-hoc visits, T = P + A (owner, 23 Okt 2026); Effective Call counts P + A (productive ÷ plan + ad-hoc)
-      var pjpM = ovPct(aP, pP), pjpD = ovPct(daP, dpP), pjpT = ovPct(ac, pl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);
+      var pjpM = ovPct(aP, pP), pjpD = ovPct(daP, dpP), pjpT = ovPct(ac, pl), ecM = ovPct(pr, pl), ecD = ovPct(dpr, dpl);   /* owner 18 Nov 2026: Effective Call = productive ÷ executed visits (P + A) */
       var cPJP = ['DSE', 'ID', 'MC', 'Rencana PJP (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], dsP = ds.filter(function (r) { return r.pl > 0 && r.inM; }), dsPP = dsP.filter(function (r) { return r.pl - r.ah > 0; });
       ovAdd('pjp_mtd', '% PJP MTD · DSE terendah dulu', cPJP, ovRows(dsPP.slice().sort(function (a, b) { return (a.ac - a.ah) / (a.pl - a.ah) - (b.ac - b.ah) / (b.pl - b.ah); }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl - r.ah), ovN(r.ac - r.ah), ovSN(r.ac - r.pl), ovP((r.ac - r.ah) / (r.pl - r.ah) * 100), ovN(r.ah), ovN(r.ac)]; }), ['Total PJP (P): ' + ovN(aP) + ' terlaksana dari ' + ovN(pP) + ' rencana (' + ovP(pjpM) + '), gap ' + ovSN(ac - pl) + ' · Adhoc (A) ' + ovN(ah) + ' · Total visit (T = P + A) ' + ovN(ac) + ' dari ' + ovN(pl) + ' (' + ovP(pjpT) + ')', n100m + ' dari ' + nD + ' DSE sudah ≥ 100% MTD'].concat(nU ? ['Tidak termasuk daftar: ' + ovN(nU) + ' login belum terpetakan ke master (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + '); angka rencana dan terlaksana di atas sudah memuatnya'] : []));
       _ovReg.pjp_mtd_a = _ovReg.pjp_mtd; _ovReg.pjp_mtd_t = _ovReg.pjp_mtd;   // the Adhoc (A) and Total (T) cards open the same DSE list (it shows P, A and T)
@@ -11393,20 +11394,24 @@
       var cD1 = ['DSE', 'ID', 'MC', 'Rencana PJP D-1 (P)', 'Terlaksana PJP (P)', 'Gap', '% P', 'Adhoc (A)', 'Total visit (T)'], rD1 = function (r) { var pp = r.dpl - r.dah, pa = r.dac - r.dah; return [r.name, r.code, r.mc, ovN(pp), ovN(pa), ovSN(r.dac - r.dpl), pp > 0 ? ovP(pa / pp * 100) : 'n/a', ovN(r.dah), ovN(r.dac)]; };
       ovAdd('pjp_d1', 'PJP D-1 ' + dlabel + ' · DSE yang belum 100%', cD1, ovRows(dD, rD1), ['Total D-1 PJP (P): ' + ovN(daP) + ' dari ' + ovN(dpP) + ' rencana (' + ovP(pjpD) + '), gap ' + ovSN(dac - dpl) + ' · Adhoc (A) ' + ovN(dah) + ' · Total (T) ' + ovN(dac) + ' dari ' + ovN(dpl), dD.length + ' DSE belum 100% dari ' + nDd + ' DSE terjadwal']);
       ovAdd('dse100', 'DSE yang belum 100% PJP · D-1 ' + dlabel, cD1, ovRows(dD, rD1), [dD.length + ' dari ' + nDd + ' DSE belum 100% pada D-1', 'MTD: ' + n100m + ' dari ' + nD + ' DSE terlaksana ≥ rencana']);
-      var cEC = ['DSE', 'ID', 'MC', 'Rencana', 'Produktif', 'EC %', 'Gap ke 50%'];
-      ovAdd('ec_mtd', 'Effective Call MTD · DSE terendah dulu', cEC, ovRows(dsP.slice().sort(function (a, b) { return a.pr / a.pl - b.pr / b.pl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.5) + ' visit']; }), ['Total: ' + ovN(pr) + ' produktif dari ' + ovN(pl) + ' (' + ovP(ecM) + '), target 50% butuh ' + ovN(pl * 0.5) + ' (gap ' + ovSN(pr - pl * 0.5) + ')']);
-      var dsD = ds.filter(function (r) { return r.inM && r.dpl > 0; });
-      ovAdd('ec_d1', 'Effective Call D-1 ' + dlabel + ' · DSE terendah dulu', cEC, ovRows(dsD.slice().sort(function (a, b) { return a.dpr / a.dpl - b.dpr / b.dpl; }), function (r) { return [r.name, r.code, r.mc, ovN(r.dpl), ovN(r.dpr), ovP(r.dpr / r.dpl * 100), ovSN(r.dpr - r.dpl * 0.5) + ' visit']; }), ['Total D-1: ' + ovN(dpr) + ' dari ' + ovN(dpl) + ' (' + ovP(ecD) + '), gap ke target 50% ' + ovSN(dpr - dpl * 0.5)]);
-      var topEc = dsP.slice().sort(function (a, b) { return b.pr / b.pl - a.pr / a.pl; });
-      ovAdd('ec80', 'DSE dengan Effective Call > 80% (MTD)', cEC, ovRows(topEc, function (r) { return [r.name, r.code, r.mc, ovN(r.pl), ovN(r.pr), ovP(r.pr / r.pl * 100), ovSN(r.pr - r.pl * 0.8) + ' vs 80%']; }, 60), [nEc + ' dari ' + nD + ' DSE di atas 80% (MTD) · D-1: ' + nEcD + ' dari ' + nDd, 'Daftar urut dari EC tertinggi']);
+      var ecNov = window.IJ_PER !== 'oct';   /* owner 18 Nov 2026: from November the EC denominator is visited outlets; the October close keeps planned + adhoc */
+      ds.forEach(function (r) { r.ecA = ecNov ? r.ac : r.pl; r.ecDA = ecNov ? r.dac : r.dpl; });
+      var ecAT = ecNov ? ac : pl, ecDAT = ecNov ? dac : dpl;
+      ecM = ovPct(pr, ecAT); ecD = ovPct(dpr, ecDAT);
+      var cEC = ['DSE', 'ID', 'MC', ecNov ? 'Divisit (P + A)' : 'Rencana + adhoc', 'Produktif', 'EC %', 'Gap ke 50%'];
+      ovAdd('ec_mtd', 'Effective Call MTD · DSE terendah dulu', cEC, ovRows(dsP.filter(function (r) { return r.ecA > 0; }).sort(function (a, b) { return a.pr / a.ecA - b.pr / b.ecA; }), function (r) { return [r.name, r.code, r.mc, ovN(r.ecA), ovN(r.pr), ovP(r.pr / r.ecA * 100), ovSN(r.pr - r.ecA * 0.5) + ' visit']; }), ['Total: ' + ovN(pr) + ' produktif dari ' + ovN(ecAT) + ' ' + (ecNov ? 'visit terlaksana (PJP + adhoc)' : 'rencana') + ' (' + ovP(ecM) + '), target 50% butuh ' + ovN(ecAT * 0.5) + ' (gap ' + ovSN(pr - ecAT * 0.5) + ')']);
+      var dsD = ds.filter(function (r) { return r.inM && r.ecDA > 0; });
+      ovAdd('ec_d1', 'Effective Call D-1 ' + dlabel + ' · DSE terendah dulu', cEC, ovRows(dsD.slice().sort(function (a, b) { return a.dpr / a.ecDA - b.dpr / b.ecDA; }), function (r) { return [r.name, r.code, r.mc, ovN(r.ecDA), ovN(r.dpr), ovP(r.dpr / r.ecDA * 100), ovSN(r.dpr - r.ecDA * 0.5) + ' visit']; }), ['Total D-1: ' + ovN(dpr) + ' dari ' + ovN(ecDAT) + ' visit (' + ovP(ecD) + '), gap ke target 50% ' + ovSN(dpr - ecDAT * 0.5)]);
+      var topEc = dsP.filter(function (r) { return r.ecA > 0; }).sort(function (a, b) { return b.pr / b.ecA - a.pr / a.ecA; });
+      ovAdd('ec80', 'DSE dengan Effective Call > 80% (MTD)', cEC, ovRows(topEc, function (r) { return [r.name, r.code, r.mc, ovN(r.ecA), ovN(r.pr), ovP(r.pr / r.ecA * 100), ovSN(r.pr - r.ecA * 0.8) + ' vs 80%']; }, 60), [nEc + ' dari ' + nD + ' DSE di atas 80% (MTD) · D-1: ' + nEcD + ' dari ' + nDd, 'Daftar urut dari EC tertinggi']);
       out.push(ovKpiGroup('PJP dan Effective Call · ' + scope, [
         ovK('pjp_mtd', '% PJP MTD (P)', ovP(pjpM), ovN(aP) + ' / ' + ovN(pP) + ' · gap ' + ovSN(ac - pl), ovCls(pjpM, 80), ovN(nD) + ' DSE terpetakan · ' + (nU ? ovN(nU) + ' login belum terpetakan (rencana ' + ovN(plU) + ', terlaksana ' + ovN(acU) + ') · ' : '') + 'tanpa promotor'),
         ovK('pjp_mtd_a', 'Visit Adhoc MTD (A)', ovN(ah), ovP(ovPct(ah, ac)) + ' dari ' + ovN(ac) + ' visit · D-1 ' + ovN(dah), 'up', 'Check-in tanpa beat plan, tidak masuk rencana'),
         ovK('pjp_mtd_t', 'Total Visit MTD (T = P + A)', ovP(pjpT), ovN(ac) + ' / ' + ovN(pl) + ' (rencana + adhoc) · gap ' + ovSN(ac - pl), ovCls(pjpT, 80), 'P + A terhadap rencana + adhoc'),
         ovK('pjp_d1', 'D-1 PJP % (P) · ' + dlabel, ovP(pjpD), ovN(daP) + ' / ' + ovN(dpP) + ' · gap ' + ovSN(dac - dpl), ovCls(pjpD, 80), 'Hari kerja terakhir di feed PJP'),
         ovK('dse100', '% DSE dengan PJP 100%', ovP(ovPct(n100d, nDd)), n100d + ' / ' + nDd + ' DSE · ' + (nDd - n100d) + ' belum 100%', ovCls(ovPct(n100d, nDd), 50), 'D-1 · MTD: ' + n100m + ' / ' + nD + ' DSE'),
-        ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(pl) + ' · vs 50%: ' + ovSN(pr - pl * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · dihitung total P + A: produktif (SP/VC > 0 atau saldo > Rp 50 Rb) ÷ (rencana + adhoc)'),
-        ovK('ec_d1', 'D-1 Effective Call · ' + dlabel, ovP(ecD), ovN(dpr) + ' / ' + ovN(dpl) + ' · vs 50%: ' + ovSN(dpr - dpl * 0.5), ovCls(ecD, 50), 'Target KPI DSE 50%'),
+        ovK('ec_mtd', '% Effective Call MTD', ovP(ecM), ovN(pr) + ' / ' + ovN(ecAT) + ' · vs 50%: ' + ovSN(pr - ecAT * 0.5), ovCls(ecM, 50), 'Target KPI DSE 50% · produktif (SP/VC > 0 atau saldo ≥ Rp 75 Rb; Hybrid digabung) ÷ outlet yang divisit (PJP + adhoc), aturan 18 Nov 2026'),
+        ovK('ec_d1', 'D-1 Effective Call · ' + dlabel, ovP(ecD), ovN(dpr) + ' / ' + ovN(ecDAT) + ' · vs 50%: ' + ovSN(dpr - ecDAT * 0.5), ovCls(ecD, 50), 'Target KPI DSE 50%'),
         ovK('ec80', '% DSE dengan Eff Call > 80%', ovP(ovPct(nEc, nD)), nEc + ' / ' + nD + ' DSE (MTD)', ovCls(ovPct(nEc, nD), 50), 'D-1: ' + nEcD + ' / ' + nDd + ' DSE')]));
       afterPjp = out.length;
     }

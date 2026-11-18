@@ -17,3 +17,8 @@ Productive stops 44,424 with the new rule against 44,474 with the old one (-50):
 - KPI / incentive effective-call compliance follows the feed, so it moved with the rule (owner asked for Daily Eff Call and scorecards; confirm the incentive should follow).
 - Stop-level scorecard counts stops, the Daily Heatmap counts unique outlets per day (a Hybrid visited by both brands is one outlet): same rule, different unit.
 - October view B: scorecards keep the rule of the close (> 50K); only the per-outlet Eff Call heatmap uses the new rule.
+
+
+## Penyebut Effective Call (owner, 18 Nov 2026)
+
+EC % = visit produktif ÷ outlet yang divisit (PJP terlaksana + adhoc); contoh 10 PJP + 2 adhoc, 8 sukses = 8/12. Berlaku di Overall Performance, DSE Productivity (compliance), heatmap Eff Call dan feed. Visit productivity (sukses visit) = PJP terlaksana ÷ rencana PJP hari itu (% P). Sebelumnya kartu skor memakai rencana + adhoc sebagai penyebut; label usang "saldo > Rp 50 Rb" juga diperbaiki menjadi Rp 75 Rb.
