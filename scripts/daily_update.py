@@ -265,6 +265,7 @@ def main():
             steps.append(("GA · Site aktivasi vs outlet tagging (kemasukan / pengiriman)", [py, "scripts/build_ga_site_feed.py"]))
         steps.append(("KRO · Wholesaler / KRO catalogue (GA + supply + demand + PJP visits)", [py, "scripts/build_kro_feed.py"]))   # joins the four feeds above, so it runs last
         steps.append(("STOCK · Stok Outlet Over / Par / Low (KRO + ENDBAL)", [py, "scripts/build_stock_feed.py"]))
+        steps.append(("KPI · November 2026 policy inputs (GA per DSE, unique effective-call outlets, GA per MC)", [py, "scripts/build_kpi_nov_feed.py"]))   # after DSE KPI, visits, GA and site feeds
     if glob.glob(os.path.join("raw", "Vanguard", "*Flag*Step1-5*.xlsx")) and glob.glob(os.path.join("raw", "Vanguard", "*OutletMapping*Step1-5*.xlsx")):   # Vanguard 5G: needs territory master + weekly PJP feed
         steps.append(("VANGUARD · 5G site Step 1-5, site -> DSE and the 3-site daily plan", [py, "scripts/build_vanguard_feed.py"]))
     steps.append(("NON-PJP · transactions of non-PJP outlets (flag NON_PJP_ADA_TRANSAKSI)", [py, "scripts/build_nonpjp_flags.py"]))   # after penjualan, demand, GA and visits
@@ -274,6 +275,8 @@ def main():
         steps.append(("5/5 Render check", ["node", "scripts/render_check.js"]))
         steps.append(("Audit · scorecard formulas vs feeds", ["node", "scripts/audit_scorecard.js"]))
         steps.append(("Audit · Gross Add page vs feed", ["node", "scripts/audit_ga.js"]))
+        if os.path.exists(os.path.join("website", "data", "kpi_nov_feed.js")):
+            steps.append(("Audit · KPI November 2026 policy vs slides and feeds", ["node", "scripts/audit_kpi_nov.js"]))
     failed = []
     for label, cmd in steps:
         if run(label, cmd, env) != 0:

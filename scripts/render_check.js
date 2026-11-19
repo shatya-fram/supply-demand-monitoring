@@ -34,6 +34,8 @@ if (typeof global.dseVisitsFeed === 'undefined') {
 require(path.join(root, 'website', 'stock.js'));
 require(path.join(root, 'website', 'dsf_monitor.js'));
 require(path.join(root, 'website', 'vanguard.js'));
+require(path.join(root, 'website', 'data', 'kpi_nov_feed.js'));   // KPI & Insentif November 2026 (mb_kpinov), not part of the October archive
+require(path.join(root, 'website', 'kpi_nov.js'));
 require(path.join(root, 'website', 'outlet_profile.js'));
 require(path.join(root, 'website', 'period_review.js'));
 const app = require(path.join(root, 'website', 'app.js'));
@@ -457,6 +459,15 @@ state.ebSeg = 'all';
 state.branch = fb.branch; for (const tb of ['ringkasan', 'zero', 'slab', 'site', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/branch', VIEWS.mb_endbal); }
 state.kec = fm.micro_cluster; state.branch = fm.branch; for (const tb of ['ringkasan', 'slab', 'detail']) { state.ebTab = tb; check('endbal/' + tb + '/mc', VIEWS.mb_endbal); }
 { const eo = (global.ENDBAL_FEED && global.ENDBAL_FEED.outlets.find(o => o.m === fm.micro_cluster)); if (eo) { state.ebOpen = {}; state.ebOpen[eo.m + '||' + eo.d] = true; state.ebTab = 'detail'; check('endbal/detail/open-dse', VIEWS.mb_endbal); state.ebOpen = {}; } }
+// KPI & Insentif November 2026 (mb_kpinov): every tab x level x GA basis x target basis, filtered and unfiltered
+{ state.view = 'mb_kpinov'; const sv = { b: state.branch, h: state.hoa, k: state.kec };
+  const mcp = Object.keys(global.PENJUALAN_FEED.metadata.mc_info)[0], br0 = global.PENJUALAN_FEED.metadata.mc_info[mcp].br;
+  for (const sc of ['all', 'branch', 'mc']) { state.branch = sc === 'all' ? '' : sv.b || br0; state.kec = sc === 'mc' ? mcp : '';
+    for (const tab of ['dse', 'booster', 'partner', 'policy']) { state.knTab = tab;
+      for (const pr of ['prorata', 'full']) { state.knPro = pr;
+        if (tab === 'partner') { for (const lv of ['hoa', 'dso', 'dsp']) for (const bs of ['site', 'tag']) { state.knLevel = lv; state.knBasis = bs; check('kpinov/' + tab + '/' + sc + '/' + pr + '/' + lv + '/' + bs, VIEWS.mb_kpinov); } }
+        else check('kpinov/' + tab + '/' + sc + '/' + pr, VIEWS.mb_kpinov); } } }
+  state.branch = sv.b; state.kec = sv.k; state.knTab = 'dse'; state.knPro = 'prorata'; state.knLevel = 'hoa'; state.knBasis = 'site'; }
 // Vanguard 5G (mb_vanguard): every tab x day x level x step filter, filtered and unfiltered
 { state.view = 'mb_vanguard'; const V = global.window.VANGUARD, sv = { b: state.branch, h: state.hoa, k: state.kec };
   for (const tab of ['brief', 'progres', 'site', 'dq']) for (const sc of ['all', 'mc']) { state.kec = sc === 'mc' ? V.dses[0].mc : ''; state.vgTab = tab;

@@ -177,6 +177,7 @@
       mb_overall: 'Sell-In ' + S + ' · Demand ' + D + ' · PJP ' + P + ' · GA ' + G,
       mb_ringkasan: 'PJP ' + pjpPeriod('end') + ' · MOBI distribution ' + cutDist() + ' ' + Y,
       mb_endbal: 'ENDBAL ' + cutEndbal() + ' · Sell-In saldo ' + S + ' ' + Y,
+      mb_kpinov: 'Sell-In ' + S + ' · PJP ' + P + ' · GA ' + G + ' · Kebijakan Nov 2026',
       mb_vanguard: 'Vanguard ' + ((window.VANGUARD && window.VANGUARD.metadata) ? window.VANGUARD.metadata.snapshot_date : 'n/a') + ' · PJP ' + pjpPeriod('end'),
       mb_outlet: 'Sell-In ' + S + ' · GA ' + G + ' · PJP ' + P,
       mb_periods: 'Arsip performa harian · Sell-In ' + S + ' · GA ' + G + ' · PJP ' + P,
@@ -224,6 +225,7 @@
     brief: ['Inner Jakarta · Morning Sales Brief', 'Performance against last month, supply against demand, in one daily view.'],
     terr:  ['Inner Jakarta · Leaders Territory Analysis', 'Drill from area to kecamatan and DSE. Click a row for detail.'],
     svd:   ['Inner Jakarta · Supply vs Demand', 'Stock In against customer demand, with stock available on the market.'],
+    mb_kpinov: ['Morning DSE Briefing · KPI & Insentif November 2026', 'Kebijakan baru November: insentif KPI DSE (OSA, SP Data, RGU-GA Trade + double), booster GA Achiever / Subs 1st Recharge, dan skor KPI HoA, DSO, DSP dengan indeks compliance.'],
     mb_partner_perf: ['Morning DSE Briefing · PT Partner Distribusi · Partner Territory Performance', 'Performa per Distributor terhadap Partner Territory (MC, agregat outlet) dan productivity DSE: OSA, SP incl. injection, effective call dan insentif.'],
     mb_partner: ['Morning DSE Briefing · PT Partner Distribusi · Partner & Alokasi Distributor', 'Partner territory (distributor dan sub-dealer per outlet, MC dan area) serta alokasi SP dan voucher ke MPC, SDP dan canvasser DSE dibandingkan sell-in ke outlet.'],
     mb_overall: ['Morning DSE Briefing · Overall Performance SA/MC', 'Pilih Sales Area dan DSO / MC: performa PJP Visit dan Penjualan ke Outlet teritori terpilih dalam satu halaman.'],
@@ -10178,7 +10180,8 @@
     var proxy = list.filter(function (r) { return r.osa_tgt_src === 'proxy'; }).length;
     var scope = esc(scopeText());
     // toolbar
-    var tool = '<div class="map-toolbar" style="margin-top:8px;">' + (pp ? sellinBtnGroup('Brand id partner', 'pp-brand', [['IM3', 'IM3'], ['3ID', '3ID']], state.ppBrand || 'IM3') : '') +
+    var polNote = (typeof window !== 'undefined' && window.KPI_NOV_FEED && window.IJ_PER !== 'oct') ? '<div class="card" style="margin-top:10px; border-left:6px solid var(--ij-accent);"><p class="note" style="margin:0;"><b>Insentif di halaman ini masih kebijakan Oktober</b> (OSA 40% / SP 60%, maks Rp 1 Jt per KPI, EC 50%). Kebijakan November (OSA maks Rp 750 Rb, SP maks Rp 500 Rb, RGU-GA Trade + double maks Rp 2 Jt, EC unik 70%, booster) ada di <a href="#/mb_kpinov">KPI &amp; Insentif November</a>.</p></div>' : '';
+    var tool = polNote + '<div class="map-toolbar" style="margin-top:8px;">' + (pp ? sellinBtnGroup('Brand id partner', 'pp-brand', [['IM3', 'IM3'], ['3ID', '3ID']], state.ppBrand || 'IM3') : '') +
       sellinBtnGroup('Basis target', 'dk-basis', [['prorata', 'Prorata MTD (' + M.cut_day + '/' + M.month_days + ')'], ['full', 'Target penuh bulan']], opt.basis) +
       sellinBtnGroup('Amount OSA', 'dk-osa', [['all', 'Semua outlet'], ['q', 'Outlet ≥ Rp 300K']], opt.osa) +
       sellinBtnGroup('SP Injection', 'dk-spi', [['on', 'Termasuk di SP'], ['off', 'Tanpa Injection']], opt.spi ? 'on' : 'off') +
@@ -11896,6 +11899,8 @@
   function viewProgramDsf() { return pdSwitch('dsf') + ((typeof window !== 'undefined' && window.IJDsf) ? window.IJDsf.view(dsfApi()) : card('Monitoring DSF', '<p class="note">Modul dsf_monitor.js belum dimuat.</p>')); }
   function stockApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, dkTag: dkTag, scopeText: scopeText, grpBody: grpBody, grpBar: grpBar }; }
   function vanguardApi() { return { render: render, state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText }; }
+  function kpiNovApi() { return { render: render, state: state, esc: esc, card: card, kpi: kpi, th: th, fmtCount: fmtCount, scopeText: scopeText, pjRp: pjRp, dkTag: dkTag, dkIdxTag: dkIdxTag, dseNorm: dseNorm, sellinBtnGroup: sellinBtnGroup }; }
+  function viewKpiNov() { return (typeof window !== 'undefined' && window.IJKpiNov) ? window.IJKpiNov.view(kpiNovApi()) : card('KPI & Insentif November', '<p class="note">Modul kpi_nov.js belum dimuat.</p>'); }
   function viewVanguard() { return (typeof window !== 'undefined' && window.IJVanguard) ? window.IJVanguard.view(vanguardApi()) : card('Vanguard 5G', '<p class="note">Modul vanguard.js belum dimuat.</p>'); }
   function outletProfileApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount }; }
   function periodsApi() { return { state: state, esc: esc, card: card, kpi: kpi, th: th, pjRp: pjRp, fmtCount: fmtCount, toggleHtml: toggle }; }
@@ -11907,7 +11912,7 @@
   gaDaily = moGaWrap(gaDaily); gaHarian = moGaWrap(gaHarian); gaSlab = moGaWrap(gaSlab); gaSiteView = moGaWrap(gaSiteView); gaTarget = moGaWrap(gaTarget); gaHeatView = moGaWrap(gaHeatView);
   gaGrafView = moGaWrap(gaGrafView); gaSiteSlab = moGaWrap(gaSiteSlab); gaOutletView = moGaWrap(gaOutletView);
   function moGaWrap(f) { return function () { var r = f.apply(this, arguments); return typeof r === 'string' ? moGa(r) : r; }; }
-  var VIEWS = { brief: viewBrief, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, cat_program: viewProgramCatalogue, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
+  var VIEWS = { brief: viewBrief, mb_kpinov: viewKpiNov, mb_periods: viewPeriods, mb_outlet: viewOutletProfile, mb_vanguard: viewVanguard, mb_stock: viewStock, terr: viewTerr, svd: viewSvd, visits: viewVisits, sellin: viewSellin, mb_ringkasan: viewMbRingkasan, mb_endbal: viewEndBalance, mb_grossadd: viewGrossAdd, mb_gatrend: viewGaTrend, mb_kro: viewKro, mb_program: viewProgram, cat_program: viewProgramCatalogue, mb_uar: viewUar, cfg_target: viewTargetSetting, cfg_pjp: viewPjpMapping, mb_overall: viewMbOverall, mb_pjp: viewMbPjp, mb_penjualan: viewMbPenjualan, mb_partner: viewPartner, mb_partner_perf: viewPartnerPerf, mb_performance: viewPerformance, mb_opportunity: viewMbOpportunity, territory: viewTerritory, map: viewMap, data: viewData };
 
   /* Frozen headers and first column (owner, 2 Nov 2026): every table inside .tbl-wrap keeps its header rows (top) and its first column (left)
      visible while the wrapper scrolls. Offsets of multi-row headers are measured, so grouped two-row headers stack correctly. */
@@ -12815,6 +12820,10 @@
     else if (t.getAttribute('data-act') === 'clear-pj-dse') { state.pjDse = null; state.pjPage = 1; }
     else if (t.hasAttribute('data-pj-out-toggle')) { var ok_ = t.getAttribute('data-pj-out-toggle'); state.pjOutOpen = state.pjOutOpen || {}; state.pjOutOpen[ok_] = !pjOutOpen(ok_, ok_.charAt(0)); }
     else if (t.hasAttribute('data-grp-toggle')) { var gk_ = t.getAttribute('data-grp-toggle'); state.grpOpen = state.grpOpen || {}; state.grpOpen[gk_] = t.getAttribute('aria-expanded') !== 'true'; }
+    else if (t.hasAttribute('data-kn')) { if (window.IJKpiNov) window.IJKpiNov.click(t.getAttribute('data-kn'), kpiNovApi()); }
+    else if (t.hasAttribute('data-kn-pro')) { state.knPro = t.getAttribute('data-kn-pro'); }
+    else if (t.hasAttribute('data-kn-level')) { state.knLevel = t.getAttribute('data-kn-level'); }
+    else if (t.hasAttribute('data-kn-basis')) { state.knBasis = t.getAttribute('data-kn-basis'); }
     else if (t.hasAttribute('data-vg')) { if (window.IJVanguard) window.IJVanguard.click(t.getAttribute('data-vg'), vanguardApi()); }
     else if (t.hasAttribute('data-prv')) { if (window.IJPeriods) window.IJPeriods.click(t.getAttribute('data-prv'), periodsApi()); }
     else if (t.hasAttribute('data-opf')) { if (window.IJOutletProfile) window.IJOutletProfile.click(t.getAttribute('data-opf'), outletProfileApi()); }
@@ -13167,7 +13176,7 @@
      Every page and sub-menu has its own URL:  #/<view>?<tab>=...&sa=...&mc=...&dse=...
      Only values that differ from the defaults are written, so links stay short. Opening a link restores view, sub-menu and territory / DSE filter. */
   var RT_VIEW_TABS = {
-    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_vanguard: ['vgTab', 'vgDay', 'vgLevel', 'vgStep'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay', 'gtDt'],
+    territory: ['terrBrand', 'terrFlag', 'terrSubView', 'iohStatus', 'iohMaster'], mb_ringkasan: ['rkTab', 'opdSec', 'ebTab', 'uarTab', 'gaTab', 'pjTab', 'poTab', 'opTab'], mb_endbal: ['ebTab'], mb_stock: ['stTab', 'stProd', 'stLevel', 'stStat'], mb_vanguard: ['vgTab', 'vgDay', 'vgLevel', 'vgStep'], mb_kpinov: ['knTab', 'knLevel', 'knBasis', 'knPro', 'dkOsa', 'dkSpi'], mb_grossadd: ['gaTab', 'sgaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtSort', 'gsSrc', 'gaOutFmt', 'gaGraf'], mb_gatrend: ['gaTab', 'gaBasis', 'gaBrand', 'gaSg', 'gaCover', 'gtDay', 'gtDt'],
     mb_kro: ['kroTab', 'kroProd', 'kroMeas', 'kroMode', 'kroGroup', 'k360Min'], cat_program: ['kroProd', 'kroMeas', 'cpSel', 'cpPage'], mb_program: ['kroProd', 'kroMeas', 'prg', 'prgMode', 'prgTab', 'pdTab', 'pdGroup', 'pmMetric', 'pmLevel', 'ptView', 'ptMode', 'ptCh', 'ptArea', 'smDim', 'smMetric'], mb_uar: ['uarTab'], cfg_target: ['cfTab', 'cfMonth', 'cfBrand', 'cfKg'], cfg_pjp: ['pmTab'], mb_pjp: ['pjpTab', 'pjTab', 'pjpBasis', 'pjpMetric'], visits: ['pjpBasis', 'pjpMetric'], mb_penjualan: ['pjTab', 'sgaTab'],
     mb_performance: ['poTab'], mb_partner: ['ptTab', 'ptBrand'], mb_partner_perf: ['ppBrand', 'ppGroup', 'dkBasis', 'dkSpi'], mb_opportunity: ['opTab'], mb_outlet: ['opQ', 'opSel'], mb_periods: ['prMetric', 'prScope', 'prMonth', 'prView'], sellin: ['sellinTab', 'sellinUar']
   };
