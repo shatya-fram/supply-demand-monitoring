@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 21 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 20 Nov; GA sampai D19
+- MOBII/MOBO/SALMO 20 Nov 22:31, PJP D20, ENDBAL snapshot 20 Nov (27.206 outlet), GA by Outlet dan Fav Locs 20 Nov 22:33 (D1-D19; tagging MTD 180.001, Fav Locs 208.127). Rantai GA, KRO, Stock, KPI November, flag non-PJP dan period history dijalankan manual (daily_update tidak membangun GA sendiri).
+- Penjualan MTD: SP Rp 1.117,6 jt, SALMO Rp 15.571,8 jt; Demand SALMO Rp 111,95 B; PJP 144.978 planned, 139.018 actual (95,9%). Semua audit lulus kecuali audit_sp (booster). Detail: `docs/assessments/daily_update_2026-11-21.md`.
+
 ## 20 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 19 Nov; GA tetap D18
 - MOBII/SALMO 19 Nov 23:03, PJP D19, ENDBAL snapshot 19 Nov (27.205 outlet). MOBO (3) 20 Nov 06:56 (D19, hasil scan ulang). Tidak ada file GA baru; KRO, Stock, KPI November, flag non-PJP dan period history dibangun ulang.
 - Penjualan MTD: SP Rp 1.050,2 jt, SALMO Rp 14.898,4 jt; PJP 136.255 planned, 130.494 actual (95,8%). Feed KPI November kemarin masih GA D17 (langkahnya hanya jalan bila ada file GA baru), kini dibangun ulang. Detail: `docs/assessments/daily_update_2026-11-20.md`.
