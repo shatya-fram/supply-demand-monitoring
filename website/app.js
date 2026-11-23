@@ -4104,7 +4104,26 @@
   var PJ_LEVELS = [['auto', '⚙️ Otomatis · ikut filter'], ['area', 'Area (Branch)'], ['mc', 'Micro Cluster'], ['dse', 'DSE'], ['outlet', 'Outlet']];
   var PJ_LEVEL_LABEL = { area: 'per Area (Branch)', mc: 'per Micro Cluster', dse: 'per DSE', outlet: 'per Outlet' };
   var PJ_TIER_LABEL = { DSE: 'Node DSE / Canvasser', MPC: 'Distributor (MPC)', MP3: 'Sub-distributor (MP3)', SDP: 'SDP', OTHER: 'Stockist / node lain', OUTLET_MOBI: 'Outlet (hanya di laporan MOBI)', UNKNOWN: 'Tidak dikenal' };
-  function pjFeedRaw() { return (typeof window !== 'undefined' && window.PENJUALAN_FEED) ? window.PENJUALAN_FEED : (typeof PENJUALAN_FEED !== 'undefined' ? PENJUALAN_FEED : null); }
+  /* PJP basis of every % of outlets (owner, 23 Nov 2026): PJP = master outlets that HAVE a DSE (the CSO of the hierarchy). A master outlet without a DSE (DSE UNASSIGNED, 286 of the 762
+     outlets of MC-KEBAYORAN) is non-PJP, like an unmapped id: it stays in every total but is never part of a PJP numerator or denominator. Done once per feed (tier 'A' / t 'N',
+     field _np) and the master counts per Area / MC become the PJP counts of the territory master; the frozen October close (per=oct) keeps its own basis. */
+  var _pjpC = null;
+  function pjpCounts() {
+    var T = (typeof window !== 'undefined' && window.TERRITORY_FEED) ? window.TERRITORY_FEED : null; if (!T || !T.outlets) return null;
+    if (_pjpC && _pjpC.T === T) return _pjpC;
+    var br = {}, mc = {};
+    T.outlets.forEach(function (t) { if (dseIsNone(t.dse_name)) return; br[t.branch] = (br[t.branch] || 0) + 1; mc[t.micro_cluster] = (mc[t.micro_cluster] || 0) + 1; });
+    return (_pjpC = { T: T, br: br, mc: mc });
+  }
+  function pjpMark(F, tk) {
+    if (!F || F._pjpN || !F.outlets || (typeof window !== 'undefined' && window.IJ_PER === 'oct')) return F;
+    F._pjpN = 1;
+    F.outlets.forEach(function (o) { if (o[tk] === 'M' && dseIsNone(o.dse)) { o[tk] = tk === 'tier' ? 'A' : 'N'; o._np = 1; } });
+    var C = pjpCounts(), md = F.metadata || (F.metadata = {});
+    if (C && md.master_counts) { md.master_counts_all = md.master_counts; var m = {}; Object.keys(md.master_counts).forEach(function (k) { m[k] = md.master_counts[k]; }); m.br = C.br; m.mc = C.mc; md.master_counts = m; }
+    return F;
+  }
+  function pjFeedRaw() { var F = (typeof window !== 'undefined' && window.PENJUALAN_FEED) ? window.PENJUALAN_FEED : (typeof PENJUALAN_FEED !== 'undefined' ? PENJUALAN_FEED : null); return pjpMark(F, 'tier'); }
   /* SP Injection (MOBO, digital) is part of Sell-In; toggle "Termasuk SP Injection" (default on). Off = feed view without the SPI category. */
   function pjSpiOn() { return state.pjSpi !== false; }
   function pjSpiBase() { var F = pjFeedRaw(); return !!(F && F.metadata && F.metadata.spi && F.metadata.spi.has_baseline); }
@@ -5483,7 +5502,7 @@
   var PO_LEVELS = [['auto', '⚙️ Otomatis · ikut filter'], ['area', 'Area (Branch)'], ['mc', 'Micro Cluster'], ['dse', 'DSE'], ['outlet', 'Outlet']];
   var PO_LEVEL_LABEL = { area: 'per Area (Branch)', mc: 'per Micro Cluster', dse: 'per DSE', outlet: 'per Outlet' };
   var PO_CLASS_LABEL = { master_im3: 'Outlet PJP IM3', master_3id: 'Outlet PJP 3ID', adhoc: 'Outlet non-PJP', unknown: 'Id tidak dikenal' };
-  function poFeed() { return (typeof window !== 'undefined' && window.DEMAND_FEED) ? window.DEMAND_FEED : (typeof DEMAND_FEED !== 'undefined' ? DEMAND_FEED : null); }
+  function poFeed() { return pjpMark((typeof window !== 'undefined' && window.DEMAND_FEED) ? window.DEMAND_FEED : (typeof DEMAND_FEED !== 'undefined' ? DEMAND_FEED : null), 'tier'); }
   function poDim(o, F) { var mi = F.metadata.mc_info[o.mc] || {}; return { br: o.br || mi.br || 'OUTSIDE MASTER TERRITORY', hoa: mi.hoa || '—', dso: mi.dso || '—' }; }
   function poInScope(o, F) {
     var d = poDim(o, F);
@@ -6486,7 +6505,7 @@
   /* ================= GROSS ADD · SSO (SIM Selling Outlet) · RGUGA per outlet, Oktober vs September ================= */
   var GA_TABS = [['ringkasan', '📊 Ringkasan per Teritori'], ['target', '🎯 Target Kecamatan'], ['sga', '📶 Slab GA'], ['dse', '👤 Per DSE'], ['outlet', '🏪 Outlet'], ['harian', '🗓️ Harian'], ['slab', '📶 Slab SSO']];
   var GA_SLABS = [[0, 0, '0 GA'], [1, 2, '1–2'], [3, 4, '3–4'], [5, 9, '5–9'], [10, 1e12, '≥ 10']];
-  function gaFeed() { return (typeof window !== 'undefined' && window.GA_FEED) ? window.GA_FEED : null; }
+  function gaFeed() { return pjpMark((typeof window !== 'undefined' && window.GA_FEED) ? window.GA_FEED : null, 't'); }
   function gaDays(a) { var d = [], i; for (i = 0; i < 32; i++) d.push(0); for (i = 0; a && i < a.length; i += 2) d[a[i]] += a[i + 1]; return d; }
   var _gaPrep = null;
   // physical outlets (IM3 and 3ID rows folded by outlet key) with daily arrays per brand and month
@@ -10260,6 +10279,7 @@
     var eb = {}; if (E) E.outlets.forEach(function (o) { if (o.t === 'M') eb[o.k] = o; });
     var mi = P.metadata.mc_info || {}, rows = [], byK = {};
     T.outlets.forEach(function (t) {
+      if (window.IJ_PER !== 'oct' && dseIsNone(t.dse_name)) return;   // PJP basis: outlets without a DSE are non-PJP (owner, 23 Nov 2026)
       var k = t.outlet_key, o = pj[k], c = (o && o.c) || {}, sp = c.SP || [0, 0, 0, 0, 0, 0], vf = c.VCF || [0, 0, 0, 0, 0, 0], vb = c.VCB || [0, 0, 0, 0, 0, 0], sa = c.SALMO || [0, 0, 0, 0, 0, 0], e = eb[k];
       var ga = 0, gaP = 0, gaF = 0; if (spi) { var x = spi[k]; if (x) { var gs = gaStat(x, 'all'); ga = gs.cur; gaP = gs.prev; gaF = gs.full; } }
       var m = mi[t.micro_cluster] || {};
@@ -11495,7 +11515,7 @@
       ovAdd('h_ga0', 'Outlet tanpa GA MTD · GA September terbesar dulu', oc.concat(ovTriCols('GA')), ovRows(zgL.slice().sort(function (a, b) { return b.gaF - a.gaF; }), function (r) { return of(r).concat(ovTri(r.ga, r.gaP, r.gaF)); }, 300), [ovN(zgL.length) + ' outlet PJP dengan GA MTD = 0 (raw/GA)']);
       ovAdd('h_bal0', 'Outlet saldo nol (ENDBAL) · order September terbesar dulu', oc.concat(ovTriCols('Order'), ['Saldo ENDBAL']), ovRows(zbL.slice().sort(function (a, b) { return b.sepT - a.sepT; }), function (r) { return of(r).concat(ovTri(r.mtdT, r.lmT, r.sepT, pjRp), [pjRp(opdBal(r))]); }, 300), [ovN(zbL.length) + ' outlet dengan stock account ≤ Rp 0 · ' + ovN(noAcc) + ' outlet tanpa rekening stok']);
       healthHtml = ovKpiGroup('Kesehatan outlet · ' + scope, [
-        ovK('h_vis', 'Outlet divisit vs total outlet ber-DSE', ovN(nD2 - nvL.length) + ' / ' + ovN(nD2), ovP(ovPct(nD2 - nvL.length, nD2)) + ' · belum ' + ovN(nvL.length), ovCls(ovPct(nD2 - nvL.length, nD2), 90), 'Outlet PJP ' + ovN(nN) + ' = ' + ovN(nD2) + ' ber-DSE + ' + ovN(nN - nD2) + ' tanpa DSE (tanpa PJP, tidak dihitung)'),
+        ovK('h_vis', 'Outlet divisit vs total outlet ber-DSE', ovN(nD2 - nvL.length) + ' / ' + ovN(nD2), ovP(ovPct(nD2 - nvL.length, nD2)) + ' · belum ' + ovN(nvL.length), ovCls(ovPct(nD2 - nvL.length, nD2), 90), 'Basis PJP: ' + ovN(nD2) + ' outlet ber-DSE · outlet tanpa DSE, non-PJP dan id belum terpetakan tidak dihitung'),
         ovK('h_nv', 'Outlet belum divisit MTD', ovN(nvL.length), ovP(ovPct(nvL.length, nD2)) + ' dari ' + ovN(nD2) + ' outlet ber-DSE', nvL.length ? 'down' : 'up', 'Tanpa check-in sejak 1 Okt (PJP)'),
         ovK('h_sp0', 'Outlet tanpa Sell-In SP MTD', ovN(z0L.length), ovP(ovPct(z0L.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP', z0L.length ? 'down' : 'up', 'SP Sell-In MTD = 0 pcs'),
         ovK('h_ga0', 'Outlet tanpa GA MTD', B.hasGa ? ovN(zgL.length) : '—', B.hasGa ? ovP(ovPct(zgL.length, nN)) + ' dari ' + ovN(nN) + ' outlet PJP' : 'feed GA belum dimuat', zgL.length ? 'down' : 'up', 'GA MTD = 0 (raw/GA)'),

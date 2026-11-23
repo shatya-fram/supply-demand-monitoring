@@ -53,7 +53,7 @@ function audit(scope) {
   const M = rows.filter(o => o.tier === 'M'), A = rows.filter(o => o.tier !== 'M');
   s = D.sp_mtd.delta.match(/vs LMTD ([\d,]+)/); eq(scope, 'sp_mtd', 'SP LMTD', num(s[1]), sum(rows, 'SP', 2));
   s = D.sp_mtd.delta.match(/^([\-+\d.]+)%/); if (s && sum(rows, 'SP', 2)) eq(scope, 'sp_mtd', 'growth %', num(s[1]), (sum(rows, 'SP', 0) / sum(rows, 'SP', 2) - 1) * 100, 0.06);
-  const masterN = T.outlets.filter(t => inS(t.branch, t.micro_cluster, (mi[t.micro_cluster] || {}).hoa)).length;
+  const masterN = T.outlets.filter(t => inS(t.branch, t.micro_cluster, (mi[t.micro_cluster] || {}).hoa) && (process.env.PER === 'oct' || !none(t.dse_name))).length;   // PJP basis (owner, 23 Nov 2026): master outlets that have a DSE; the app marks the others non-PJP (tier A)
   s = D.sp_uar.delta.match(/^([\d.]+)% dari ([\d,]+)/); s = D.sp_uar.delta.match(/^([\d.]+)% dari ([\d,]+) outlet PJP/); eq(scope, 'sp_uar', 'penyebut outlet master', num(s[2]), masterN); eq(scope, 'sp_uar', '% UAR = outlet master aktif / outlet master', num(s[1]), cnt(M, 'SP', 0) / masterN * 100, 0.06); eq(scope, 'sp_uar', 'nilai kartu = outlet master aktif', num(D.sp_uar.value), cnt(M, 'SP', 0)); eq(scope, 'sp_uar', 'LMTD outlet master', num((D.sp_uar.note.match(/LMTD ([\d,]+)/) || [, 0])[1]), cnt(M, 'SP', 2));
   s = D.sal_uar.delta.match(/^([\d.]+)% dari ([\d,]+)/); eq(scope, 'sal_uar', '% UAR SALMO = outlet master aktif / outlet master', num(s[1]), cnt(M, 'SALMO', 1) / masterN * 100, 0.06);
   // ---- OSA amount, SP target, SALMO, SP D-1 straight from the penjualan rows
@@ -86,7 +86,7 @@ function audit(scope) {
   const keyVis = new Set(Object.keys(lv)), nv = withDse.filter(t => !keyVis.has(t.outlet_key)).length;
   s = D.h_vis.value ? null : null;
   const hv = D.h_vis.delta.match(/belum ([\d,]+)/); eq(scope, 'h_vis', 'belum divisit (hanya outlet ber-DSE)', num(hv[1]), nv); eq(scope, 'h_vis', 'penyebut = outlet ber-DSE', num((D.h_vis.value.split('/')[1]) || 0), withDse.length);
-  const sp0 = mrows.filter(t => { const o = P.outlets.find(x => x.tier === 'M' && x.k === t.outlet_key); return !(o && ((o.c.SP || [])[0] || 0) > 0); }).length;
+  const sp0 = (process.env.PER === 'oct' ? mrows : withDse).filter(t => { const o = P.outlets.find(x => x.tier === 'M' && x.k === t.outlet_key); return !(o && ((o.c.SP || [])[0] || 0) > 0); }).length;
   eq(scope, 'h_sp0', 'outlet tanpa SP MTD', num(D.h_sp0.value || D.h_sp0.delta.split(' ')[0]), sp0);
 }
 const probes = [['semua', {}], ['branch', { branch: Object.values(mi)[0].br }], ['hoa', { hoa: Object.values(mi)[0].hoa }]];
