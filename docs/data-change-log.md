@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 24 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 23 Nov; GA sampai D22 (Fav Locs belum diperbarui)
+- MOBII/MOBO/SALMO 23 Nov 22:44 (MOBII kembali sejalan, D23), PJP D23, ENDBAL snapshot 23 Nov (27.208 outlet), GA by Outlet 23 Nov 22:48 (D1-D22, tagging MTD 213.630). File Fav Locs tidak berubah (D22 parsial 0,98x). Rantai GA, KRO, Stock, KPI November, flag non-PJP dan period history dijalankan manual.
+- Penjualan MTD: SP Rp 1.183,5 jt, SALMO Rp 16.532,2 jt; Demand SALMO Rp 132,24 B; PJP 162.840 planned, 156.297 actual (96,0%). SP Injection MTD naik ke 80.872 pcs (+22.905 pada 22-23 Nov). Semua audit lulus kecuali audit_sp (27,5% > 15%, booster). Detail: `docs/assessments/daily_update_2026-11-24.md`.
+
 ## 23 Nov 2026 · Demand dan PJP sampai 22 Nov, ENDBAL snapshot 22 Nov, GA sampai D21; Sell-In (MOBII) masih D20
 - MOBO/SALMO 23 Nov 00:59 (D22), PJP D21 dan D22 (Minggu, hampir kosong), ENDBAL snapshot 22 Nov (27.206 outlet), GA by Outlet dan Fav Locs 23 Nov 00:59 (D22 parsial, feed dipotong di D21). File MOBII belum diperbarui (masih D20, 20 Nov 22:31). Rantai GA, KRO, Stock, KPI November, flag non-PJP dan period history dijalankan manual.
 - Demand SALMO Rp 123,22 B; PJP 153.853 planned, 147.607 actual (95,9%); Sell-In SP Rp 1.117,6 jt dan SALMO Rp 15.571,8 jt (D20, tidak berubah). Semua audit lulus kecuali audit_sp (booster). Detail: `docs/assessments/daily_update_2026-11-23.md`.
