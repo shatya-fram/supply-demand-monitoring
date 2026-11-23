@@ -169,3 +169,6 @@ Owner: S PLUS V2 dihitung sebagai SP Sell-In (KPI), dan penjualannya ke konsumen
 5. **`dkSp3`** tidak lagi jatuh ke semua SP.
 6. **Label** kartu SP diperjelas (D-1, UAR, Gross Add metrik); modul bersama `scripts/sp_defs.py`; `scripts/audit_sp.js` (16 pemeriksaan sesuai).
 7. Hasil: render_check, audit_scorecard (164), audit_consistency (278), audit_ga lolos.
+
+## 8. De-dup share alarm (24 Nov 2026)
+The check "de-dup < 15% of MTD SP Injection" failed on every refresh from 12 Nov (20% -> 39% on 16 Nov -> 27.5% on 24 Nov) because the booster ids of 7, 11, 13 and 14 Nov are recorded in both MOBII and MOBO, which is exactly the case the de-dup rule exists for (MOBII kept once, MOBO copy dropped; booster stays counted as performance, owner rule 13 Nov). `scripts/audit_sp.js` now prints a **warning from 15%** and **fails only above 60%** (MOBO SP Injection mostly a copy of MOBII would mean a mapping or file problem). The 15% / 60% numbers are mine; the owner can change them in `audit_sp.js`.

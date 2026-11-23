@@ -33,3 +33,7 @@ Akibat: dua kali laporan "terbit" padahal belum tayang, sekitar 40 menit terbuan
 * `--align` hanya menjalankan gerbang (sekitar 2 menit, mengunduh sekitar 100 MB). `SKIP_ALIGN=1` melewatinya.
 * Gagal (exit 1) berarti ada angka atau kode yang berbeda: jangan laporkan "terbit"; publish ulang kedua situs dari commit yang sama.
 
+
+## Deploy fails with "No artifacts named github-pages were found" (24 Nov 2026)
+- Symptom: the Pages run of the pushed commit fails after about 40 s in `actions/deploy-pages` ("Found 0 artifact(s)"), also for the empty-commit retries; githubstatus.com shows no incident. It is GitHub-side (artifact listing not ready), not a hang and not the data. The same publish worked about five minutes later.
+- `publish_all.sh` now waits 60, 120, 180 and 240 s before each of up to four empty-commit retries, and **does not publish the portal when the S&D deploy failed**, so the two sites never show different numbers (on 24 Nov the portal went out first). If it still fails: run `scripts/publish_all.sh --sd-only`, then `scripts/publish_all.sh --portal-only` (or `--align`), then `--check`.

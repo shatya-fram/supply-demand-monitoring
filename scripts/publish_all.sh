@@ -6,7 +6,7 @@
 #   scripts/publish_all.sh --align      only run the alignment gate (portal numbers == S&D site numbers, scripts/verify_portal_alignment.js)
 #   SKIP_CHECK=1 skips node scripts/render_check.js; SKIP_ALIGN=1 skips the alignment gate;  INNER_HTML=<file> overrides the report-01 source of the portal.
 # Why: the 265 MB Pages deploy sometimes hangs at "syncing_files" and times out; re-running the same artifact keeps failing, a NEW commit (empty) builds a new
-# artifact and works. This script waits for the run of the pushed commit, retries with an empty commit (max 3), then checks version.json on the live site.
+# artifact and works. This script waits for the run of the pushed commit, retries with an empty commit (max 4, waiting 60-240 s before each), publishes the portal only when S&D is live, then checks version.json on the live site.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -48,8 +48,11 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" || git commit -q --al
   while : ; do
     full="$(cd "$W/r" && git rev-parse HEAD)"; say "SD pushed ${full:0:7}, waiting for the Pages deploy (max 8 min)"
     if wait_run "$SD" "$full" 480; then break; fi
-    tries=$((tries + 1)); [ "$tries" -gt 3 ] && { say "SD deploy FAILED after $tries empty-commit retries (see: gh run list --repo $SD)"; return 1; }
-    say "deploy failed or timed out; a rerun of the same artifact keeps failing, pushing an EMPTY commit for a fresh artifact (retry $tries/3)"
+    tries=$((tries + 1)); [ "$tries" -gt 4 ] && { say "SD deploy FAILED after $((tries - 1)) empty-commit retries (see: gh run list --repo $SD)"; return 1; }
+    # A deploy that fails within ~40 s with "No artifacts named github-pages were found" is GitHub-side (artifact listing not ready / API incident), not a hang:
+    # four empty commits one minute apart all failed on 24 Nov 2026 and the same publish worked a few minutes later. So wait longer before each retry (60 s, 120 s, 180 s, 240 s).
+    say "deploy failed or timed out; pushing an EMPTY commit for a fresh artifact after $((60 * tries)) s (retry $tries/4)"
+    sleep $((60 * tries))
     ( cd "$W/r" && git commit -q --allow-empty -m "Redeploy Pages (retry $tries, deploy timed out)" && git push -q origin main ) || return 1
   done
   live_sd_ok && say "SD OK: live version.json = $SHA" || return 1
@@ -74,7 +77,12 @@ if [ "$CHECK" = 0 ] && [ -z "${SKIP_CHECK:-}" ]; then say "render_check (SKIP_CH
 [ "$CHECK" = 0 ] && say "publishing committed HEAD $SHA (uncommitted work of other sessions is not included)"
 RC=0
 [ "$MODE" != portal ] && { publish_sd || RC=1; }
-[ "$MODE" != sd ] && { publish_portal || RC=1; }
+# The portal is published only when the S&D site of the same commit is live: on 24 Nov 2026 the portal went out with the new numbers while the S&D deploy was
+# failing, so the two sites disagreed for about ten minutes. If S&D fails (RC=1) the portal stays on its previous version and the run says so.
+if [ "$MODE" != sd ]; then
+  if [ "$MODE" = all ] && [ "$RC" != 0 ]; then say "portal NOT published: the S&D site is not live at $SHA (run scripts/publish_all.sh again, or --sd-only then --portal-only)"
+  else publish_portal || RC=1; fi
+fi
 # Alignment gate (owner, 11 Nov 2026): after a push the landing page (Menu 02) must show the same numbers as the S&D site. The portal is built from the same
 # committed HEAD, so the feeds must be equal value by value (only names that the public release masks may differ). A portal-only push also requires the S&D site to
 # be live at this HEAD; an S&D-only push leaves the portal behind until it is published too, which is reported, not hidden.

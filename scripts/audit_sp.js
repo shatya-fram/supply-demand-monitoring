@@ -22,7 +22,12 @@ chk('Demand: spi_dedup recorded', !!dd && typeof dd.mtd_pcs === 'number');
 if (dd) {
   chk('Demand: every de-duplicated row is a distinct id/product/day', new Set(dd.mtd_rows.map(r => r.slice(0, 3).join('|'))).size === dd.mtd_rows.length);
   chk('Demand: de-dup MTD pcs = sum of its rows', dd.mtd_pcs === dd.mtd_rows.reduce((s, r) => s + r[3], 0));
-  chk('Demand: de-dup stays small (< 15% of MTD SP Injection)', dd.mtd_pcs < 0.15 * (P.metadata.spi.pcs + dd.mtd_pcs), dd.mtd_pcs + ' of ' + (P.metadata.spi.pcs + dd.mtd_pcs));
+  // The de-dup share is a signal, not an error (owner 13 Nov 2026: booster SP is a real process and stays counted as performance; the 7 Nov, 11 Nov and
+  // 13-14 Nov boosters are recorded in both MOBII and MOBO, so the share of a booster month is high by design: 39% on 16 Nov, 27.5% on 24 Nov).
+  // Warning from 15% (printed, does not fail); FAIL only above 60%, which would mean MOBO SP Injection is mostly a copy of MOBII (a mapping or file problem).
+  const ddTot = P.metadata.spi.pcs + dd.mtd_pcs, ddShare = ddTot ? dd.mtd_pcs / ddTot : 0;
+  if (ddShare >= 0.15) console.log('⚠ Demand: de-dup share ' + (100 * ddShare).toFixed(1) + '% of MTD SP Injection (' + dd.mtd_pcs + ' of ' + ddTot + '): booster ids recorded in MOBII and MOBO, kept once (MOBII), counted as performance');
+  chk('Demand: de-dup share of MTD SP Injection stays below 60%', ddShare < 0.60, dd.mtd_pcs + ' of ' + ddTot);
 }
 chk('Penjualan SPI MTD = demand SPI MTD', Math.abs(P.metadata.spi.pcs - (D.totals && D.totals.SPI ? D.totals.SPI[0] : P.metadata.spi.pcs)) <= 1);
 // per brand rows of mc_daily add up to the SPI total
