@@ -2,109 +2,25 @@
   {
     "branch": "SOUTH JAKARTA DEPOK",
     "hoa_leader": "Roswida Sidauruk",
-    "outlet_count": 5106,
+    "outlet_count": 5403,
     "micro_clusters": [
-      {
-        "micro_cluster": "MC-KEBAYORAN",
-        "dso_leader": "YUALITA PRASIDA RAMADHANI",
-        "outlet_count": 762,
-        "dse_count": 19,
-        "dses": [
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 286
-          },
-          {
-            "dse_code": "26130513713ID",
-            "outlet_count": 14
-          },
-          {
-            "dse_code": "26130511963ID",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "DSEKEBAY7683ID",
-            "outlet_count": 13
-          },
-          {
-            "dse_code": "DSEKEBAY7753ID",
-            "outlet_count": 11
-          },
-          {
-            "dse_code": "DSEKEBAY1683ID",
-            "outlet_count": 14
-          },
-          {
-            "dse_code": "DSEKEBAY9653ID",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "26130511973ID",
-            "outlet_count": 6
-          },
-          {
-            "dse_code": "DSEIN1243ID",
-            "outlet_count": 7
-          },
-          {
-            "dse_code": "DSEKEBAY0843ID",
-            "outlet_count": 6
-          },
-          {
-            "dse_code": "DSEIN124",
-            "outlet_count": 52
-          },
-          {
-            "dse_code": "DSEKEBAY775",
-            "outlet_count": 34
-          },
-          {
-            "dse_code": "2613051196",
-            "outlet_count": 45
-          },
-          {
-            "dse_code": "DSEKEBAY768",
-            "outlet_count": 44
-          },
-          {
-            "dse_code": "DSEKEBAY168",
-            "outlet_count": 51
-          },
-          {
-            "dse_code": "2613051371",
-            "outlet_count": 39
-          },
-          {
-            "dse_code": "DSEKEBAY965",
-            "outlet_count": 43
-          },
-          {
-            "dse_code": "2613051197",
-            "outlet_count": 42
-          },
-          {
-            "dse_code": "DSEKEBAY084",
-            "outlet_count": 45
-          }
-        ]
-      },
       {
         "micro_cluster": "MC-PASAR MINGGU",
         "dso_leader": "ARIE SETYO PRABOWO",
-        "outlet_count": 951,
+        "outlet_count": 1003,
         "dse_count": 25,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 382
+            "outlet_count": 430
           },
           {
             "dse_code": "DSEPASMING8643ID",
-            "outlet_count": 10
+            "outlet_count": 12
           },
           {
             "dse_code": "DSEPASMING6313ID",
-            "outlet_count": 15
+            "outlet_count": 14
           },
           {
             "dse_code": "26130510053ID",
@@ -115,24 +31,20 @@
             "outlet_count": 11
           },
           {
+            "dse_code": "DSEPASMING6673ID",
+            "outlet_count": 10
+          },
+          {
             "dse_code": "26130510763ID",
             "outlet_count": 6
           },
           {
             "dse_code": "DSEPASMING6693ID",
-            "outlet_count": 4
-          },
-          {
-            "dse_code": "DSEPASMING6673ID",
-            "outlet_count": 9
-          },
-          {
-            "dse_code": "DSEPASMING6653ID",
-            "outlet_count": 2
+            "outlet_count": 5
           },
           {
             "dse_code": "DSEPASMING7603ID",
-            "outlet_count": 2
+            "outlet_count": 3
           },
           {
             "dse_code": "26130510373ID",
@@ -144,7 +56,11 @@
           },
           {
             "dse_code": "26130510043ID",
-            "outlet_count": 6
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "DSEPASMING6653ID",
+            "outlet_count": 1
           },
           {
             "dse_code": "2613051076",
@@ -160,7 +76,7 @@
           },
           {
             "dse_code": "2613051012",
-            "outlet_count": 54
+            "outlet_count": 55
           },
           {
             "dse_code": "2613051037",
@@ -180,15 +96,15 @@
           },
           {
             "dse_code": "DSEPASMING669",
-            "outlet_count": 37
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEPASMING760",
-            "outlet_count": 44
+            "outlet_count": 43
           },
           {
             "dse_code": "2613051004",
-            "outlet_count": 41
+            "outlet_count": 40
           },
           {
             "dse_code": "2613051005",
@@ -199,20 +115,20 @@
       {
         "micro_cluster": "MC-SAWANGAN",
         "dso_leader": "MUHAMMAD FAUZI",
-        "outlet_count": 574,
+        "outlet_count": 610,
         "dse_count": 11,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 286
+            "outlet_count": 317
           },
           {
             "dse_code": "1-28825211936",
-            "outlet_count": 14
+            "outlet_count": 15
           },
           {
             "dse_code": "CSO-LOKADPK033ID",
-            "outlet_count": 8
+            "outlet_count": 9
           },
           {
             "dse_code": "1-186304119485",
@@ -220,19 +136,19 @@
           },
           {
             "dse_code": "1-186295831761",
-            "outlet_count": 11
+            "outlet_count": 12
           },
           {
             "dse_code": "CSO-LOKADPK043ID",
-            "outlet_count": 19
+            "outlet_count": 17
           },
           {
             "dse_code": "CSO-LOKADPK03",
-            "outlet_count": 62
+            "outlet_count": 63
           },
           {
             "dse_code": "DSEIN051",
-            "outlet_count": 37
+            "outlet_count": 38
           },
           {
             "dse_code": "CSO-LOKADPK04",
@@ -240,27 +156,27 @@
           },
           {
             "dse_code": "DSEIN053",
-            "outlet_count": 45
+            "outlet_count": 46
           },
           {
             "dse_code": "DSEIN074",
-            "outlet_count": 40
+            "outlet_count": 41
           }
         ]
       },
       {
         "micro_cluster": "MC-BEJI",
         "dso_leader": "INVENT RADIANTI PRATIWI",
-        "outlet_count": 601,
+        "outlet_count": 639,
         "dse_count": 13,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 240
+            "outlet_count": 283
           },
           {
-            "dse_code": "CSO-LOKADPK093ID",
-            "outlet_count": 14
+            "dse_code": "26130522613ID",
+            "outlet_count": 20
           },
           {
             "dse_code": "CSO-LOKADPK023ID",
@@ -268,15 +184,15 @@
           },
           {
             "dse_code": "1-28825211928",
-            "outlet_count": 22
+            "outlet_count": 16
           },
           {
             "dse_code": "1-186304119396",
-            "outlet_count": 23
+            "outlet_count": 26
           },
           {
-            "dse_code": "26130522613ID",
-            "outlet_count": 23
+            "dse_code": "CSO-LOKADPK093ID",
+            "outlet_count": 14
           },
           {
             "dse_code": "1-186304893731",
@@ -284,7 +200,7 @@
           },
           {
             "dse_code": "DSEIN052",
-            "outlet_count": 42
+            "outlet_count": 44
           },
           {
             "dse_code": "CSO-LOKADPK02",
@@ -292,39 +208,39 @@
           },
           {
             "dse_code": "CSO-LOKADPK09",
-            "outlet_count": 36
+            "outlet_count": 29
           },
           {
             "dse_code": "DSEIN073",
-            "outlet_count": 39
+            "outlet_count": 42
           },
           {
             "dse_code": "DSEIN054",
-            "outlet_count": 53
+            "outlet_count": 52
           },
           {
             "dse_code": "2613052261",
-            "outlet_count": 24
+            "outlet_count": 28
           }
         ]
       },
       {
         "micro_cluster": "MC-CIPAYUNG",
         "dso_leader": "FRILA HANDRIANI",
-        "outlet_count": 763,
+        "outlet_count": 781,
         "dse_count": 17,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 342
+            "outlet_count": 368
           },
           {
             "dse_code": "DSEIN1073ID",
-            "outlet_count": 14
+            "outlet_count": 13
           },
           {
             "dse_code": "DSEIN1083ID",
-            "outlet_count": 26
+            "outlet_count": 27
           },
           {
             "dse_code": "CSO-LOKADPK073ID",
@@ -340,7 +256,7 @@
           },
           {
             "dse_code": "CSO-LOKADPK263ID",
-            "outlet_count": 14
+            "outlet_count": 15
           },
           {
             "dse_code": "CSO-LOKADPK213ID",
@@ -364,11 +280,11 @@
           },
           {
             "dse_code": "DSEIN108",
-            "outlet_count": 42
+            "outlet_count": 34
           },
           {
             "dse_code": "DSEIN107",
-            "outlet_count": 36
+            "outlet_count": 35
           },
           {
             "dse_code": "CSO-LOKADPK26",
@@ -387,12 +303,12 @@
       {
         "micro_cluster": "MC-PANCORAN",
         "dso_leader": "RINALDO FERNANDES SIREGAR",
-        "outlet_count": 770,
+        "outlet_count": 838,
         "dse_count": 19,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 281
+            "outlet_count": 347
           },
           {
             "dse_code": "DSESETPAN8583ID",
@@ -428,7 +344,7 @@
           },
           {
             "dse_code": "26130510113ID",
-            "outlet_count": 12
+            "outlet_count": 13
           },
           {
             "dse_code": "DSESETPAN858",
@@ -448,7 +364,7 @@
           },
           {
             "dse_code": "2613051011",
-            "outlet_count": 54
+            "outlet_count": 55
           },
           {
             "dse_code": "DSESETPAN656",
@@ -471,27 +387,23 @@
       {
         "micro_cluster": "MC-CIMANGGIS",
         "dso_leader": "ARIBOWO",
-        "outlet_count": 685,
+        "outlet_count": 703,
         "dse_count": 13,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 346
+            "outlet_count": 370
           },
           {
             "dse_code": "CSO-LOKADPK203ID",
-            "outlet_count": 16
+            "outlet_count": 15
           },
           {
             "dse_code": "CSO-LOKADPK063ID",
             "outlet_count": 18
           },
           {
-            "dse_code": "CSO-LOKADPK233ID",
-            "outlet_count": 20
-          },
-          {
-            "dse_code": "CSO-LOKADPK273ID",
+            "dse_code": "26130536333ID",
             "outlet_count": 17
           },
           {
@@ -503,15 +415,19 @@
             "outlet_count": 11
           },
           {
+            "dse_code": "CSO-LOKADPK233ID",
+            "outlet_count": 15
+          },
+          {
             "dse_code": "CSO-LOKADPK20",
-            "outlet_count": 37
+            "outlet_count": 38
           },
           {
             "dse_code": "CSO-LOKADPK06",
-            "outlet_count": 34
+            "outlet_count": 35
           },
           {
-            "dse_code": "CSO-LOKADPK27",
+            "dse_code": "2613053633",
             "outlet_count": 41
           },
           {
@@ -524,7 +440,91 @@
           },
           {
             "dse_code": "CSO-LOKADPK23",
+            "outlet_count": 40
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-KEBAYORAN",
+        "dso_leader": "YUALITA PRASIDA RAMADHANI",
+        "outlet_count": 829,
+        "dse_count": 19,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 337
+          },
+          {
+            "dse_code": "26130513713ID",
+            "outlet_count": 17
+          },
+          {
+            "dse_code": "26130511963ID",
+            "outlet_count": 5
+          },
+          {
+            "dse_code": "DSEKEBAY7683ID",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "DSEKEBAY7753ID",
+            "outlet_count": 9
+          },
+          {
+            "dse_code": "DSEKEBAY1683ID",
+            "outlet_count": 16
+          },
+          {
+            "dse_code": "DSEKEBAY9653ID",
+            "outlet_count": 6
+          },
+          {
+            "dse_code": "26130511973ID",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "DSEKEBAY0843ID",
+            "outlet_count": 6
+          },
+          {
+            "dse_code": "DSEIN1243ID",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "DSEIN124",
+            "outlet_count": 51
+          },
+          {
+            "dse_code": "DSEKEBAY775",
+            "outlet_count": 45
+          },
+          {
+            "dse_code": "2613051196",
+            "outlet_count": 47
+          },
+          {
+            "dse_code": "DSEKEBAY768",
+            "outlet_count": 43
+          },
+          {
+            "dse_code": "DSEKEBAY168",
+            "outlet_count": 52
+          },
+          {
+            "dse_code": "2613051371",
             "outlet_count": 42
+          },
+          {
+            "dse_code": "DSEKEBAY965",
+            "outlet_count": 45
+          },
+          {
+            "dse_code": "2613051197",
+            "outlet_count": 42
+          },
+          {
+            "dse_code": "DSEKEBAY084",
+            "outlet_count": 45
           }
         ]
       }
@@ -533,33 +533,33 @@
   {
     "branch": "KAB BEKASI",
     "hoa_leader": "Budi Priyambodo",
-    "outlet_count": 4254,
+    "outlet_count": 4505,
     "micro_clusters": [
       {
         "micro_cluster": "MC-TAMBUN",
         "dso_leader": "RONA DWI KARYO",
-        "outlet_count": 721,
-        "dse_count": 16,
+        "outlet_count": 748,
+        "dse_count": 14,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 314
+            "outlet_count": 361
           },
           {
             "dse_code": "DSETMUN063ID",
-            "outlet_count": 18
+            "outlet_count": 16
           },
           {
             "dse_code": "1-28825212128",
             "outlet_count": 9
           },
           {
-            "dse_code": "DSETMUN053ID",
-            "outlet_count": 10
+            "dse_code": "DSETMUN023ID",
+            "outlet_count": 18
           },
           {
             "dse_code": "1-28825212116",
-            "outlet_count": 11
+            "outlet_count": 10
           },
           {
             "dse_code": "DSETMUN013ID",
@@ -567,55 +567,47 @@
           },
           {
             "dse_code": "1-136134646623",
-            "outlet_count": 14
-          },
-          {
-            "dse_code": "DSETMUN023ID",
-            "outlet_count": 10
-          },
-          {
-            "dse_code": "DSETMUN05",
-            "outlet_count": 46
+            "outlet_count": 16
           },
           {
             "dse_code": "DSETMUN06",
-            "outlet_count": 43
+            "outlet_count": 31
+          },
+          {
+            "dse_code": "DSETMUN05",
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEIN012",
-            "outlet_count": 56
+            "outlet_count": 52
           },
           {
             "dse_code": "DSEIN029",
-            "outlet_count": 37
+            "outlet_count": 47
           },
           {
             "dse_code": "DSETMUN02",
-            "outlet_count": 49
+            "outlet_count": 50
           },
           {
             "dse_code": "DSETMUN01",
-            "outlet_count": 53
+            "outlet_count": 57
           },
           {
             "dse_code": "DSEIN017",
-            "outlet_count": 42
-          },
-          {
-            "dse_code": "1-28825212100",
-            "outlet_count": 1
+            "outlet_count": 35
           }
         ]
       },
       {
         "micro_cluster": "MC-PEBAYURAN",
         "dso_leader": "SANDY NOPRIANSYAH",
-        "outlet_count": 600,
-        "dse_count": 12,
+        "outlet_count": 644,
+        "dse_count": 13,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 266
+            "outlet_count": 340
           },
           {
             "dse_code": "CSO-UTARA-053ID",
@@ -627,75 +619,79 @@
           },
           {
             "dse_code": "1-28825212106",
-            "outlet_count": 1
-          },
-          {
-            "dse_code": "CSO-UTARA-043ID",
-            "outlet_count": 1
-          },
-          {
-            "dse_code": "DSE18073ID",
             "outlet_count": 2
           },
           {
-            "dse_code": "CSO-UTARA-02",
-            "outlet_count": 60
+            "dse_code": "CSO-UTARA-043ID",
+            "outlet_count": 4
+          },
+          {
+            "dse_code": "1-135596391583",
+            "outlet_count": 2
           },
           {
             "dse_code": "CSO-UTARA-04",
-            "outlet_count": 59
+            "outlet_count": 48
+          },
+          {
+            "dse_code": "CSO-UTARA-02",
+            "outlet_count": 50
           },
           {
             "dse_code": "CSO-UTARA-05",
-            "outlet_count": 53
+            "outlet_count": 43
           },
           {
             "dse_code": "DSEIN015",
-            "outlet_count": 47
+            "outlet_count": 45
           },
           {
             "dse_code": "DSEIN025",
-            "outlet_count": 42
+            "outlet_count": 43
           },
           {
             "dse_code": "DSE1807",
-            "outlet_count": 64
+            "outlet_count": 61
+          },
+          {
+            "dse_code": "DSE18073ID",
+            "outlet_count": 1
           }
         ]
       },
       {
         "micro_cluster": "MC-CIBITUNG",
         "dso_leader": "RIAN SANJAYA SURNA",
-        "outlet_count": 616,
+        "outlet_count": 700,
         "dse_count": 14,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 276
+            "outlet_count": 333
           },
           {
             "dse_code": "CSO-UTARA-063ID",
-            "outlet_count": 8
+            "outlet_count": 15
           },
           {
             "dse_code": "CSO-UTARA-093ID",
-            "outlet_count": 14
+            "outlet_count": 21
           },
           {
             "dse_code": "1-28825212120",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "CSO-UTARA-033ID",
             "outlet_count": 10
           },
           {
+            "dse_code": "CSO-UTARA-033ID",
+            "outlet_count": 26
+          },
+          {
             "dse_code": "1-28825212132",
-            "outlet_count": 13
+            "outlet_count": 16
           },
           {
             "dse_code": "1-28825212124",
-            "outlet_count": 8
+            "outlet_count": 14
           },
           {
             "dse_code": "CSO-UTARA-03",
@@ -703,23 +699,23 @@
           },
           {
             "dse_code": "DSEIN011",
-            "outlet_count": 48
+            "outlet_count": 45
           },
           {
             "dse_code": "DSEIN010",
-            "outlet_count": 50
+            "outlet_count": 45
           },
           {
             "dse_code": "DSEIN021",
-            "outlet_count": 39
+            "outlet_count": 36
           },
           {
             "dse_code": "CSO-UTARA-06",
-            "outlet_count": 51
+            "outlet_count": 47
           },
           {
             "dse_code": "CSO-UTARA-09",
-            "outlet_count": 52
+            "outlet_count": 50
           },
           {
             "dse_code": "DSEIN1143ID",
@@ -730,12 +726,12 @@
       {
         "micro_cluster": "MC-CIBARUSAH",
         "dso_leader": "R. SYARIEF DURAHMAN",
-        "outlet_count": 577,
+        "outlet_count": 596,
         "dse_count": 11,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 387
+            "outlet_count": 403
           },
           {
             "dse_code": "1-28825212142",
@@ -747,7 +743,7 @@
           },
           {
             "dse_code": "DSECKRG053ID",
-            "outlet_count": 14
+            "outlet_count": 15
           },
           {
             "dse_code": "1-28825212144",
@@ -759,7 +755,7 @@
           },
           {
             "dse_code": "DSEIN033",
-            "outlet_count": 23
+            "outlet_count": 24
           },
           {
             "dse_code": "DSEIN024",
@@ -767,7 +763,7 @@
           },
           {
             "dse_code": "DSECKRG05",
-            "outlet_count": 36
+            "outlet_count": 37
           },
           {
             "dse_code": "DSECKRG09",
@@ -782,28 +778,28 @@
       {
         "micro_cluster": "MC-BABELAN",
         "dso_leader": "MUHAMMAD GUFRON",
-        "outlet_count": 566,
+        "outlet_count": 585,
         "dse_count": 13,
         "dses": [
           {
             "dse_code": "DSETMUN103ID",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 307
-          },
-          {
-            "dse_code": "1-135596391717",
-            "outlet_count": 18
-          },
-          {
-            "dse_code": "DSETMUN093ID",
             "outlet_count": 4
           },
           {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 329
+          },
+          {
+            "dse_code": "1-135596391717",
+            "outlet_count": 15
+          },
+          {
+            "dse_code": "DSETMUN093ID",
+            "outlet_count": 5
+          },
+          {
             "dse_code": "DSETMUN113ID",
-            "outlet_count": 10
+            "outlet_count": 9
           },
           {
             "dse_code": "1-135596391691",
@@ -811,15 +807,15 @@
           },
           {
             "dse_code": "1-193857017613",
-            "outlet_count": 12
+            "outlet_count": 11
           },
           {
             "dse_code": "DSETMUN11",
-            "outlet_count": 28
+            "outlet_count": 29
           },
           {
             "dse_code": "DSETMUN10",
-            "outlet_count": 34
+            "outlet_count": 35
           },
           {
             "dse_code": "DSEIN009",
@@ -842,9 +838,13 @@
       {
         "micro_cluster": "MC-CIKARANG BARAT",
         "dso_leader": "MUHAMAD SHANDI MAULIDRIZKI",
-        "outlet_count": 605,
+        "outlet_count": 632,
         "dse_count": 13,
         "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 334
+          },
           {
             "dse_code": "DSEIN1093ID",
             "outlet_count": 5
@@ -854,12 +854,8 @@
             "outlet_count": 10
           },
           {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 311
-          },
-          {
             "dse_code": "1-28825212140",
-            "outlet_count": 5
+            "outlet_count": 4
           },
           {
             "dse_code": "1-28825212138",
@@ -867,11 +863,11 @@
           },
           {
             "dse_code": "DSEIN1113ID",
-            "outlet_count": 1
+            "outlet_count": 2
           },
           {
             "dse_code": "DSEIN1133ID",
-            "outlet_count": 7
+            "outlet_count": 12
           },
           {
             "dse_code": "DSEIN034",
@@ -879,19 +875,19 @@
           },
           {
             "dse_code": "DSEIN035",
-            "outlet_count": 37
+            "outlet_count": 33
           },
           {
             "dse_code": "DSEIN109",
             "outlet_count": 55
           },
           {
-            "dse_code": "DSEIN113",
-            "outlet_count": 43
-          },
-          {
             "dse_code": "DSEIN111",
             "outlet_count": 44
+          },
+          {
+            "dse_code": "DSEIN113",
+            "outlet_count": 46
           },
           {
             "dse_code": "2613053632",
@@ -902,20 +898,20 @@
       {
         "micro_cluster": "MC-CIKARANG TIMUR",
         "dso_leader": "THEOVILLUS MARTHIN YOHANES",
-        "outlet_count": 569,
+        "outlet_count": 597,
         "dse_count": 11,
         "dses": [
           {
             "dse_code": "DSEIN1103ID",
-            "outlet_count": 22
+            "outlet_count": 16
           },
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 242
+            "outlet_count": 286
           },
           {
             "dse_code": "1-136179672287",
-            "outlet_count": 13
+            "outlet_count": 15
           },
           {
             "dse_code": "DSECKRG063ID",
@@ -923,11 +919,11 @@
           },
           {
             "dse_code": "DSEIN1143ID",
-            "outlet_count": 27
+            "outlet_count": 14
           },
           {
             "dse_code": "1-28825212134",
-            "outlet_count": 15
+            "outlet_count": 16
           },
           {
             "dse_code": "DSEIN036",
@@ -939,15 +935,27 @@
           },
           {
             "dse_code": "DSECKRG06",
-            "outlet_count": 56
+            "outlet_count": 55
+          },
+          {
+            "dse_code": "DSEIN110",
+            "outlet_count": 41
           },
           {
             "dse_code": "DSEIN005",
             "outlet_count": 42
-          },
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-CIKARANG",
+        "dso_leader": "DSO MC-CIKARANG",
+        "outlet_count": 3,
+        "dse_count": 1,
+        "dses": [
           {
-            "dse_code": "DSEIN110",
-            "outlet_count": 40
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 3
           }
         ]
       }
@@ -956,17 +964,17 @@
   {
     "branch": "WEST JAKARTA",
     "hoa_leader": "Antony Hermanto",
-    "outlet_count": 2849,
+    "outlet_count": 2931,
     "micro_clusters": [
       {
         "micro_cluster": "MC-KEMBANGAN",
         "dso_leader": "ALDIKA FAYZAL RAHADITYA",
-        "outlet_count": 747,
+        "outlet_count": 776,
         "dse_count": 15,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 394
+            "outlet_count": 425
           },
           {
             "dse_code": "CSOBUANAJKB063ID",
@@ -977,16 +985,16 @@
             "outlet_count": 8
           },
           {
-            "dse_code": "DSEGRGL043ID",
-            "outlet_count": 7
-          },
-          {
             "dse_code": "DSEIN1023ID",
             "outlet_count": 3
           },
           {
+            "dse_code": "DSEGRGL043ID",
+            "outlet_count": 2
+          },
+          {
             "dse_code": "1-28825211808",
-            "outlet_count": 3
+            "outlet_count": 4
           },
           {
             "dse_code": "DSEIN056",
@@ -1002,11 +1010,11 @@
           },
           {
             "dse_code": "DSEIN102",
-            "outlet_count": 43
+            "outlet_count": 44
           },
           {
             "dse_code": "DSEIN057",
-            "outlet_count": 42
+            "outlet_count": 43
           },
           {
             "dse_code": "CSOBUANAJKB06",
@@ -1027,122 +1035,42 @@
         ]
       },
       {
-        "micro_cluster": "MC-CENGKARENG",
-        "dso_leader": "AHYADI",
-        "outlet_count": 1149,
-        "dse_count": 18,
-        "dses": [
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 512
-          },
-          {
-            "dse_code": "CSOBUANAJKB033ID",
-            "outlet_count": 13
-          },
-          {
-            "dse_code": "1-135606329021",
-            "outlet_count": 11
-          },
-          {
-            "dse_code": "DSEIN1033ID",
-            "outlet_count": 10
-          },
-          {
-            "dse_code": "DSEIN1013ID",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "1-135606436031",
-            "outlet_count": 13
-          },
-          {
-            "dse_code": "CSOBUANAJKB023ID",
-            "outlet_count": 8
-          },
-          {
-            "dse_code": "DSEIN1043ID",
-            "outlet_count": 1
-          },
-          {
-            "dse_code": "DSEIN042",
-            "outlet_count": 44
-          },
-          {
-            "dse_code": "CSOBUANAJKB03",
-            "outlet_count": 65
-          },
-          {
-            "dse_code": "DSEIN104",
-            "outlet_count": 59
-          },
-          {
-            "dse_code": "DSEIN044",
-            "outlet_count": 76
-          },
-          {
-            "dse_code": "DSEIN101",
-            "outlet_count": 61
-          },
-          {
-            "dse_code": "DSEIN103",
-            "outlet_count": 62
-          },
-          {
-            "dse_code": "DSEIN055",
-            "outlet_count": 56
-          },
-          {
-            "dse_code": "DSEIN058",
-            "outlet_count": 60
-          },
-          {
-            "dse_code": "CSOBUANAJKB08",
-            "outlet_count": 46
-          },
-          {
-            "dse_code": "CSOBUANAJKB02",
-            "outlet_count": 47
-          }
-        ]
-      },
-      {
         "micro_cluster": "MC-GROGOL",
         "dso_leader": "LESTARI A. R.",
-        "outlet_count": 953,
+        "outlet_count": 974,
         "dse_count": 17,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 512
+            "outlet_count": 542
           },
           {
             "dse_code": "DSEGRGL023ID",
             "outlet_count": 7
           },
           {
+            "dse_code": "DSEGRGL013ID",
+            "outlet_count": 19
+          },
+          {
             "dse_code": "26130514073ID",
             "outlet_count": 6
           },
           {
-            "dse_code": "DSEGRGL013ID",
-            "outlet_count": 18
-          },
-          {
             "dse_code": "DSEIN1053ID",
-            "outlet_count": 5
+            "outlet_count": 3
           },
           {
             "dse_code": "1-28825211802",
-            "outlet_count": 5
-          },
-          {
-            "dse_code": "CSOBUANAJKB123ID",
-            "outlet_count": 13
+            "outlet_count": 3
           },
           {
             "dse_code": "DSECGK043ID",
             "outlet_count": 7
+          },
+          {
+            "dse_code": "CSOBUANAJKB123ID",
+            "outlet_count": 2
           },
           {
             "dse_code": "DSEIN1063ID",
@@ -1150,7 +1078,7 @@
           },
           {
             "dse_code": "DSEGRGL01",
-            "outlet_count": 41
+            "outlet_count": 45
           },
           {
             "dse_code": "DSECGK04",
@@ -1166,7 +1094,7 @@
           },
           {
             "dse_code": "DSEIN105",
-            "outlet_count": 37
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEIN106",
@@ -1181,331 +1109,92 @@
             "outlet_count": 49
           }
         ]
-      }
-    ]
-  },
-  {
-    "branch": "BEKASI",
-    "hoa_leader": "Ali Sabana",
-    "outlet_count": 3338,
-    "micro_clusters": [
-      {
-        "micro_cluster": "MC-MUSTIKA JAYA",
-        "dso_leader": "MUHAMAD RIFALDI",
-        "outlet_count": 755,
-        "dse_count": 17,
-        "dses": [
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 302
-          },
-          {
-            "dse_code": "CSOBKSB-023ID",
-            "outlet_count": 9
-          },
-          {
-            "dse_code": "CSOBKSS-043ID",
-            "outlet_count": 11
-          },
-          {
-            "dse_code": "1-28825212100",
-            "outlet_count": 14
-          },
-          {
-            "dse_code": "CSOBKSS-053ID",
-            "outlet_count": 8
-          },
-          {
-            "dse_code": "CSOBKSS-123ID",
-            "outlet_count": 11
-          },
-          {
-            "dse_code": "1-28825212088",
-            "outlet_count": 11
-          },
-          {
-            "dse_code": "1-136173742121",
-            "outlet_count": 9
-          },
-          {
-            "dse_code": "CSOBKST-113ID",
-            "outlet_count": 7
-          },
-          {
-            "dse_code": "DSEIN002",
-            "outlet_count": 47
-          },
-          {
-            "dse_code": "CSOBKSS-12",
-            "outlet_count": 57
-          },
-          {
-            "dse_code": "CSOBKSB-02",
-            "outlet_count": 42
-          },
-          {
-            "dse_code": "CSOBKSS-04",
-            "outlet_count": 76
-          },
-          {
-            "dse_code": "DSEIN018",
-            "outlet_count": 29
-          },
-          {
-            "dse_code": "CSOBKSS-05",
-            "outlet_count": 52
-          },
-          {
-            "dse_code": "DSEIN028",
-            "outlet_count": 31
-          },
-          {
-            "dse_code": "CSOBKST-11",
-            "outlet_count": 39
-          }
-        ]
       },
       {
-        "micro_cluster": "MC-BEKASI UTARA",
-        "dso_leader": "RAHAYU UTAMININGSIH",
-        "outlet_count": 603,
-        "dse_count": 13,
+        "micro_cluster": "MC-CENGKARENG",
+        "dso_leader": "AHYADI",
+        "outlet_count": 1181,
+        "dse_count": 20,
         "dses": [
           {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 298
+            "dse_code": "CSOBUANAJKB033ID",
+            "outlet_count": 13
           },
-          {
-            "dse_code": "CSOBKST-093ID",
-            "outlet_count": 21
-          },
-          {
-            "dse_code": "1-28825212058",
-            "outlet_count": 15
-          },
-          {
-            "dse_code": "1-135596392079",
-            "outlet_count": 15
-          },
-          {
-            "dse_code": "CSOBKST-103ID",
-            "outlet_count": 19
-          },
-          {
-            "dse_code": "1-28825212056",
-            "outlet_count": 9
-          },
-          {
-            "dse_code": "CSOBKST-063ID",
-            "outlet_count": 12
-          },
-          {
-            "dse_code": "DSEIN040",
-            "outlet_count": 32
-          },
-          {
-            "dse_code": "CSOBKST-09",
-            "outlet_count": 37
-          },
-          {
-            "dse_code": "DSEIN041",
-            "outlet_count": 34
-          },
-          {
-            "dse_code": "CSOBKST-10",
-            "outlet_count": 45
-          },
-          {
-            "dse_code": "DSEIN030",
-            "outlet_count": 36
-          },
-          {
-            "dse_code": "CSOBKST-06",
-            "outlet_count": 30
-          }
-        ]
-      },
-      {
-        "micro_cluster": "MC-PONDOK GEDE",
-        "dso_leader": "RULLI PRATAMA",
-        "outlet_count": 1064,
-        "dse_count": 21,
-        "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 247
+            "outlet_count": 536
           },
           {
-            "dse_code": "CSOBKSB-113ID",
-            "outlet_count": 30
-          },
-          {
-            "dse_code": "CSOBKSB-043ID",
-            "outlet_count": 3
-          },
-          {
-            "dse_code": "CSOBKSB-163ID",
-            "outlet_count": 33
-          },
-          {
-            "dse_code": "1-28825212096",
-            "outlet_count": 33
-          },
-          {
-            "dse_code": "1-136173742147",
-            "outlet_count": 28
-          },
-          {
-            "dse_code": "CSOBKSB-083ID",
-            "outlet_count": 34
-          },
-          {
-            "dse_code": "CSOBKSB-103ID",
-            "outlet_count": 29
-          },
-          {
-            "dse_code": "1-28825212098",
-            "outlet_count": 31
-          },
-          {
-            "dse_code": "1-28825212094",
+            "dse_code": "1-135606329021",
             "outlet_count": 11
           },
           {
-            "dse_code": "CSOBKSB-093ID",
-            "outlet_count": 2
-          },
-          {
-            "dse_code": "CSOBKSB-09",
-            "outlet_count": 60
-          },
-          {
-            "dse_code": "DSEIN001",
-            "outlet_count": 53
-          },
-          {
-            "dse_code": "CSOBKSB-08",
-            "outlet_count": 58
-          },
-          {
-            "dse_code": "CSOBKSB-16",
-            "outlet_count": 64
-          },
-          {
-            "dse_code": "DSEIN037",
-            "outlet_count": 50
-          },
-          {
-            "dse_code": "CSOBKSB-10",
-            "outlet_count": 51
-          },
-          {
-            "dse_code": "DSEIN022",
-            "outlet_count": 52
-          },
-          {
-            "dse_code": "DSEIN004",
-            "outlet_count": 75
-          },
-          {
-            "dse_code": "CSOBKSB-04",
-            "outlet_count": 63
-          },
-          {
-            "dse_code": "CSOBKSB-11",
-            "outlet_count": 57
-          }
-        ]
-      },
-      {
-        "micro_cluster": "MC-BEKASI TENGAH",
-        "dso_leader": "ADITYA HASANUDDIN",
-        "outlet_count": 916,
-        "dse_count": 21,
-        "dses": [
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 436
-          },
-          {
-            "dse_code": "1-28825212086",
+            "dse_code": "DSEIN1033ID",
             "outlet_count": 10
           },
           {
-            "dse_code": "1-136179672105",
-            "outlet_count": 26
+            "dse_code": "DSEIN1013ID",
+            "outlet_count": 6
           },
           {
-            "dse_code": "CSOBKST-083ID",
-            "outlet_count": 8
+            "dse_code": "1-135606436031",
+            "outlet_count": 13
           },
           {
-            "dse_code": "1-135606436407",
-            "outlet_count": 12
+            "dse_code": "CSOBUANAJKB023ID",
+            "outlet_count": 9
           },
           {
-            "dse_code": "1-170588695616",
-            "outlet_count": 21
+            "dse_code": "CSOBUANAJKB083ID",
+            "outlet_count": 2
           },
           {
-            "dse_code": "1-135596391663",
-            "outlet_count": 4
+            "dse_code": "DSEIN1043ID",
+            "outlet_count": 1
           },
           {
-            "dse_code": "1-28825212060",
-            "outlet_count": 3
+            "dse_code": "1-28824968782",
+            "outlet_count": 1
           },
           {
-            "dse_code": "CSOBKST-013ID",
-            "outlet_count": 8
-          },
-          {
-            "dse_code": "1-28825212068",
-            "outlet_count": 7
-          },
-          {
-            "dse_code": "CSOBKST-023ID",
-            "outlet_count": 3
-          },
-          {
-            "dse_code": "DSEIN007",
+            "dse_code": "DSEIN042",
             "outlet_count": 47
           },
           {
-            "dse_code": "DSEIN020",
-            "outlet_count": 41
+            "dse_code": "CSOBUANAJKB03",
+            "outlet_count": 65
           },
           {
-            "dse_code": "DSEIN006",
-            "outlet_count": 35
+            "dse_code": "DSEIN104",
+            "outlet_count": 59
           },
           {
-            "dse_code": "CSOBKST-01",
+            "dse_code": "DSEIN044",
+            "outlet_count": 78
+          },
+          {
+            "dse_code": "DSEIN101",
+            "outlet_count": 61
+          },
+          {
+            "dse_code": "DSEIN103",
+            "outlet_count": 62
+          },
+          {
+            "dse_code": "DSEIN055",
+            "outlet_count": 54
+          },
+          {
+            "dse_code": "DSEIN058",
+            "outlet_count": 60
+          },
+          {
+            "dse_code": "CSOBUANAJKB08",
+            "outlet_count": 46
+          },
+          {
+            "dse_code": "CSOBUANAJKB02",
             "outlet_count": 47
-          },
-          {
-            "dse_code": "DSEIN019",
-            "outlet_count": 43
-          },
-          {
-            "dse_code": "CSOBKST-08",
-            "outlet_count": 43
-          },
-          {
-            "dse_code": "DSEIN027",
-            "outlet_count": 26
-          },
-          {
-            "dse_code": "DSEIN038",
-            "outlet_count": 37
-          },
-          {
-            "dse_code": "CSOBKST-02",
-            "outlet_count": 30
-          },
-          {
-            "dse_code": "DSEIN003",
-            "outlet_count": 29
           }
         ]
       }
@@ -1514,17 +1203,17 @@
   {
     "branch": "CENTRAL NORTH JAKARTA",
     "hoa_leader": "Ragus Sularto",
-    "outlet_count": 3857,
+    "outlet_count": 4027,
     "micro_clusters": [
       {
         "micro_cluster": "MC-CEMPAKA PUTIH",
         "dso_leader": "SUHENDRA",
-        "outlet_count": 765,
+        "outlet_count": 789,
         "dse_count": 19,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 285
+            "outlet_count": 308
           },
           {
             "dse_code": "CSOBUANAJKP113ID",
@@ -1536,7 +1225,7 @@
           },
           {
             "dse_code": "26130509773ID",
-            "outlet_count": 9
+            "outlet_count": 7
           },
           {
             "dse_code": "CSOBUANAJKP143ID",
@@ -1588,7 +1277,7 @@
           },
           {
             "dse_code": "2613052398",
-            "outlet_count": 37
+            "outlet_count": 36
           },
           {
             "dse_code": "CSOBUANAJKP08",
@@ -1596,19 +1285,19 @@
           },
           {
             "dse_code": "2613050977",
-            "outlet_count": 48
+            "outlet_count": 52
           }
         ]
       },
       {
         "micro_cluster": "MC-TANAH ABANG",
         "dso_leader": "NORMAN PARASIAN",
-        "outlet_count": 702,
+        "outlet_count": 738,
         "dse_count": 11,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 433
+            "outlet_count": 468
           },
           {
             "dse_code": "CSOBUANAJKP063ID",
@@ -1632,11 +1321,11 @@
           },
           {
             "dse_code": "CSOBUANAJKP13",
-            "outlet_count": 39
+            "outlet_count": 40
           },
           {
             "dse_code": "CSOBUANAJKP02",
-            "outlet_count": 58
+            "outlet_count": 55
           },
           {
             "dse_code": "CSOBUANAJKP06",
@@ -1648,38 +1337,34 @@
           },
           {
             "dse_code": "CSOBUANAJKP03",
-            "outlet_count": 42
+            "outlet_count": 45
           }
         ]
       },
       {
         "micro_cluster": "MC-KELAPA GADING",
         "dso_leader": "MUHAMAD YUNUS HIDAYAT",
-        "outlet_count": 747,
-        "dse_count": 15,
+        "outlet_count": 769,
+        "dse_count": 16,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 402
+            "outlet_count": 445
           },
           {
             "dse_code": "26130518723ID",
-            "outlet_count": 21
-          },
-          {
-            "dse_code": "DSEBUANAJKU053ID",
-            "outlet_count": 4
+            "outlet_count": 23
           },
           {
             "dse_code": "DSEBUANAJKU083ID",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "26130504743ID",
             "outlet_count": 8
           },
           {
             "dse_code": "26130510923ID",
-            "outlet_count": 13
-          },
-          {
-            "dse_code": "26130504743ID",
             "outlet_count": 9
           },
           {
@@ -1687,16 +1372,20 @@
             "outlet_count": 6
           },
           {
-            "dse_code": "DSEBUANAJKU033ID",
-            "outlet_count": 1
+            "dse_code": "DSEBUANAJKU053ID",
+            "outlet_count": 3
           },
           {
-            "dse_code": "DSEBUANAJKU05",
-            "outlet_count": 45
+            "dse_code": "DSEBUANAJKU033ID",
+            "outlet_count": 2
           },
           {
             "dse_code": "2613051092",
             "outlet_count": 36
+          },
+          {
+            "dse_code": "DSEBUANAJKU05",
+            "outlet_count": 42
           },
           {
             "dse_code": "2613051872",
@@ -1704,35 +1393,43 @@
           },
           {
             "dse_code": "DSEBUANAJKU08",
-            "outlet_count": 43
+            "outlet_count": 38
           },
           {
             "dse_code": "2613050474",
-            "outlet_count": 42
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEBUANAJKU04",
-            "outlet_count": 48
+            "outlet_count": 46
           },
           {
             "dse_code": "DSEBUANAJKU03",
-            "outlet_count": 37
+            "outlet_count": 33
+          },
+          {
+            "dse_code": "2613050768",
+            "outlet_count": 1
           }
         ]
       },
       {
         "micro_cluster": "MC-TANJUNG PRIOK",
         "dso_leader": "RUDI HARDANA DARMAWAN",
-        "outlet_count": 802,
-        "dse_count": 15,
+        "outlet_count": 858,
+        "dse_count": 16,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 457
+            "outlet_count": 502
+          },
+          {
+            "dse_code": "2613050768",
+            "outlet_count": 11
           },
           {
             "dse_code": "DSEBUANAJKU073ID",
-            "outlet_count": 8
+            "outlet_count": 7
           },
           {
             "dse_code": "26130514133ID",
@@ -1752,19 +1449,19 @@
           },
           {
             "dse_code": "2613051030",
-            "outlet_count": 1
+            "outlet_count": 2
           },
           {
             "dse_code": "2613052473",
-            "outlet_count": 42
+            "outlet_count": 41
           },
           {
             "dse_code": "DSEBUANAJKU19R",
-            "outlet_count": 42
+            "outlet_count": 43
           },
           {
             "dse_code": "DSEBUANAJKU10R",
-            "outlet_count": 42
+            "outlet_count": 43
           },
           {
             "dse_code": "2613051413",
@@ -1772,11 +1469,11 @@
           },
           {
             "dse_code": "2613050947",
-            "outlet_count": 28
+            "outlet_count": 27
           },
           {
             "dse_code": "DSEBUANAJKU06",
-            "outlet_count": 44
+            "outlet_count": 45
           },
           {
             "dse_code": "DSEBUANAJKU13R",
@@ -1784,23 +1481,23 @@
           },
           {
             "dse_code": "DSEBUANAJKU07",
-            "outlet_count": 36
+            "outlet_count": 35
           }
         ]
       },
       {
         "micro_cluster": "MC-PADEMANGAN",
         "dso_leader": "ANANTO PRATIKNO",
-        "outlet_count": 841,
+        "outlet_count": 870,
         "dse_count": 17,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 449
+            "outlet_count": 473
           },
           {
             "dse_code": "CSOSDP20230363ID",
-            "outlet_count": 25
+            "outlet_count": 26
           },
           {
             "dse_code": "DSEJKU14R3ID",
@@ -1808,11 +1505,11 @@
           },
           {
             "dse_code": "26130509543ID",
-            "outlet_count": 5
+            "outlet_count": 6
           },
           {
             "dse_code": "DSEJKU20R3ID",
-            "outlet_count": 9
+            "outlet_count": 7
           },
           {
             "dse_code": "DSEJKU17R3ID",
@@ -1824,7 +1521,7 @@
           },
           {
             "dse_code": "DSEIN1183ID",
-            "outlet_count": 8
+            "outlet_count": 10
           },
           {
             "dse_code": "DSEJKU18R3ID",
@@ -1840,27 +1537,51 @@
           },
           {
             "dse_code": "DSEBUANAJKU16R",
-            "outlet_count": 39
-          },
-          {
-            "dse_code": "DSEBUANAJKU20R",
-            "outlet_count": 53
-          },
-          {
-            "dse_code": "DSEIN118",
-            "outlet_count": 39
-          },
-          {
-            "dse_code": "2613050954",
-            "outlet_count": 50
-          },
-          {
-            "dse_code": "DSEBUANAJKU18R",
             "outlet_count": 40
           },
           {
+            "dse_code": "DSEBUANAJKU20R",
+            "outlet_count": 52
+          },
+          {
+            "dse_code": "DSEIN118",
+            "outlet_count": 41
+          },
+          {
+            "dse_code": "2613050954",
+            "outlet_count": 51
+          },
+          {
+            "dse_code": "DSEBUANAJKU18R",
+            "outlet_count": 43
+          },
+          {
             "dse_code": "DSEBUANAJKU14R",
-            "outlet_count": 37
+            "outlet_count": 34
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-JAKARTA PUSAT",
+        "dso_leader": "DSO MC-JAKARTA PUSAT",
+        "outlet_count": 2,
+        "dse_count": 1,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 2
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-CENGKARENG",
+        "dso_leader": "AHYADI",
+        "outlet_count": 1,
+        "dse_count": 1,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 1
           }
         ]
       }
@@ -1869,101 +1590,97 @@
   {
     "branch": "KARAWANG",
     "hoa_leader": "Apri Sugiyanto",
-    "outlet_count": 4268,
+    "outlet_count": 4853,
     "micro_clusters": [
       {
         "micro_cluster": "MC-WEST CIKAMPEK",
         "dso_leader": "SEPTIAN AJI PUTRA",
-        "outlet_count": 706,
+        "outlet_count": 827,
         "dse_count": 15,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 289
-          },
-          {
-            "dse_code": "26130509823ID",
-            "outlet_count": 28
-          },
-          {
-            "dse_code": "26130509813ID",
-            "outlet_count": 13
+            "outlet_count": 361
           },
           {
             "dse_code": "26130509803ID",
-            "outlet_count": 6
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "26130509813ID",
+            "outlet_count": 12
+          },
+          {
+            "dse_code": "26130509823ID",
+            "outlet_count": 34
           },
           {
             "dse_code": "26130531643ID",
-            "outlet_count": 16
+            "outlet_count": 12
           },
           {
             "dse_code": "DSECKMK023ID",
-            "outlet_count": 23
-          },
-          {
-            "dse_code": "CSO-CKP0033ID",
-            "outlet_count": 15
-          },
-          {
-            "dse_code": "CSO-CKP0053ID",
             "outlet_count": 11
           },
           {
+            "dse_code": "CSO-CKP0033ID",
+            "outlet_count": 8
+          },
+          {
+            "dse_code": "CSO-CKP0053ID",
+            "outlet_count": 24
+          },
+          {
             "dse_code": "CSO-CKP003",
-            "outlet_count": 64
+            "outlet_count": 66
           },
           {
             "dse_code": "CSO-CKP005",
-            "outlet_count": 41
+            "outlet_count": 49
           },
           {
             "dse_code": "2613050980",
-            "outlet_count": 46
+            "outlet_count": 49
           },
           {
             "dse_code": "2613053164",
-            "outlet_count": 35
+            "outlet_count": 42
           },
           {
             "dse_code": "2613050981",
-            "outlet_count": 35
+            "outlet_count": 41
           },
           {
             "dse_code": "2613050982",
-            "outlet_count": 51
+            "outlet_count": 67
           },
           {
             "dse_code": "DSECKMK02",
-            "outlet_count": 33
+            "outlet_count": 44
           }
         ]
       },
       {
         "micro_cluster": "MC-EAST CIKAMPEK",
         "dso_leader": "WIWIT PRASETYO",
-        "outlet_count": 603,
+        "outlet_count": 669,
         "dse_count": 13,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 202
-          },
-          {
-            "dse_code": "CSO-CKP0073ID",
-            "outlet_count": 33
+            "outlet_count": 305
           },
           {
             "dse_code": "DSECKMK053ID",
-            "outlet_count": 15
+            "outlet_count": 11
           },
           {
             "dse_code": "DSECKMK033ID",
-            "outlet_count": 18
+            "outlet_count": 15
           },
           {
             "dse_code": "26130509833ID",
-            "outlet_count": 15
+            "outlet_count": 8
           },
           {
             "dse_code": "CSO-CKP0043ID",
@@ -1974,8 +1691,12 @@
             "outlet_count": 13
           },
           {
+            "dse_code": "CSO-CKP0073ID",
+            "outlet_count": 7
+          },
+          {
             "dse_code": "DSECKMK05",
-            "outlet_count": 59
+            "outlet_count": 63
           },
           {
             "dse_code": "DSE22310006",
@@ -1983,7 +1704,7 @@
           },
           {
             "dse_code": "CSO-CKP007",
-            "outlet_count": 56
+            "outlet_count": 57
           },
           {
             "dse_code": "2613050983",
@@ -1995,19 +1716,19 @@
           },
           {
             "dse_code": "CSO-CKP004",
-            "outlet_count": 47
+            "outlet_count": 45
           }
         ]
       },
       {
         "micro_cluster": "MC-KARAWANG",
         "dso_leader": "AGAM EKANANDA GUMELAR",
-        "outlet_count": 737,
+        "outlet_count": 926,
         "dse_count": 16,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 231
+            "outlet_count": 419
           },
           {
             "dse_code": "26130510973ID",
@@ -2019,7 +1740,7 @@
           },
           {
             "dse_code": "DSEKRWG043ID",
-            "outlet_count": 7
+            "outlet_count": 8
           },
           {
             "dse_code": "DSEKRWG063ID",
@@ -2059,7 +1780,7 @@
           },
           {
             "dse_code": "2613050705",
-            "outlet_count": 55
+            "outlet_count": 54
           },
           {
             "dse_code": "DSEKRWG08",
@@ -2067,19 +1788,19 @@
           },
           {
             "dse_code": "DSEKRWG04",
-            "outlet_count": 55
+            "outlet_count": 56
           }
         ]
       },
       {
         "micro_cluster": "MC-RENGASDENGKLOK",
         "dso_leader": "MOCH ALI AS'AD",
-        "outlet_count": 697,
+        "outlet_count": 727,
         "dse_count": 15,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 256
+            "outlet_count": 357
           },
           {
             "dse_code": "1-28825212765",
@@ -2087,7 +1808,7 @@
           },
           {
             "dse_code": "CSOEASTRDK023ID",
-            "outlet_count": 1
+            "outlet_count": 2
           },
           {
             "dse_code": "DSERNAK033ID",
@@ -2102,52 +1823,52 @@
             "outlet_count": 4
           },
           {
-            "dse_code": "CSOEASTRDK083ID",
+            "dse_code": "DSERNAK023ID",
             "outlet_count": 2
           },
           {
-            "dse_code": "DSERNAK023ID",
-            "outlet_count": 1
+            "dse_code": "CSOEASTRDK083ID",
+            "outlet_count": 3
           },
           {
             "dse_code": "CSOEASTRDK05",
-            "outlet_count": 56
+            "outlet_count": 45
           },
           {
             "dse_code": "DSERNAK03",
-            "outlet_count": 60
+            "outlet_count": 50
           },
           {
             "dse_code": "DSERNAK02",
-            "outlet_count": 55
+            "outlet_count": 45
           },
           {
             "dse_code": "DSEIN014",
-            "outlet_count": 59
+            "outlet_count": 45
           },
           {
             "dse_code": "CSOEASTRDK08",
-            "outlet_count": 62
+            "outlet_count": 48
           },
           {
             "dse_code": "CSOEASTRDK02",
-            "outlet_count": 67
+            "outlet_count": 57
           },
           {
             "dse_code": "DSEIN031",
-            "outlet_count": 55
+            "outlet_count": 50
           }
         ]
       },
       {
         "micro_cluster": "MC-TEGALWARU",
         "dso_leader": "RAIHAAN",
-        "outlet_count": 710,
+        "outlet_count": 827,
         "dse_count": 15,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 267
+            "outlet_count": 386
           },
           {
             "dse_code": "DSEPNKN033ID",
@@ -2159,11 +1880,11 @@
           },
           {
             "dse_code": "CSOSDP301713ID",
-            "outlet_count": 11
+            "outlet_count": 7
           },
           {
             "dse_code": "26130522773ID",
-            "outlet_count": 18
+            "outlet_count": 20
           },
           {
             "dse_code": "DSEPNKN023ID",
@@ -2175,7 +1896,7 @@
           },
           {
             "dse_code": "CSOSDP3017123ID",
-            "outlet_count": 8
+            "outlet_count": 12
           },
           {
             "dse_code": "DSEPNKN03",
@@ -2183,7 +1904,7 @@
           },
           {
             "dse_code": "CSOSDP301712",
-            "outlet_count": 58
+            "outlet_count": 56
           },
           {
             "dse_code": "DSEPNKN04",
@@ -2199,7 +1920,7 @@
           },
           {
             "dse_code": "CSOSDP30171",
-            "outlet_count": 56
+            "outlet_count": 54
           },
           {
             "dse_code": "DSEPNKN02",
@@ -2210,28 +1931,44 @@
       {
         "micro_cluster": "MC-BATUJAYA",
         "dso_leader": "ADHITYA PRATAMA",
-        "outlet_count": 815,
-        "dse_count": 14,
+        "outlet_count": 877,
+        "dse_count": 18,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 327
+            "outlet_count": 358
           },
           {
             "dse_code": "CSOEASTRDK063ID",
-            "outlet_count": 9
+            "outlet_count": 12
+          },
+          {
+            "dse_code": "1-197559543881",
+            "outlet_count": 8
+          },
+          {
+            "dse_code": "DSERNAK053ID",
+            "outlet_count": 4
+          },
+          {
+            "dse_code": "1-154089303029",
+            "outlet_count": 3
           },
           {
             "dse_code": "DSERNAK083ID",
-            "outlet_count": 1
+            "outlet_count": 2
           },
           {
             "dse_code": "DSERNAK043ID",
-            "outlet_count": 2
+            "outlet_count": 6
           },
           {
             "dse_code": "DSEIN1233ID",
             "outlet_count": 22
+          },
+          {
+            "dse_code": "1-167506658513",
+            "outlet_count": 8
           },
           {
             "dse_code": "DSERNAK06",
@@ -2276,17 +2013,17 @@
   {
     "branch": "EAST JAKARTA",
     "hoa_leader": "Muchlis",
-    "outlet_count": 3678,
+    "outlet_count": 3851,
     "micro_clusters": [
       {
         "micro_cluster": "MC-CAKUNG",
         "dso_leader": "FAHMI KURNIANTO",
-        "outlet_count": 1121,
+        "outlet_count": 1146,
         "dse_count": 25,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 585
+            "outlet_count": 562
           },
           {
             "dse_code": "DSEDURSAW0833ID",
@@ -2294,19 +2031,19 @@
           },
           {
             "dse_code": "1-28825211822",
-            "outlet_count": 8
+            "outlet_count": 7
           },
           {
             "dse_code": "1-28825211818",
             "outlet_count": 11
           },
           {
-            "dse_code": "1-28825211858",
-            "outlet_count": 8
+            "dse_code": "1-28825211814",
+            "outlet_count": 17
           },
           {
-            "dse_code": "DSEDURSAW7043ID",
-            "outlet_count": 12
+            "dse_code": "1-28825211858",
+            "outlet_count": 8
           },
           {
             "dse_code": "1-28825211840",
@@ -2321,8 +2058,12 @@
             "outlet_count": 21
           },
           {
+            "dse_code": "DSEDURSAW7043ID",
+            "outlet_count": 6
+          },
+          {
             "dse_code": "DSEDURSAW9573ID",
-            "outlet_count": 17
+            "outlet_count": 11
           },
           {
             "dse_code": "DSEDURSAW7073ID",
@@ -2333,228 +2074,136 @@
             "outlet_count": 3
           },
           {
-            "dse_code": "1-28825211814",
-            "outlet_count": 1
-          },
-          {
             "dse_code": "DSEDURSAW957",
-            "outlet_count": 34
+            "outlet_count": 37
           },
           {
             "dse_code": "DSEIN072",
-            "outlet_count": 40
+            "outlet_count": 39
           },
           {
             "dse_code": "DSEDURSAW083",
-            "outlet_count": 39
+            "outlet_count": 38
           },
           {
             "dse_code": "DSEIN064",
-            "outlet_count": 39
+            "outlet_count": 46
           },
           {
             "dse_code": "DSEIN068",
-            "outlet_count": 36
+            "outlet_count": 41
+          },
+          {
+            "dse_code": "DSEIN061",
+            "outlet_count": 33
           },
           {
             "dse_code": "DSEDURSAW707",
             "outlet_count": 35
           },
           {
-            "dse_code": "DSEIN069",
-            "outlet_count": 28
-          },
-          {
             "dse_code": "DSEDURSAW704",
             "outlet_count": 42
           },
           {
+            "dse_code": "DSEIN069",
+            "outlet_count": 25
+          },
+          {
             "dse_code": "DSEDURSAW703",
-            "outlet_count": 39
+            "outlet_count": 43
           },
           {
             "dse_code": "DSEIN121",
-            "outlet_count": 40
+            "outlet_count": 39
           },
           {
             "dse_code": "DSEIN062",
             "outlet_count": 45
-          },
-          {
-            "dse_code": "DSEIN061",
-            "outlet_count": 1
           }
         ]
       },
       {
         "micro_cluster": "MC-KRAMATJATI",
         "dso_leader": "RIZKY KURNIAWAN",
-        "outlet_count": 613,
+        "outlet_count": 623,
         "dse_count": 15,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 299
+            "outlet_count": 310
           },
           {
             "dse_code": "1-136291164227",
-            "outlet_count": 23
-          },
-          {
-            "dse_code": "26130504673ID",
-            "outlet_count": 20
+            "outlet_count": 12
           },
           {
             "dse_code": "1-136301153553",
-            "outlet_count": 15
+            "outlet_count": 16
+          },
+          {
+            "dse_code": "26130504673ID",
+            "outlet_count": 22
           },
           {
             "dse_code": "1-136297797513",
-            "outlet_count": 17
-          },
-          {
-            "dse_code": "1-136297797435",
-            "outlet_count": 10
+            "outlet_count": 18
           },
           {
             "dse_code": "DSEMATJAT7503ID",
-            "outlet_count": 8
+            "outlet_count": 14
+          },
+          {
+            "dse_code": "1-136297797435",
+            "outlet_count": 18
           },
           {
             "dse_code": "DSEMATJAT7513ID",
-            "outlet_count": 11
+            "outlet_count": 4
           },
           {
             "dse_code": "DSEMATJAT751",
-            "outlet_count": 33
+            "outlet_count": 28
           },
           {
             "dse_code": "DSEIN013",
-            "outlet_count": 30
+            "outlet_count": 27
           },
           {
             "dse_code": "DSEIN048",
-            "outlet_count": 25
-          },
-          {
-            "dse_code": "DSEMATJAT750",
-            "outlet_count": 30
+            "outlet_count": 31
           },
           {
             "dse_code": "DSEIN046",
-            "outlet_count": 29
+            "outlet_count": 33
           },
           {
             "dse_code": "2613050467",
-            "outlet_count": 36
+            "outlet_count": 41
           },
           {
             "dse_code": "DSEIN050",
             "outlet_count": 27
-          }
-        ]
-      },
-      {
-        "micro_cluster": "MC-CIRACAS",
-        "dso_leader": "ABDUL AZIZ KAMIL RAFIKOLAN",
-        "outlet_count": 1006,
-        "dse_count": 20,
-        "dses": [
-          {
-            "dse_code": "UNASSIGNED",
-            "outlet_count": 422
           },
           {
-            "dse_code": "DSECIPCIR2953ID",
-            "outlet_count": 15
-          },
-          {
-            "dse_code": "DSECIPCIR2713ID",
+            "dse_code": "DSEMATJAT750",
             "outlet_count": 22
-          },
-          {
-            "dse_code": "DSECIPCIR2733ID",
-            "outlet_count": 27
-          },
-          {
-            "dse_code": "26130507423ID",
-            "outlet_count": 26
-          },
-          {
-            "dse_code": "1-28825211850",
-            "outlet_count": 29
-          },
-          {
-            "dse_code": "1-136297797461",
-            "outlet_count": 36
-          },
-          {
-            "dse_code": "1-136301153371",
-            "outlet_count": 7
-          },
-          {
-            "dse_code": "1-28825211852",
-            "outlet_count": 31
-          },
-          {
-            "dse_code": "DSECIPCIR2763ID",
-            "outlet_count": 26
-          },
-          {
-            "dse_code": "26130504673ID",
-            "outlet_count": 2
-          },
-          {
-            "dse_code": "DSECIPCIR273",
-            "outlet_count": 36
-          },
-          {
-            "dse_code": "2613050742",
-            "outlet_count": 39
-          },
-          {
-            "dse_code": "DSEIN070",
-            "outlet_count": 43
-          },
-          {
-            "dse_code": "DSEIN071",
-            "outlet_count": 34
-          },
-          {
-            "dse_code": "DSECIPCIR295",
-            "outlet_count": 55
-          },
-          {
-            "dse_code": "DSECIPCIR276",
-            "outlet_count": 46
-          },
-          {
-            "dse_code": "DSEIN049",
-            "outlet_count": 40
-          },
-          {
-            "dse_code": "DSECIPCIR271",
-            "outlet_count": 41
-          },
-          {
-            "dse_code": "DSEIN047",
-            "outlet_count": 29
           }
         ]
       },
       {
         "micro_cluster": "MC-MATRAMAN",
         "dso_leader": "RICHARD YADI SIDAURUK",
-        "outlet_count": 938,
+        "outlet_count": 1037,
         "dse_count": 17,
         "dses": [
           {
             "dse_code": "UNASSIGNED",
-            "outlet_count": 612
+            "outlet_count": 693
           },
           {
             "dse_code": "DSEMATJAT7533ID",
-            "outlet_count": 13
+            "outlet_count": 16
           },
           {
             "dse_code": "DSEMATJAT7463ID",
@@ -2562,11 +2211,11 @@
           },
           {
             "dse_code": "1-28825211828",
-            "outlet_count": 18
+            "outlet_count": 17
           },
           {
             "dse_code": "1-28825211820",
-            "outlet_count": 11
+            "outlet_count": 9
           },
           {
             "dse_code": "1-28825211826",
@@ -2578,19 +2227,15 @@
           },
           {
             "dse_code": "1-28825211824",
-            "outlet_count": 10
+            "outlet_count": 12
           },
           {
             "dse_code": "DSEMATJAT7523ID",
-            "outlet_count": 3
+            "outlet_count": 6
           },
           {
             "dse_code": "DSEIN066",
-            "outlet_count": 26
-          },
-          {
-            "dse_code": "DSEIN063",
-            "outlet_count": 41
+            "outlet_count": 27
           },
           {
             "dse_code": "DSEIN065",
@@ -2598,23 +2243,450 @@
           },
           {
             "dse_code": "DSEIN067",
-            "outlet_count": 21
+            "outlet_count": 20
           },
           {
             "dse_code": "DSEMATJAT746",
-            "outlet_count": 28
+            "outlet_count": 37
           },
           {
             "dse_code": "DSEMATJAT752",
-            "outlet_count": 36
+            "outlet_count": 37
           },
           {
             "dse_code": "DSEMATJAT740",
             "outlet_count": 32
           },
           {
+            "dse_code": "DSEIN063",
+            "outlet_count": 36
+          },
+          {
             "dse_code": "DSEMATJAT753",
+            "outlet_count": 37
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-CIRACAS",
+        "dso_leader": "ABDUL AZIZ KAMIL RAFIKOLAN",
+        "outlet_count": 1045,
+        "dse_count": 19,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 476
+          },
+          {
+            "dse_code": "DSECIPCIR2953ID",
+            "outlet_count": 16
+          },
+          {
+            "dse_code": "1-28825211852",
+            "outlet_count": 33
+          },
+          {
+            "dse_code": "DSECIPCIR2713ID",
+            "outlet_count": 20
+          },
+          {
+            "dse_code": "DSECIPCIR2733ID",
+            "outlet_count": 27
+          },
+          {
+            "dse_code": "26130507423ID",
+            "outlet_count": 26
+          },
+          {
+            "dse_code": "1-28825211850",
+            "outlet_count": 30
+          },
+          {
+            "dse_code": "1-136297797461",
+            "outlet_count": 36
+          },
+          {
+            "dse_code": "1-136301153371",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "DSECIPCIR2763ID",
+            "outlet_count": 25
+          },
+          {
+            "dse_code": "DSECIPCIR273",
+            "outlet_count": 36
+          },
+          {
+            "dse_code": "2613050742",
+            "outlet_count": 39
+          },
+          {
+            "dse_code": "DSEIN070",
+            "outlet_count": 40
+          },
+          {
+            "dse_code": "DSEIN071",
+            "outlet_count": 34
+          },
+          {
+            "dse_code": "DSECIPCIR295",
+            "outlet_count": 49
+          },
+          {
+            "dse_code": "DSECIPCIR276",
+            "outlet_count": 49
+          },
+          {
+            "dse_code": "DSEIN049",
+            "outlet_count": 34
+          },
+          {
+            "dse_code": "DSECIPCIR271",
+            "outlet_count": 39
+          },
+          {
+            "dse_code": "DSEIN047",
             "outlet_count": 29
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "branch": "BEKASI",
+    "hoa_leader": "Ali Sabana",
+    "outlet_count": 3605,
+    "micro_clusters": [
+      {
+        "micro_cluster": "MC-BEKASI UTARA",
+        "dso_leader": "RAHAYU UTAMININGSIH",
+        "outlet_count": 653,
+        "dse_count": 13,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 346
+          },
+          {
+            "dse_code": "CSOBKST-093ID",
+            "outlet_count": 21
+          },
+          {
+            "dse_code": "1-28825212058",
+            "outlet_count": 15
+          },
+          {
+            "dse_code": "1-135596392079",
+            "outlet_count": 15
+          },
+          {
+            "dse_code": "CSOBKST-103ID",
+            "outlet_count": 19
+          },
+          {
+            "dse_code": "1-28825212056",
+            "outlet_count": 9
+          },
+          {
+            "dse_code": "26130536813ID",
+            "outlet_count": 12
+          },
+          {
+            "dse_code": "DSEIN040",
+            "outlet_count": 33
+          },
+          {
+            "dse_code": "CSOBKST-09",
+            "outlet_count": 37
+          },
+          {
+            "dse_code": "DSEIN041",
+            "outlet_count": 35
+          },
+          {
+            "dse_code": "CSOBKST-10",
+            "outlet_count": 45
+          },
+          {
+            "dse_code": "DSEIN030",
+            "outlet_count": 36
+          },
+          {
+            "dse_code": "2613053681",
+            "outlet_count": 30
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-PONDOK GEDE",
+        "dso_leader": "RULLI PRATAMA",
+        "outlet_count": 1094,
+        "dse_count": 21,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 283
+          },
+          {
+            "dse_code": "CSOBKSB-113ID",
+            "outlet_count": 28
+          },
+          {
+            "dse_code": "CSOBKSB-043ID",
+            "outlet_count": 3
+          },
+          {
+            "dse_code": "CSOBKSB-163ID",
+            "outlet_count": 33
+          },
+          {
+            "dse_code": "1-28825212096",
+            "outlet_count": 33
+          },
+          {
+            "dse_code": "1-136173742147",
+            "outlet_count": 28
+          },
+          {
+            "dse_code": "CSOBKSB-083ID",
+            "outlet_count": 37
+          },
+          {
+            "dse_code": "CSOBKSB-103ID",
+            "outlet_count": 29
+          },
+          {
+            "dse_code": "1-28825212098",
+            "outlet_count": 31
+          },
+          {
+            "dse_code": "1-28825212094",
+            "outlet_count": 11
+          },
+          {
+            "dse_code": "CSOBKSB-093ID",
+            "outlet_count": 3
+          },
+          {
+            "dse_code": "CSOBKSB-09",
+            "outlet_count": 60
+          },
+          {
+            "dse_code": "DSEIN001",
+            "outlet_count": 56
+          },
+          {
+            "dse_code": "CSOBKSB-08",
+            "outlet_count": 58
+          },
+          {
+            "dse_code": "CSOBKSB-16",
+            "outlet_count": 64
+          },
+          {
+            "dse_code": "DSEIN037",
+            "outlet_count": 50
+          },
+          {
+            "dse_code": "CSOBKSB-10",
+            "outlet_count": 51
+          },
+          {
+            "dse_code": "DSEIN022",
+            "outlet_count": 52
+          },
+          {
+            "dse_code": "DSEIN004",
+            "outlet_count": 64
+          },
+          {
+            "dse_code": "CSOBKSB-04",
+            "outlet_count": 63
+          },
+          {
+            "dse_code": "CSOBKSB-11",
+            "outlet_count": 57
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-BEKASI TENGAH",
+        "dso_leader": "ADITYA HASANUDDIN",
+        "outlet_count": 1024,
+        "dse_count": 21,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 573
+          },
+          {
+            "dse_code": "1-28825212086",
+            "outlet_count": 8
+          },
+          {
+            "dse_code": "1-136179672105",
+            "outlet_count": 27
+          },
+          {
+            "dse_code": "CSOBKST-083ID",
+            "outlet_count": 4
+          },
+          {
+            "dse_code": "1-135606436407",
+            "outlet_count": 10
+          },
+          {
+            "dse_code": "1-170588695616",
+            "outlet_count": 19
+          },
+          {
+            "dse_code": "1-135596391663",
+            "outlet_count": 4
+          },
+          {
+            "dse_code": "1-28825212060",
+            "outlet_count": 3
+          },
+          {
+            "dse_code": "1-28825212068",
+            "outlet_count": 5
+          },
+          {
+            "dse_code": "CSOBKST-013ID",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "CSOBKST-023ID",
+            "outlet_count": 3
+          },
+          {
+            "dse_code": "DSEIN007",
+            "outlet_count": 39
+          },
+          {
+            "dse_code": "DSEIN020",
+            "outlet_count": 41
+          },
+          {
+            "dse_code": "DSEIN006",
+            "outlet_count": 34
+          },
+          {
+            "dse_code": "CSOBKST-01",
+            "outlet_count": 46
+          },
+          {
+            "dse_code": "DSEIN019",
+            "outlet_count": 39
+          },
+          {
+            "dse_code": "CSOBKST-08",
+            "outlet_count": 40
+          },
+          {
+            "dse_code": "DSEIN027",
+            "outlet_count": 25
+          },
+          {
+            "dse_code": "DSEIN038",
+            "outlet_count": 36
+          },
+          {
+            "dse_code": "CSOBKST-02",
+            "outlet_count": 32
+          },
+          {
+            "dse_code": "DSEIN003",
+            "outlet_count": 29
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-MUSTIKA JAYA",
+        "dso_leader": "MUHAMAD RIFALDI",
+        "outlet_count": 825,
+        "dse_count": 17,
+        "dses": [
+          {
+            "dse_code": "CSOBKSB-023ID",
+            "outlet_count": 19
+          },
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 365
+          },
+          {
+            "dse_code": "CSOBKSS-043ID",
+            "outlet_count": 20
+          },
+          {
+            "dse_code": "1-28825212100",
+            "outlet_count": 15
+          },
+          {
+            "dse_code": "CSOBKSS-053ID",
+            "outlet_count": 20
+          },
+          {
+            "dse_code": "1-28825212088",
+            "outlet_count": 10
+          },
+          {
+            "dse_code": "CSOBKSS-123ID",
+            "outlet_count": 21
+          },
+          {
+            "dse_code": "1-136173742121",
+            "outlet_count": 7
+          },
+          {
+            "dse_code": "CSOBKST-113ID",
+            "outlet_count": 6
+          },
+          {
+            "dse_code": "DSEIN002",
+            "outlet_count": 42
+          },
+          {
+            "dse_code": "CSOBKSS-12",
+            "outlet_count": 47
+          },
+          {
+            "dse_code": "CSOBKSB-02",
+            "outlet_count": 45
+          },
+          {
+            "dse_code": "CSOBKSS-04",
+            "outlet_count": 64
+          },
+          {
+            "dse_code": "DSEIN018",
+            "outlet_count": 28
+          },
+          {
+            "dse_code": "CSOBKSS-05",
+            "outlet_count": 52
+          },
+          {
+            "dse_code": "DSEIN028",
+            "outlet_count": 28
+          },
+          {
+            "dse_code": "CSOBKST-11",
+            "outlet_count": 36
+          }
+        ]
+      },
+      {
+        "micro_cluster": "MC-BEKASI SELATAN",
+        "dso_leader": "DSO MC-BEKASI SELATAN",
+        "outlet_count": 9,
+        "dse_count": 1,
+        "dses": [
+          {
+            "dse_code": "UNASSIGNED",
+            "outlet_count": 9
           }
         ]
       }

@@ -325,10 +325,12 @@ for o in master_outlets:
     nm = str(o.get("dse_name") or "").strip()
     if not nm or nm.upper().startswith("UNASSIGNED"):
         continue
+    # a name shared by two people (SUSANTO of MC-CIMANGGIS and of MC-PONDOK GEDE) is grouped per micro cluster, so a new login (2613053633) attaches to the right person (owner, 24 Nov 2026)
+    _key = (nm, str(o.get("micro_cluster") or "") if len(name_pids.get(nm.upper(), [])) > 1 else "")
     for c in (norm_id(o.get("dse_code_im3")), norm_id(o.get("dse_code_3id"))):
         if c:
-            _by_name[nm]["codes"].add(c)
-    _by_name[nm]["outlets"].append(o["outlet_key"])
+            _by_name[_key]["codes"].add(c)
+    _by_name[_key]["outlets"].append(o["outlet_key"])
 _added = _aliased = 0
 
 
@@ -352,7 +354,7 @@ for _pth in sorted(_glob.glob("data/catalogues/catalogue_[0-9]*/dse_logins.csv")
                 _c = [x for x in _c if persons[x]["mc_master"] == r["mc"]] or _c
             if _c:
                 _attach(_c[0], [norm_id(r["login_im3"]), norm_id(r["login_3id"])]); _aliased += 1
-for nm, e in sorted(_by_name.items()):
+for (nm, _mck), e in sorted(_by_name.items()):
     if not e["codes"]:
         continue
     mode = lambda key: max(set(out_meta[k][key] for k in e["outlets"]), key=[out_meta[k][key] for k in e["outlets"]].count)

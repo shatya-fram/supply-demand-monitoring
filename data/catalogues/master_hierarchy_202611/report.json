@@ -4,9 +4,42 @@
   "IM3_dup_codes": 0,
   "3ID_rows": 18605,
   "3ID_dup_codes": 65,
+  "flat_removed": 1,
+  "flat_feed": "Master_Hierarchy_20261118.xlsb",
+  "flat_feed_outlets": 37104,
+  "flat_added": 1865,
+  "flat_changes": {
+    "cso": 1837,
+    "mc": 49,
+    "category": 97,
+    "cso_lost": 567,
+    "cso_gained": 660
+  },
   "pairs": 8053,
   "pairs_check1": 7022,
   "id3_in_several_pairs": 56,
+  "dse_alias_logins_from_target_file": [
+    [
+      "2613050947",
+      "2613050768",
+      "Herry Apriyanto"
+    ],
+    [
+      "2613053632",
+      "26130536323ID",
+      "RAJA MANGKU ALAM YANDO PASONI"
+    ],
+    [
+      "2613053681",
+      "26130536813ID",
+      "AAN KOSSUNJAMINARA"
+    ],
+    [
+      "2613053633",
+      "26130536333ID",
+      "SUSANTO"
+    ]
+  ],
   "dse_rows": 272,
   "dse_new_logins_without_name": [
     "2613050947",
@@ -16,5 +49,5 @@
     "2613050947": "Herry Apriyanto",
     "2613053632": "RAJA MANGKU ALAM YANDO PASONI"
   },
-  "outlets_with_cso": 22343
+  "outlets_with_cso": 22837
 }

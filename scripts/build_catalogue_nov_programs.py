@@ -70,6 +70,8 @@ def main():
     build_program_participants.main()
     import build_whitelist_program   # whitelist v1 of 11 Nov 2026 (newer than the participants files) overrides AVA / Promotor / Tebus Murah / Top Player
     build_whitelist_program.main()
+    import build_hierarchy_programs   # Outlet_category of the Master Hierarchy 18 Nov 2026 (KRO, DSF, Wholesaler) adds program rows, owner 24 Nov 2026
+    build_hierarchy_programs.main()
 
 
 if __name__ == '__main__':

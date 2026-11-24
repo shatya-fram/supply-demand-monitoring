@@ -1,0 +1,12 @@
+{
+  "_doc": "Known differences between the FROZEN full-month close stored in period_history.json and the live penjualan feed, caused by a change of the outlet master (owner decision). audit_period_history.py expects feed = store + delta for the listed names and still fails on any other difference.",
+  "2026-11-24": {
+    "reason": "Master Hierarchy 18 Nov 2026 (+1,865 outlets): 3ID SH254705 'Panda Cell' (MC-GROGOL) is now a master outlet and its October sell-in (52,332 SP pcs, bulk; kept as performance, owner rule 13 Nov) is no longer dropped as outside Inner Jakarta",
+    "deltas": {
+      "sellin SP qty FM 2026-10": 52380,
+      "sellin SP Rp FM 2026-10": 680796000,
+      "sellin VCF qty FM 2026-10": 1335,
+      "sellin VCF Rp FM 2026-10": 40955500
+    }
+  }
+}

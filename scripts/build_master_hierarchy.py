@@ -11,6 +11,11 @@ Outputs (no phone columns):
   dse_sheet.csv          branch, micro_cluster, partner_territory, login_im3, login_3id, dse_name (from the DSE catalogue by login, else DSE BARU <login>), dual, single_im3, single_3id, total, pct_dual
   report.json            counts
 Consumed by scripts/apply_final_dse_mapping.py (overlay_hierarchy).  Run:  python3 scripts/build_master_hierarchy.py
+
+Flat outlet feed (owner, 24 Nov 2026; docs/assessments/master_hierarchy_18nov_assessment.md): raw/Catalogue/Master_Hierarchy_<YYYYMMDD>.xlsb (one sheet, one row per outlet and brand, CSO code, micro cluster,
+Outlet_category, coordinates) is applied as an OVERLAY on the workbook above when it is newer: CSO, MC, branch, category and coordinates of existing outlets are replaced, outlets of the feed that the
+workbook lacks are added, outlets missing from the feed are dropped (flag HILANG_DARI_HIERARKI downstream). The pairing (dual_brand) and the DSE roster (DSE sheet) still come from the workbook, completed by
+the numeric logins of data/catalogues/dse_target_202611.csv (userid_im3_file / userid_3id_file) that the DSE sheet lacks. 3ID outlet codes of the feed are zero padded: they are written without leading zeros.
 """
 import csv, glob, json, os, re, sys
 from collections import Counter, defaultdict
@@ -64,6 +69,60 @@ def coord_ok(la, lo):
     return -7.3 < la < -5.8 and 106.3 < lo < 107.9
 
 
+def find_flat_feed(workbook):
+    c = sorted(glob.glob(os.path.join(RAW, 'Master_Hierarchy_*.xlsb')), key=os.path.getmtime)
+    return c[-1] if c and os.path.getmtime(c[-1]) > os.path.getmtime(workbook) else None
+
+
+def overlay_flat_feed(rows, path, rep):
+    """rows = outlet_hierarchy rows of the workbook (list of lists, schema of outlet_hierarchy.csv); returns the rows after the flat feed of `path`."""
+    S = read_sheets(path)
+    name = next((n for n, r in S.items() if r and len(r) > 100), None)
+    if not name:
+        sys.exit('flat hierarchy feed %s has no data sheet' % path)
+    T = table(S[name])
+    score = lambda r: (bool(ncode(r['CSO Code'])) * 2 + coord_ok(r['LATITUDE'], r['LONGITUDE']))
+    best = {}
+    for r in T:
+        b = str(r['Brand']).strip()
+        if b not in ('IM3', '3ID'):
+            continue
+        k = (b, nid(r['Outlet Code']))
+        if k[1] and (k not in best or score(r) > score(best[k])):
+            best[k] = r
+    cur = {(r[0], r[1]): r for r in rows if r[17] == 1}
+    out, seen = [], set()
+    ch = {'cso': 0, 'mc': 0, 'category': 0, 'cso_lost': 0, 'cso_gained': 0}
+    for r in rows:
+        k = (r[0], r[1])
+        if k not in best:
+            rep['flat_removed'] = rep.get('flat_removed', 0) + (1 if r[17] == 1 else 0)
+            continue
+        if r[17] == 1:
+            f = best[k]; seen.add(k)
+            new = [r[0], r[1], str(f['Outlet Name']).strip(), ncode(f['CSO Code']), str(f['Branch Name']).strip(), str(f['Sub Area Name']).strip(), str(f['Micro Cluster Name']).strip(),
+                   str(f['MPC Name']).strip(), str(f['MPC Short Code']).strip(), str(f['Partner Territory Name']).strip(), str(f['Kecamatan Name']).strip(), str(f['Outlet_category']).strip(),
+                   f['LATITUDE'] if coord_ok(f['LATITUDE'], f['LONGITUDE']) else r[12], f['LONGITUDE'] if coord_ok(f['LATITUDE'], f['LONGITUDE']) else r[13],
+                   str(f['Organisation Group']).strip(), r[15], r[16], 1]
+            if new[3] != r[3]:
+                ch['cso'] += 1; ch['cso_lost'] += bool(r[3]) and not new[3]; ch['cso_gained'] += (not r[3]) and bool(new[3])
+            ch['mc'] += new[6] != r[6]; ch['category'] += new[11] != r[11]
+            out.append(new)
+        else:
+            out.append(r)
+    added = 0
+    for k, f in best.items():
+        if k in cur:
+            continue
+        out.append([k[0], k[1], str(f['Outlet Name']).strip(), ncode(f['CSO Code']), str(f['Branch Name']).strip(), str(f['Sub Area Name']).strip(), str(f['Micro Cluster Name']).strip(),
+                    str(f['MPC Name']).strip(), str(f['MPC Short Code']).strip(), str(f['Partner Territory Name']).strip(), str(f['Kecamatan Name']).strip(), str(f['Outlet_category']).strip(),
+                    f['LATITUDE'] if coord_ok(f['LATITUDE'], f['LONGITUDE']) else '', f['LONGITUDE'] if coord_ok(f['LATITUDE'], f['LONGITUDE']) else '',
+                    str(f['Organisation Group']).strip(), '', 1, 1])
+        added += 1
+    rep.update({'flat_feed': os.path.basename(path), 'flat_feed_outlets': len(best), 'flat_added': added, 'flat_changes': ch})
+    return out
+
+
 def main():
     path = find_workbook()
     S = read_sheets(path)
@@ -97,6 +156,9 @@ def main():
                 seen.add(k)
         rep['%s_rows' % brand] = len(recs)
         rep['%s_dup_codes' % brand] = sum(1 for v in cnt.values() if v > 1)
+    flat = find_flat_feed(path)
+    if flat:
+        rows = overlay_flat_feed(rows, flat, rep)
     with open(os.path.join(out, 'outlet_hierarchy.csv'), 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow(['brand', 'outlet_id', 'outlet_name', 'cso_code', 'branch', 'sub_area', 'micro_cluster', 'mpc_name', 'mpc_code', 'partner_territory', 'kecamatan', 'category', 'lat', 'long', 'org_group', 'dual_check', 'dup_count', 'primary'])
@@ -156,6 +218,22 @@ def main():
                 new_logins.append(li)
                 assumed[li] = nm
             w.writerow([r['Branch Name'], r['Micro Cluster Name'], r['Partner Territory Name'], li, l3, nm, r['DUAL BRAND_2'], r['SINGLE IM3'], r['SINGLE 3ID'], r['TOTAL'], r['% ACH DUAL BRAND'], '1' if li in assumed else ''])
+    # numeric logins of the DSE target file (userid_im3_file / userid_3id_file, owner 18 Nov 2026) that the DSE sheet lacks: aliases of the DSE the target file names (the flat feed uses them as CSO code)
+    alias_p = os.path.join(CAT, 'dse_target_202611.csv')
+    aliases = []
+    if flat and os.path.exists(alias_p):
+        have = {c.upper() for c in sheet_logins}
+        with open(os.path.join(out, 'dse_sheet.csv'), 'a', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            for r in csv.DictReader(open(alias_p, encoding='utf-8')):
+                li, l3 = ncode(r['userid_im3_file']), ncode(r['userid_3id_file'])
+                miss = [c for c in (li, l3) if c and c.upper() not in have]
+                if not miss:
+                    continue
+                whole = all(c.upper() not in have for c in (li, l3) if c)           # both logins unknown = a new login (flag DSE_BARU_LOGIN), else a second login of a known DSE
+                w.writerow([r['branch'], r['micro_cluster'], r['partner_territory'], li, l3, r['dse_name'], '', '', '', '', '', '1' if whole else ''])
+                have.update(c.upper() for c in miss); aliases.append([li, l3, r['dse_name']])
+    rep['dse_alias_logins_from_target_file'] = aliases
     rep['dse_rows'] = len(T['DSE'])
     rep['dse_new_logins_without_name'] = new_logins
     rep['dse_new_login_assumed_replacement'] = assumed

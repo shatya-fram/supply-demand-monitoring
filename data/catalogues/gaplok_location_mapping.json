@@ -8,7 +8,7 @@
   "cse": "MUHAMMAD GUFRON",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 566
+  "master_outlets": 585
  },
  {
   "micro_cluster": "MC-BATUJAYA",
@@ -19,7 +19,7 @@
   "cse": "ADHITYA PRATAMA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 815
+  "master_outlets": 877
  },
  {
   "micro_cluster": "MC-BEJI",
@@ -30,7 +30,18 @@
   "cse": "INVENT RADIANTI PRATIWI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 601
+  "master_outlets": 639
+ },
+ {
+  "micro_cluster": "MC-BEKASI SELATAN",
+  "gaplok_area": "INNER JAKARTA EAST",
+  "sales_area": "BEKASI",
+  "master_branch": "BEKASI",
+  "hoa_leader": "",
+  "cse": "",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 9
  },
  {
   "micro_cluster": "MC-BEKASI TENGAH",
@@ -41,7 +52,7 @@
   "cse": "ADITYA HASANUDDIN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 916
+  "master_outlets": 1024
  },
  {
   "micro_cluster": "MC-BEKASI UTARA",
@@ -52,7 +63,7 @@
   "cse": "RAHAYU UTAMININGSIH",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 603
+  "master_outlets": 653
  },
  {
   "micro_cluster": "MC-CAKUNG",
@@ -63,7 +74,7 @@
   "cse": "FAHMI KURNIANTO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 1121
+  "master_outlets": 1146
  },
  {
   "micro_cluster": "MC-CEMPAKA PUTIH",
@@ -74,7 +85,7 @@
   "cse": "SUHENDRA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 765
+  "master_outlets": 789
  },
  {
   "micro_cluster": "MC-CENGKARENG",
@@ -85,7 +96,7 @@
   "cse": "AHYADI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 1149
+  "master_outlets": 1182
  },
  {
   "micro_cluster": "MC-CIBARUSAH",
@@ -96,7 +107,7 @@
   "cse": "R. SYARIEF DURAHMAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 577
+  "master_outlets": 596
  },
  {
   "micro_cluster": "MC-CIBITUNG",
@@ -107,7 +118,18 @@
   "cse": "RIAN SANJAYA SURNA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 616
+  "master_outlets": 700
+ },
+ {
+  "micro_cluster": "MC-CIKARANG",
+  "gaplok_area": "INNER JAKARTA EAST",
+  "sales_area": "KAB BEKASI",
+  "master_branch": "KAB BEKASI",
+  "hoa_leader": "",
+  "cse": "",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 3
  },
  {
   "micro_cluster": "MC-CIKARANG BARAT",
@@ -118,7 +140,7 @@
   "cse": "MUHAMAD SHANDI MAULIDRIZKI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 605
+  "master_outlets": 632
  },
  {
   "micro_cluster": "MC-CIKARANG TIMUR",
@@ -129,7 +151,7 @@
   "cse": "THEOVILLUS MARTHIN YOHANES",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 569
+  "master_outlets": 597
  },
  {
   "micro_cluster": "MC-CIMANGGIS",
@@ -140,7 +162,7 @@
   "cse": "ARIBOWO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 685
+  "master_outlets": 703
  },
  {
   "micro_cluster": "MC-CIPAYUNG",
@@ -151,7 +173,7 @@
   "cse": "FRILA HANDRIANI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 763
+  "master_outlets": 781
  },
  {
   "micro_cluster": "MC-CIRACAS",
@@ -162,7 +184,7 @@
   "cse": "ABDUL AZIZ KAMIL RAFIKOLAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 1006
+  "master_outlets": 1045
  },
  {
   "micro_cluster": "MC-EAST CIKAMPEK",
@@ -173,7 +195,7 @@
   "cse": "WIWIT PRASETYO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 603
+  "master_outlets": 669
  },
  {
   "micro_cluster": "MC-GROGOL",
@@ -184,7 +206,18 @@
   "cse": "LESTARI A. R.",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 953
+  "master_outlets": 974
+ },
+ {
+  "micro_cluster": "MC-JAKARTA PUSAT",
+  "gaplok_area": "INNER JAKARTA WEST",
+  "sales_area": "CENTRAL NORTH JAKARTA",
+  "master_branch": "CENTRAL NORTH JAKARTA",
+  "hoa_leader": "",
+  "cse": "",
+  "cse_gaplok_sep": "",
+  "sales_area_gaplok_sep": "",
+  "master_outlets": 2
  },
  {
   "micro_cluster": "MC-KARAWANG",
@@ -195,7 +228,7 @@
   "cse": "AGAM EKANANDA GUMELAR",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 737
+  "master_outlets": 926
  },
  {
   "micro_cluster": "MC-KEBAYORAN",
@@ -206,7 +239,7 @@
   "cse": "YUALITA PRASIDA RAMADHANI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 762
+  "master_outlets": 829
  },
  {
   "micro_cluster": "MC-KELAPA GADING",
@@ -217,7 +250,7 @@
   "cse": "MUHAMAD YUNUS HIDAYAT",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 747
+  "master_outlets": 769
  },
  {
   "micro_cluster": "MC-KEMBANGAN",
@@ -228,7 +261,7 @@
   "cse": "ALDIKA FAYZAL RAHADITYA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 747
+  "master_outlets": 776
  },
  {
   "micro_cluster": "MC-KRAMATJATI",
@@ -239,7 +272,7 @@
   "cse": "RIZKY KURNIAWAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 613
+  "master_outlets": 623
  },
  {
   "micro_cluster": "MC-MATRAMAN",
@@ -250,7 +283,7 @@
   "cse": "RICHARD YADI SIDAURUK",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 938
+  "master_outlets": 1037
  },
  {
   "micro_cluster": "MC-MUSTIKA JAYA",
@@ -261,7 +294,7 @@
   "cse": "MUHAMAD RIFALDI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 755
+  "master_outlets": 825
  },
  {
   "micro_cluster": "MC-PADEMANGAN",
@@ -272,7 +305,7 @@
   "cse": "ANANTO PRATIKNO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 841
+  "master_outlets": 870
  },
  {
   "micro_cluster": "MC-PANCORAN",
@@ -283,7 +316,7 @@
   "cse": "RINALDO FERNANDES SIREGAR",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 770
+  "master_outlets": 838
  },
  {
   "micro_cluster": "MC-PASAR MINGGU",
@@ -294,7 +327,7 @@
   "cse": "ARIE SETYO PRABOWO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 951
+  "master_outlets": 1003
  },
  {
   "micro_cluster": "MC-PEBAYURAN",
@@ -305,7 +338,7 @@
   "cse": "SANDY NOPRIANSYAH",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 600
+  "master_outlets": 644
  },
  {
   "micro_cluster": "MC-PONDOK GEDE",
@@ -316,7 +349,7 @@
   "cse": "RULLI PRATAMA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 1064
+  "master_outlets": 1094
  },
  {
   "micro_cluster": "MC-RENGASDENGKLOK",
@@ -327,7 +360,7 @@
   "cse": "MOCH ALI AS'AD",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 697
+  "master_outlets": 727
  },
  {
   "micro_cluster": "MC-SAWANGAN",
@@ -338,7 +371,7 @@
   "cse": "MUHAMMAD FAUZI",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 574
+  "master_outlets": 610
  },
  {
   "micro_cluster": "MC-TAMBUN",
@@ -349,7 +382,7 @@
   "cse": "RONA DWI KARYO",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 721
+  "master_outlets": 748
  },
  {
   "micro_cluster": "MC-TANAH ABANG",
@@ -360,7 +393,7 @@
   "cse": "NORMAN PARASIAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 702
+  "master_outlets": 738
  },
  {
   "micro_cluster": "MC-TANJUNG PRIOK",
@@ -371,7 +404,7 @@
   "cse": "RUDI HARDANA DARMAWAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 802
+  "master_outlets": 858
  },
  {
   "micro_cluster": "MC-TEGALWARU",
@@ -382,7 +415,7 @@
   "cse": "RAIHAAN",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 710
+  "master_outlets": 827
  },
  {
   "micro_cluster": "MC-WEST CIKAMPEK",
@@ -393,6 +426,6 @@
   "cse": "SEPTIAN AJI PUTRA",
   "cse_gaplok_sep": "",
   "sales_area_gaplok_sep": "",
-  "master_outlets": 706
+  "master_outlets": 827
  }
 ]

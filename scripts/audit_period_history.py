@@ -13,7 +13,15 @@ def chk(name, a, b, tol=0.5):
         fails.append("%s: store %s vs feed %s" % (name, a, b))
 
 
+ADJ = {}   # documented master-change differences of the frozen close (data/history/basis_adjustments.json)
+if os.path.exists("data/history/basis_adjustments.json"):
+    for _k, _v in json.load(open("data/history/basis_adjustments.json")).items():
+        if isinstance(_v, dict):
+            ADJ.update(_v.get("deltas", {}))
+
+
 def chk_prev(name, a, b, rel=0.002):
+    a = (a or 0) + ADJ.get(name, 0)
     # the previous month's full month (FM) in the live feed follows the CURRENT outlet master, the stored close is frozen: the Master Hierarchy of 3 Nov 2026 (more outlets mapped
     # to Inner Jakarta MCs) moved October sell-in by 0.02-0.1%; larger differences still fail
     global n

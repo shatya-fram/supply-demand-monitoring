@@ -131,6 +131,15 @@ def main():
         if len(_src) == 2 and all(len(_rows) <= 2 for _rows in _src.values()):
             _a, _b = [sorted(v) for v in _src.values()]
             union(_a[0], _b[0])
+    # numeric logins of the November DSE target file (userid_*_file, the CSO codes of the Master Hierarchy 18 Nov 2026) are the same person as the catalogue logins of that row, also when the name
+    # is shared by two people (SUSANTO of MC-CIMANGGIS: CSO-LOKADPK27 = 2613053633)
+    _tp = os.path.join(ROOT, 'data', 'catalogues', 'dse_target_202611.csv')
+    if os.path.exists(_tp):
+        with open(_tp, encoding='utf-8-sig') as f:
+            for r in _csv.DictReader(f):
+                _g = [norm(r.get(k)) for k in ('login_im3_catalogue', 'login_3id_catalogue', 'userid_im3_file', 'userid_3id_file')]
+                for _x in _g[1:]:
+                    union(_g[0], _x)
     def pcode(o):
         c = norm(o.get('dse_code_im3')) or norm(o.get('dse_code_3id'))
         return find(c) if c else ''
@@ -159,6 +168,11 @@ def main():
             if c and code_owner.get(norm(c), norm(o.get('dse_name'))) == norm(o.get('dse_name')):   # an outlet can carry another DSE's login on its other brand id
                 e['codes'].add(norm(c))
     code_to_key = {c: k for k, e in roster.items() for c in e['codes']}
+    _root_key = {find(c): k for k, e in roster.items() for c in e['codes']}      # logins linked to a roster login (union above, e.g. catalogue login <-> numeric CSO code of 18 Nov) place the target on that DSE
+    for _x in list(parent):
+        _r = find(_x)
+        if _x not in code_to_key and _r in _root_key:
+            code_to_key[_x] = _root_key[_r]
 
     # ---- sell-in per master outlet, rolled up to its DSE
     acc = defaultdict(lambda: {'spb': {'IM3': [0] * 6, '3ID': [0] * 6, 'NB': [0] * 6}, 'saldo_mtd': 0, 'saldo_lmtd': 0, 'sp_pcs': 0, 'sp_amt': 0, 'sp_lpcs': 0, 'sp_uar5': 0, 'sp_uar5_ns': 0, 'sp_out': 0, 'sp3_pcs': 0, 'sp3_lpcs': 0, 'sp3_sep': 0, 'sp3_out': 0, 'sp0_pcs': 0, 'spx_pcs': 0, 'spi_pcs': 0, 'spi_amt': 0, 'spi_out': 0, 'spi_lpcs': 0, 'spi_sep': 0,
