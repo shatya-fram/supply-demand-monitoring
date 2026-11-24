@@ -2737,7 +2737,21 @@
     out.sort(function (a, b) { return b.planned - a.planned || String(a.label).localeCompare(String(b.label)); });
     return out;
   }
+  function visBtn(a, text) {   // drill-down button: narrows the territory / DSE filter, Auto grouping regroups to the level below
+    return '<button type="button" class="btn" data-visits-detail="' + a.lv + '"' + (a.br ? ' data-br="' + esc(a.br) + '"' : '') + (a.mc ? ' data-mc="' + esc(a.mc) + '"' : '') + (a.dse ? ' data-dse="' + esc(a.dse) + '"' : '') + ' style="font-size:14px; padding:5px 9px;">' + (text || 'Detail') + ' &#8594;</button>';
+  }
+  /* Detail of a group header row (Area / MC / DSE) of the grouped visit tables */
+  function visGroupDetail(kind, key, items) {
+    var r0 = items[0] || {};
+    if (kind === 'A') return visBtn({ lv: 'area', br: key });
+    if (kind === 'M') return visBtn({ lv: 'mc', br: r0.br, mc: key });
+    var pid = String(r0.key || '').split('|')[0]; return pid ? visBtn({ lv: 'dse', br: r0.br, mc: r0.mc, dse: pid }) : '';
+  }
   function detailBtn(r, text) {
+    if (!r.drill && r._lv === 'outlet' && r.master) {   // outlet row: breakdown of its visits (PJP / ad-hoc, Sell-In per visit, Effective Call)
+      ovLazy('pvo', pvoLazy);
+      return '<button type="button" class="btn" data-ov="' + esc('pvo|' + r.master + '|' + String(r.key).split('|')[0]) + '" style="font-size:14px; padding:5px 9px;" title="Breakdown visit, PJP dan Effective Call outlet ini">Detail</button>';
+    }
     if (!r.drill) return '';
     var d = r.drill;
     return '<button type="button" class="btn" data-visits-detail="' + d.lv + '"' + (d.br ? ' data-br="' + esc(d.br) + '"' : '') + (d.mc ? ' data-mc="' + esc(d.mc) + '"' : '') + (d.dse ? ' data-dse="' + esc(d.dse) + '"' : '') + ' style="font-size:14px; padding:5px 9px;">' + text + ' &#8594;</button>';
@@ -3040,7 +3054,7 @@
       var hoaOfA = {}, dsoOfM = {}; rows.forEach(function (r) { if (r.br && r.hoa) hoaOfA[r.br] = r.hoa; if (r.mc && r.dso) dsoOfM[r.mc] = r.dso; });
       body = grpBody('visheat' + level, { items: rows, area: function (r) { return r.br; }, mc: function (r) { return r.mc; }, dse: level === 'outlet' ? function (r) { return r.dse; } : null,
         hoa: function (a) { return hoaOfA[a] || '—'; }, dso: function (m) { return dsoOfM[m] || '—'; }, unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; },
-        span: 1, cols: 1 + 6 + days.length + 1, cap: 150, search: !!state.visitsSearch,
+        span: 1, cols: 1 + 6 + days.length + 1, cap: 150, search: !!state.visitsSearch, detail: visGroupDetail,
         sub: function (items) {
           var pl = 0, ac = 0, ah = 0, dd = days.map(function () { return [0, 0, 0, 0]; });
           items.forEach(function (r) { pl += r.planned; ac += r.actual; ah += r.ah || 0; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][3] += c[3] || 0; }); });
@@ -4823,20 +4837,21 @@
       A.items.push(o); M.items.push(o); A.v += v; M.v += v;
       if (cfg.dse) { var dn = String(cfg.dse(o) || 'UNASSIGNED'), D = M.dses[dn] || (M.dses[dn] = { items: [], v: 0 }); D.items.push(o); D.v += v; }   // optional third level: DSE
     });
+    function sb(kind, key, items) { var h = cfg.sub(items); return cfg.detail ? h.replace(/<td><\/td>$/, '<td>' + cfg.detail(kind, key, items) + '</td>') : h; }   // optional Detail cell (drill-down) on Area / MC / DSE header rows
     function tog(key, open) { return '<button type="button" class="btn" data-grp-toggle="' + esc(t + '|' + key) + '" aria-expanded="' + open + '" style="font-size:11px; padding:2px 8px; margin-right:8px;">' + (open ? '&#9660;' : '&#9654;') + '</button>'; }
     var body = '';
     Object.keys(areas).sort(function (x, y) { return areas[y].v - areas[x].v; }).forEach(function (an) {
       var A = areas[an], aOpen = grpOpen(t, 'A|' + an, 'A', cfg.search), mKeys = Object.keys(A.mcs);
-      body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur" colspan="' + cfg.span + '">' + tog('A|' + an, aOpen) + esc(an) + ' <span class="note" style="font-weight:500;">' + (cfg.hoa ? 'HoA ' + esc(cfg.hoa(an)) + ' · ' : '') + mKeys.length + ' MC · ' + fmtCount(A.items.length) + ' ' + unit + '</span></td>' + cfg.sub(A.items) + '</tr>';
+      body += '<tr style="background:var(--ij-wash, #f6f4f1); font-weight:800;"><td class="cur" colspan="' + cfg.span + '">' + tog('A|' + an, aOpen) + esc(an) + ' <span class="note" style="font-weight:500;">' + (cfg.hoa ? 'HoA ' + esc(cfg.hoa(an)) + ' · ' : '') + mKeys.length + ' MC · ' + fmtCount(A.items.length) + ' ' + unit + '</span></td>' + sb('A', an, A.items) + '</tr>';
       if (!aOpen) return;
       mKeys.sort(function (x, y) { return A.mcs[y].v - A.mcs[x].v; }).forEach(function (mn) {
         var M = A.mcs[mn], mOpen = grpOpen(t, 'M|' + mn, 'M', cfg.search);
-        body += '<tr style="background:var(--ij-surface, #fff); font-weight:700; border-top:1px solid var(--ij-hairline);"><td class="cur" colspan="' + cfg.span + '" style="padding-left:20px;">' + tog('M|' + mn, mOpen) + esc(mn) + ' <span class="note" style="font-weight:500;">' + (cfg.dso ? 'DSO ' + esc(cfg.dso(mn)) + ' · ' : '') + fmtCount(M.items.length) + ' ' + unit + '</span></td>' + cfg.sub(M.items) + '</tr>';
+        body += '<tr style="background:var(--ij-surface, #fff); font-weight:700; border-top:1px solid var(--ij-hairline);"><td class="cur" colspan="' + cfg.span + '" style="padding-left:20px;">' + tog('M|' + mn, mOpen) + esc(mn) + ' <span class="note" style="font-weight:500;">' + (cfg.dso ? 'DSO ' + esc(cfg.dso(mn)) + ' · ' : '') + fmtCount(M.items.length) + ' ' + unit + '</span></td>' + sb('M', mn, M.items) + '</tr>';
         if (!mOpen) return;
         if (cfg.dse) {   // Area > MC > DSE: one header row per DSE with its own subtotal, then the rows
           Object.keys(M.dses).sort(function (x, y) { return M.dses[y].v - M.dses[x].v; }).forEach(function (dn) {
             var D = M.dses[dn], dOpen = grpOpen(t, 'D|' + mn + '|' + dn, 'D', cfg.search);
-            body += '<tr style="background:var(--ij-surface, #fff); font-weight:600; border-top:1px solid var(--ij-hairline);"><td class="cur" colspan="' + cfg.span + '" style="padding-left:38px;">' + tog('D|' + mn + '|' + dn, dOpen) + '👤 ' + esc(dn) + ' <span class="note" style="font-weight:500;">' + fmtCount(D.items.length) + ' ' + unit + '</span></td>' + cfg.sub(D.items) + '</tr>';
+            body += '<tr style="background:var(--ij-surface, #fff); font-weight:600; border-top:1px solid var(--ij-hairline);"><td class="cur" colspan="' + cfg.span + '" style="padding-left:38px;">' + tog('D|' + mn + '|' + dn, dOpen) + '👤 ' + esc(dn) + ' <span class="note" style="font-weight:500;">' + fmtCount(D.items.length) + ' ' + unit + '</span></td>' + sb('D', dn, D.items) + '</tr>';
             if (!dOpen) return;
             D.items.slice(0, CAP).forEach(function (o) { body += cfg.row(o); });
             if (D.items.length > CAP) body += '<tr><td colspan="' + cfg.cols + '" class="note" style="padding-left:56px;">Menampilkan ' + CAP + ' ' + unit + ' teratas dari ' + fmtCount(D.items.length) + ' milik ' + esc(dn) + '; gunakan filter header untuk melihat sisanya.</td></tr>';
@@ -10959,6 +10974,27 @@
     return '<td data-ov="' + esc(key) + '" role="button" tabindex="0" title="' + tip + (adhoc ? ' · adhoc' : '') + '" style="cursor:pointer; background:' + bg + '; color:' + fg + '; text-align:center; font-weight:800;">' + sym + '</td>';
   }
   /* popup of one outlet visit: Sell-In of that day by category (Rp and qty) + SP Injection (MOBO) */
+  /* breakdown of one outlet: every planned / visited day with PJP or ad-hoc, brand, Sell-In of the visit and the Effective Call verdict */
+  function pvoLazy(key) {
+    var p = String(key).split('|'), k = p[1], pid = p[2], vf = mbVisitsFeed(), X = pvIndex(); if (!vf) return null;
+    var days = (vf.metadata || {}).days || [], D = null; (vf.dses || []).some(function (d) { if (d.person_id === pid) { D = d; return true; } return false; }); if (!D) return null;
+    var rowsF = (D.outlets || []).filter(function (x) { return (x.k || x.id) === k; }), name = (rowsF[0] || {}).n || k, M = (ecDseMaps(vf)[pid] || {})[k] || null, rows = [], nV = 0, nE = 0, nP = 0, nA = 0;
+    days.forEach(function (d, i) {
+      var any = rowsF.filter(function (x) { return x.d[i] !== '.'; }); if (!any.length) return;
+      var ex = any.filter(function (x) { return x.d[i] === 'x'; }), ad = any.every(function (x) { return x.a && x.a[i] === 'a'; });
+      var sp = 0, vc = 0, sal = 0; ex.forEach(function (x) { var en = pvEntry(x, i); if (en) { sp += en[1]; vc += en[2]; sal += en[3]; } });
+      var eff = ex.length ? (M && M.e[i] ? 'Efektif' : (pvHasE(vf) ? 'Tidak efektif' : 'n/a')) : '—';
+      if (ex.length) { nV++; if (M && M.e[i]) nE++; } if (ad) nA++; else nP++;
+      rows.push([d.slice(0, 6), ad ? 'Adhoc' : 'PJP', ex.length ? 'Dikunjungi' : 'Tidak dikunjungi', any.map(function (x) { return x.id; }).join(' + '), ex.length ? fmtCount(sp) + ' pcs' : '—', ex.length ? fmtCount(vc) + ' pcs' : '—', ex.length ? pjRp(sal) : '—', eff]);
+    });
+    var o = X ? X.by[k] : null, tot = [0, 0, 0]; ['SP', 'VCF', 'VCB', 'SALMO'].forEach(function (c) { var x = o && o.c && o.c[c]; if (x) { tot[0] += x[1]; tot[1] += x[3]; tot[2] += x[5]; } });
+    rows.push(['MTD', '', nV + ' dari ' + (nP + nA) + ' hari', '', '', '', '', nE + ' efektif']);
+    rows.push(['Sell-In outlet MTD', '', '', '', '', '', pjRp(tot[0]), '']);
+    rows.push(['Sell-In outlet LMTD', '', '', '', '', '', pjRp(tot[1]), '']);
+    rows.push(['Sell-In outlet FM', '', '', '', '', '', pjRp(tot[2]), '']);
+    return { title: 'Detail visit ' + name + ' · ' + D.dse_name, cols: ['Tanggal', 'Jenis', 'Status', 'ID brand', 'SP visit', 'Voucher visit', 'Saldo visit', 'Effective Call'], rows: rows,
+      lines: [nV + ' hari dikunjungi, ' + nE + ' efektif (' + (nV ? Math.round(nE / nV * 100) : 0) + '%) · PJP ' + nP + ' hari, ad-hoc ' + nA + ' hari', 'Efektif = SP atau Voucher > 0 pcs, atau saldo >= ' + pjRp(EC_SALDO_MIN) + ' (Hybrid: IM3 + 3ID digabung). Klik sel visit di heatmap untuk nilai Sell-In per kategori.'] };
+  }
   function pvLazy(key) {
     var p = String(key).split('|'), k = p[1], i = +p[2], id = p[3] || '', vf = mbVisitsFeed(), X = pvIndex(); if (!vf) return null;
     var dayNo = pvDayNo(vf, i), dayLbl = ((vf.metadata || {}).days || [])[i] || '', o = X ? X.by[k] : null, name = id, dse = '', mc = '', same = [], hy = !!ecHybrid()[k];
@@ -11013,7 +11049,7 @@
     if (grouped) {
       var hoaOfA = {}, dsoOfM = {}; rows.forEach(function (r) { if (r.br && r.hoa) hoaOfA[r.br] = r.hoa; if (r.mc && r.dso) dsoOfM[r.mc] = r.dso; });
       body = grpBody('pjpheat', { items: rows, area: function (r) { return r.br; }, mc: function (r) { return r.mc; }, hoa: function (a) { return hoaOfA[a] || '—'; }, dso: function (m) { return dsoOfM[m] || '—'; },
-        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + (ecOn ? 4 : 6) + days.length + 1, cap: 100, search: !!state.visitsSearch,
+        unit: level === 'dse' ? 'DSE' : 'outlet', val: function (r) { return r.planned; }, span: 1 + (showParent ? 1 : 0), cols: 1 + (showParent ? 1 : 0) + (ecOn ? 4 : 6) + days.length + 1, cap: 100, search: !!state.visitsSearch, detail: visGroupDetail,
         sub: function (items) {
           var pl = 0, ac = 0, pr = 0, ah = 0, dd = days.map(function () { return [0, 0, 0, 0]; });
           items.forEach(function (r) { pl += r.planned; ac += r.actual; pr += r.pr; ah += r.ah || 0; r.daily.forEach(function (c, i) { dd[i][0] += c[0]; dd[i][1] += c[1]; dd[i][2] += c[2] || 0; dd[i][3] += c[3] || 0; }); });
