@@ -2,6 +2,10 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 25 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 24 Nov; GA sampai D22 (D23 parsial)
+- MOBII/MOBO/SALMO 24 Nov 23:03, PJP D24, ENDBAL snapshot 24 Nov (28.928 outlet), GA by Outlet dan Fav Locs 24 Nov 23:06 (D23 parsial: tagging 2.610, feed dipotong di D22). Tidak ada file Catalogue baru. Rantai GA, KRO, Stock, program target, KPI November, flag non-PJP dan period history dijalankan manual.
+- Penjualan MTD: SP Rp 1.279,9 jt, SALMO Rp 17.279,2 jt; Demand SALMO Rp 138,67 B; PJP 171.235 planned, 164.568 actual (96,1%). LMTD SP Okt (1-24) Rp 2.545,3 jt (kemarin 1.399,9 jt) karena master hierarki 18 Nov kini dipakai (outlet bulk SH254705 masuk). Semua audit lulus (peringatan de-dup SP 27,3%). Detail: `docs/assessments/daily_update_2026-11-25.md`.
+
 ## 24 Nov 2026 (siang) · Master Hierarchy 18 Nov diterapkan: DSE, MC, semesta outlet dan flag program
 - `Master_Hierarchy_20261118.xlsb` jadi sumber DSE per outlet, MC dan semesta outlet (outlet master 27.350 -> 29.175; outlet ber-DSE 14.867 -> 14.829; DSE berubah 1.056, DSE hilang 969, MC pindah 126). Kategori menambah flag program: KRO +8, DSF +71, Wholesaler hierarki 44 (sumber sendiri, TOP PLAYER tetap 24 peserta). Baseline Oktober sell-in di view A naik karena outlet bulk 3ID SH254705 (52.332 pcs SP) kini masuk master. Detail dan keputusan: `docs/assessments/master_hierarchy_18nov_assessment.md`.
 
