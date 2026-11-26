@@ -13181,16 +13181,17 @@
     if (zero.length) txt += ' · hari nol: ' + zero.join(', ') + ' ' + mon;
     return (zero.length ? '⚠️ ' : '✅ ') + txt;
   }
+  function dcZeroDays(vals, cut, y, m0) { var z = [], i; for (i = 0; i < cut; i++) if (!(vals[i] > 0) && dcDow(y + '-' + m0 + '-' + ('0' + (i + 1)).slice(-2)) !== 0) z.push(i + 1); return z; }
   function dcData() {
     var P = window.PENJUALAN_FEED, D = window.DEMAND_FEED, G = window.GA_FEED, V = window.dseVisitsFeed, E = window.ENDBAL_FEED, T = window.TARGET_FEED, rows = [];
     var yes = '✅', no = '❌', warn = '⚠️';
     var pm = (P && P.metadata) || {}, cut = parseInt(pm.cut_day, 10) || 0, mon = (pm.cut ? MON_ID[parseInt(pm.cut.slice(5, 7), 10) - 1] : 'Okt') + '\u200B', y = pm.cut ? pm.cut.slice(0, 4) : '2026', m0 = pm.cut ? pm.cut.slice(5, 7) : '10';
-    var prevMon = MON_ID[((parseInt(m0, 10) + 10) % 12)] + '\u200B', prevDaysN = MO.prevDays();
+    var prevMon = MON_ID[((parseInt(m0, 10) + 10) % 12)] + '\u200B', prevDaysN = MO.prevDays(), curMon = MON_ID[parseInt(m0, 10) - 1] + '\u200B', gapNote = [], gapAdd = function (src, cat, days) { var k = src + '|' + days.join(','), g = null; gapNote.forEach(function (x) { if (x.k === k) g = x; }); if (!g) gapNote.push(g = { k: k, src: src, days: days, cats: [] }); g.cats.push(cat); };
     // Visit PJP
     if (V && V.daily_timeline) {
       var tl = V.daily_timeline, av = tl.filter(function (d) { return d.available !== false; }), miss = (V.metadata.missing_days || []);
       var s0 = tl.length ? parseInt(tl[0].date, 10) : 1, e0 = tl.length ? parseInt(tl[tl.length - 1].date, 10) : 0;
-      rows.push(['<b>Visit PJP</b>', (miss.length ? warn + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa data: ' + miss.map(function (d) { return parseInt(d, 10); }).join(', ') : yes + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa hari kosong') + ' · ' + av.length + ' hari ada data', no, no]);
+      rows.push(['<b>Visit PJP</b>', (miss.length ? warn + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa data: ' + miss.map(function (d) { return parseInt(d, 10); }).join(', ') : yes + ' ' + s0 + '–' + e0 + ' ' + mon + ', tanpa hari kosong') + ' · ' + av.length + ' hari ada data', warn + ' ada di raw dan arsip ' + prevMon + ', belum dimuat ke feed berjalan', warn + ' idem (LMTD / FM PJP tampil n/a)']);
     }
     // MOBII (penjualan) per category: per-day totals from mc_daily
     var cats = [['SP', '<b>MOBII</b>: SP'], ['VCF', 'MOBII: Voucher isi'], ['VCB', 'MOBII: Voucher blank'], ['SALMO', 'MOBII: Saldo Mobo']];
@@ -13198,6 +13199,7 @@
       var day = [], lm = 0, i; for (i = 0; i < cut; i++) day.push(0);
       P.mc_daily.forEach(function (r) { if (r.cat !== c[0]) return; (r.m || []).forEach(function (x, k) { if (k < cut) day[k] += (x && x[1]) || 0; }); (r.l || []).forEach(function (x) { lm += (x && x[1]) || 0; }); });
       var fm = 0; (P.outlets || []).forEach(function (o) { var a = o.c && o.c[c[0]]; if (a && a[5] > 0) fm += a[5]; });
+      var zd = dcZeroDays(day, cut, y, m0); if (zd.length) gapAdd('MOBII', c[1].replace(/<[^>]+>/g, '').replace('MOBII: ', ''), zd);
       rows.push([c[1], dcMtdCell(day, cut, mon, y, m0), lm > 0 ? yes : no, fm > 0 ? yes + ' ' + prevDaysN + '/' + prevDaysN : no]);
     });
     // MOBO (demand) per category
@@ -13207,6 +13209,7 @@
       dcats.forEach(function (c) {
         var day = [], i; for (i = 0; i < dcut; i++) day.push(0);
         D.outlets.forEach(function (o) { var a = o.c && o.c[c[0]]; if (a && a[4]) a[4].forEach(function (e) { if (e[0] <= dcut) day[e[0] - 1] += e[1] || 0; }); });
+        var zdm = dcZeroDays(day, dcut, y, m0); if (zdm.length && c[0] !== 'CVM') gapAdd('MOBO', c[1].replace(/<[^>]+>/g, '').replace('MOBO: ', ''), zdm);
         var t = lmT[c[0]] || {}, note = '';
         if (c[0] === 'CVM') note = ' · <span class="note">sheet CVM berisi salinan RECARGE yang dibuang</span>';
         if (c[0] === 'SPI') note = ' · <span class="note">di luar total demand</span>';
@@ -13226,17 +13229,21 @@
     }
     // ENDBAL and target
     if (E && E.metadata) rows.push(['ENDBAL (stok dan saldo outlet)', (E.metadata.snapshot === pm.cut ? yes : warn) + ' snapshot ' + isoLbl(E.metadata.snapshot) + (E.metadata.snapshot === pm.cut ? '' : ' (' + Math.round((Date.parse(pm.cut) - Date.parse(E.metadata.snapshot)) / 86400000) + ' hari di belakang)'), 'n/a', 'n/a']);
-    if (T && T.metadata) rows.push(['Target DSE (Sell-In SP dan OSA)', yes + ' ' + fmtCount(T.metadata.dses) + ' DSE, target Oktober', 'n/a', 'n/a']);
+    if (T && T.metadata) rows.push(['Target DSE (Sell-In SP, OSA dan GA)', yes + ' ' + fmtCount(T.metadata.dses) + ' DSE, target ' + (T.metadata.period ? T.metadata.period.replace(' (target bulanan)', '') : 'Oktober'), 'n/a', 'n/a']);
     var todo = [];
     if (cut - ((G && G.metadata && parseInt(G.metadata.cut_day, 10)) || 0) > 0) todo.push('GA ' + cut + ' ' + mon);
     if (E && E.metadata && E.metadata.snapshot !== pm.cut) todo.push('snapshot ENDBAL terbaru');
-    todo.push('export PJP ' + prevMon, 'file MOBO_SALMO ' + prevMon, 'M2S Oktober');
-    return { rows: rows, todo: todo, head: 'Cut data: MOBII ' + cutSellIn() + ' · MOBO ' + cutDemand() + ' · PJP ' + pjpPeriod('end') + ' · GA ' + cutGa() + ' · ENDBAL snapshot ' + cutEndbal() + '. LMTD = 1–' + cut + ' ' + prevMon + ', FM = 1–30 ' + prevMon + '.' };
+    gapNote.forEach(function (g) { todo.push(g.src + ' tgl ' + g.days.join(', ') + ' ' + mon + ' kosong di export asli (' + g.cats.join(', ') + '): minta ekspor ulang'); });
+    todo.push('PJP ' + prevMon + ': muat ke feed berjalan untuk LMTD / FM (file ada di raw dan arsip)');
+    var lsX = ((dm.lm || {}).totals || {}).SAL || ((dm.lm || {}).totals || {}).SALMO || {};
+    if (!(lsX.lmtd > 0 && lsX.fm > 0)) todo.push('file MOBO_SALMO ' + prevMon);
+    todo.push('M2S Oktober');
+    return { rows: rows, todo: todo, cols: [curMon, prevMon, prevMon], head: 'Cut data: MOBII ' + cutSellIn() + ' · MOBO ' + cutDemand() + ' · PJP ' + pjpPeriod('end') + ' · GA ' + cutGa() + ' · ENDBAL snapshot ' + cutEndbal() + '. LMTD = 1–' + cut + ' ' + prevMon + ', FM = 1–30 ' + prevMon + '.' };
   }
   function dcOpen() {
     if (typeof document === 'undefined' || document.getElementById('ovPop')) return;
     var C = dcData();
-    var table = '<table class="tbl" data-nosort="1"><thead><tr><th>Komponen</th><th>MTD ' + MON_ID[9] + '</th><th>LMTD Sep</th><th>FM Sep</th></tr></thead><tbody>' + C.rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>'; }).join('') + '</tbody></table>';
+    var table = '<table class="tbl" data-nosort="1"><thead><tr><th>Komponen</th><th>MTD ' + C.cols[0] + '</th><th>LMTD ' + C.cols[1] + '</th><th>FM ' + C.cols[2] + '</th></tr></thead><tbody>' + C.rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>'; }).join('') + '</tbody></table>';
     var el = document.createElement('div'); el.id = 'ovPop';
     el.innerHTML = '<div class="ov-box" role="dialog" aria-modal="true" aria-label="Checklist kelengkapan data"><div class="ov-head"><div><div class="ov-title">Checklist kelengkapan data · MTD, LMTD, FM</div><div class="ov-scope">' + esc(C.head) + ' ✅ lengkap · ⚠️ ada catatan · ❌ tidak ada di raw</div></div><div class="ov-actions"><button type="button" class="btn" data-dc-close="1">Tutup ✕</button></div></div><div class="ov-body">' + table + '<p class="note" style="margin-top:8px;"><b>Yang masih perlu:</b> ' + esc(C.todo.join(', ')) + '.</p></div></div>';
     el.addEventListener('click', function (ev) { if (ev.target === el || (ev.target.closest && ev.target.closest('[data-dc-close]'))) ovClose(); });
