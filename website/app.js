@@ -2168,6 +2168,19 @@
     var v = bval(r);
     return v.planned > 0 || v.actual > 0;
   }
+  /* PJP visit basis (owner, 26 Nov 2026): ad-hoc visits are NOT in the denominator of the PJP visit rate (only the permanent journey plan, P), and they count in the
+     Effective Call (productive visits incl. ad-hoc / visited outlets incl. ad-hoc). bvalP = bval without the ad-hoc stops; plannedT / actualT keep the T figures
+     (planned + ad-hoc, executed + ad-hoc) that the productive rate is measured on. */
+  function bvalP(r) {
+    var v = bval(r), b = state.visitsBrandFilter || 'all';
+    var ah = b === 'im3' ? (r.adhoc_im3 || 0) : (b === '3id' ? (r.adhoc_3id || 0) : (r.adhoc_visits != null ? r.adhoc_visits : (r.adhoc || 0)));
+    return { planned: Math.max(0, v.planned - ah), actual: Math.max(0, v.actual - ah), ah: ah, plannedT: v.planned, actualT: v.actual };
+  }
+  function hitP0(r) { /* PJP hit rate of a feed row without ad-hoc (owner 26 Nov 2026); falls back to target_hit_rate for feeds without ad-hoc counts */
+    if (!r) return null; var ah = r.adhoc_visits != null ? r.adhoc_visits : null; if (ah == null || window.IJ_PER === 'oct') return r.target_hit_rate != null ? r.target_hit_rate : null;
+    var pl = (r.planned_visits || 0) - ah, ac = (r.actual_visits || 0) - ah; return pl > 0 ? Math.round(Math.max(0, ac) / pl * 1000) / 10 : null;
+  }
+  function visitHitP(r) { var v = bvalP(r); return v.planned ? Math.round(v.actual / v.planned * 1000) / 10 : null; }
   function hitPct(v) { return v.planned ? Math.round(v.actual / v.planned * 1000) / 10 : 0; }
   function hitBar(rate) {
     return '<div class="progress-bar-cell"><div class="progress-bar-fill' + (rate >= 60 ? ' good' : '') + '" style="width:' + Math.min(100, rate) + '%;"></div><span class="progress-bar-label">' + rate + '%</span></div>';
@@ -2334,7 +2347,7 @@
       if (d.available === false) {
         return '<tr style="color:var(--ij-muted);"><td class="cur"><b>' + esc(d.date) + '</b> (' + esc(d.day) + ')</td><td colspan="8"><i>Data not available: no PJP export for this day</i></td></tr>';
       }
-      var v = bval(d), rate = hitPct(v);
+      var v = bvalP(d), rate = hitPct(v);
       return '<tr>' +
         '<td class="cur"><b>' + esc(d.date) + '</b> (' + esc(d.day) + ')</td>' +
         '<td class="num">' + fmtCount(v.planned) + '</td>' +
@@ -2449,16 +2462,16 @@
 
   // TOTAL row for the Area / MC visit tables: sums the counts of the listed rows and recomputes the rates from them
   function visitsTotalRow(list, lead) {
-    var T = { planned: 0, actual: 0, prodW: 0, out: 0, vis: 0, nv: 0, nv7: 0, nv3: 0, sites: 0, sz: 0, sz7: 0, sz3: 0, im3: 0, id3: 0, hy: 0 };
+    var T = { planned: 0, actual: 0, actualT: 0, prodW: 0, out: 0, vis: 0, nv: 0, nv7: 0, nv3: 0, sites: 0, sz: 0, sz7: 0, sz3: 0, im3: 0, id3: 0, hy: 0 };
     list.forEach(function (r) {
-      var v = bval(r); T.planned += v.planned; T.actual += v.actual; T.prodW += (r.productive_rate || 0) * v.actual;
+      var v = bvalP(r); T.planned += v.planned; T.actual += v.actual; T.prodW += (r.productive_rate || 0) * v.actualT; T.actualT += v.actualT;
       T.out += r.total_outlets || 0; T.vis += r.visited_outlets_mtd || 0; T.nv += r.not_visited_mtd || 0; T.nv7 += r.not_visited_7d || 0; T.nv3 += r.not_visited_3d || 0;
       T.sites += r.total_sites || 0; T.sz += r.sites_zero_mtd || 0; T.sz7 += r.sites_zero_7d || 0; T.sz3 += r.sites_zero_3d || 0;
       T.im3 += r.im3_visits || 0; T.id3 += r['3id_visits'] || 0; T.hy += r.hybrid_outlets || 0;
     });
     var c = 'style="background:var(--ink); color:#fff;"';
     return '<tr style="background:var(--ink); color:#fff; font-weight:800;">' + lead + '<td class="num">' + fmtCount(T.planned) + '</td><td class="num">' + fmtCount(T.actual) + '</td><td>' + hitPct(T) + '%</td>' +
-      '<td class="num">' + (T.actual ? Math.round(T.prodW / T.actual * 10) / 10 + '%' : '—') + '</td><td class="num">' + fmtCount(T.out) + '</td><td class="num">' + fmtCount(T.vis) + ' (' + (T.out ? Math.round(T.vis / T.out * 1000) / 10 : 0) + '%)</td>' +
+      '<td class="num">' + (T.actualT ? Math.round(T.prodW / T.actualT * 10) / 10 + '%' : '—') + '</td><td class="num">' + fmtCount(T.out) + '</td><td class="num">' + fmtCount(T.vis) + ' (' + (T.out ? Math.round(T.vis / T.out * 1000) / 10 : 0) + '%)</td>' +
       '<td class="num">' + fmtCount(T.nv) + '</td><td class="num">' + fmtCount(T.nv7) + '</td><td class="num">' + fmtCount(T.nv3) + '</td><td class="num">' + fmtCount(T.sites) + '</td><td class="num">' + fmtCount(T.sz) + '</td><td class="num">' + fmtCount(T.sz7) + '</td><td class="num">' + fmtCount(T.sz3) + '</td>' +
       '<td class="num">IM3 ' + fmtCount(T.im3) + '</td><td class="num">3ID ' + fmtCount(T.id3) + '</td><td class="num">' + fmtCount(T.hy) + '</td><td></td><td></td><td></td></tr>';
   }
@@ -2473,7 +2486,7 @@
       return brandRowOk(b);
     });
     var rows = filtered.map(function (b) {
-      var v = bval(b), rate = hitPct(v);
+      var v = bvalP(b), rate = hitPct(v);
       var muted = b.outside ? ' style="color:var(--ij-muted);"' : '';
       return '<tr' + muted + '>' +
         '<td class="cur"><b>' + esc(b.branch) + '</b></td>' +
@@ -2523,7 +2536,7 @@
       return brandRowOk(m);
     });
     var rows = filtered.map(function (m) {
-      var v = bval(m), rate = hitPct(v);
+      var v = bvalP(m), rate = hitPct(v);
       var muted = m.outside ? ' style="color:var(--ij-muted);"' : '';
       return '<tr' + muted + '>' +
         '<td class="cur"><b>' + esc(m.micro_cluster) + '</b></td>' +
@@ -2581,7 +2594,7 @@
       return true;
     });
     var rowOf = function (d) {
-      var v = bval(d), rate = hitPct(v);
+      var v = bvalP(d), rate = hitPct(v);
       var statusTag;
       if (d.is_promotor) statusTag = promoTag(d) + '<br><span class="note">tidak diukur sebagai PJP</span>';
       else if (d.role === 'PROMOTOR TOKO') statusTag = promoTag(d) + '<br><span class="note">bukan DSE · login di luar master</span>';
@@ -2621,7 +2634,7 @@
     var dsoOfMc = {}, hoaOfArea = {};
     filtered.forEach(function (d) { if (!dsoOfMc[d.micro_cluster]) dsoOfMc[d.micro_cluster] = d.dso_leader || '—'; if (!hoaOfArea[d.branch]) hoaOfArea[d.branch] = d.hoa_leader || hoaMap[d.branch] || '—'; });
     var sub = function (it) {
-      var pl = grpSum(it, function (d) { return d.is_promotor ? 0 : bval(d).planned; }), ac = grpSum(it, function (d) { return d.is_promotor ? 0 : bval(d).actual; });
+      var pl = grpSum(it, function (d) { return d.is_promotor ? 0 : bvalP(d).planned; }), ac = grpSum(it, function (d) { return d.is_promotor ? 0 : bvalP(d).actual; });
       return '<td colspan="4"></td><td class="num">' + fmtCount(pl) + '</td><td class="num"><b>' + fmtCount(ac) + '</b></td><td>' + hitBar(hitPct({ planned: pl, actual: ac })) + '</td><td colspan="6"></td>' +
         '<td class="num alert-tag">' + fmtCount(grpSum(it, function (d) { return d.assigned_not_visited_mtd; })) + '</td>' +
         '<td class="num">' + fmtCount(grpSum(it, function (d) { return d.im3_visits; })) + '</td><td class="num">' + fmtCount(grpSum(it, function (d) { return d['3id_visits']; })) + '</td><td colspan="4"></td>';
@@ -5274,9 +5287,9 @@
     var dses = Object.keys(byDse).map(function (k) {
       var R = byDse[k], v = (D[k] || {}).visits || null;
       R.uar3pct = R.base ? R.uar3 / R.base * 100 : 0; R.capped = Math.min(OP_UAR_CAP, R.inc);
-      R.hit = v ? v.target_hit_rate : null; R.planned = v ? v.planned_visits : null; R.exec = v ? v.actual_visits : null;
-      R.compUar = R.uar3pct >= 50; R.compPjp = v ? v.target_hit_rate >= 100 : false; R.eligible = R.compUar && R.compPjp;
-      R.pjpOnTrack = v ? v.target_hit_rate >= 90 : false;
+      R.hit = v ? hitP0(v) : null; R.planned = v ? v.planned_visits - (window.IJ_PER === 'oct' ? 0 : (v.adhoc_visits || 0)) : null; R.exec = v ? v.actual_visits - (window.IJ_PER === 'oct' ? 0 : (v.adhoc_visits || 0)) : null;
+      R.compUar = R.uar3pct >= 50; R.compPjp = v ? (hitP0(v) || 0) >= 100 : false; R.eligible = R.compUar && R.compPjp;
+      R.pjpOnTrack = v ? (hitP0(v) || 0) >= 90 : false;
       return R;
     }).sort(function (a, b) { return b.capped - a.capped || b.uar3pct - a.uar3pct; });
     var mcs = {};
@@ -6021,7 +6034,7 @@
       var e = byName[k] || (byName[k] = { name: o.dse_name, branch: o.branch, mc: o.micro_cluster, dso: o.dso_leader || '', hoa: o.hoa_leader || '', hit: null, person_id: null, pts: [] });
       [o.dse_code_im3, o.dse_code_3id].forEach(function (c) { if (c) codeToName[String(c).toUpperCase()] = k; });
     });
-    (vf.dses || []).forEach(function (d) { var k = String(d.dse_name || '').toUpperCase(); if (byName[k]) { byName[k].hit = d.target_hit_rate; byName[k].person_id = d.person_id; } });
+    (vf.dses || []).forEach(function (d) { var k = String(d.dse_name || '').toUpperCase(); if (byName[k]) { byName[k].hit = hitP0(d); byName[k].person_id = d.person_id; } });
     return { byName: byName, codeToName: codeToName };
   }
   function mbDsePolys(vf) {
@@ -6062,7 +6075,7 @@
       var ds = String(u.dse || '—').toUpperCase(); ds = idx.codeToName[ds] || ds;
       novisit.mc[u.mc] = (novisit.mc[u.mc] || 0) + 1; novisit.kec[u.kec] = (novisit.kec[u.kec] || 0) + 1; novisit.dse[ds] = (novisit.dse[ds] || 0) + 1;
     });
-    var hit = {}; (vf.micro_clusters || []).forEach(function (mm) { hit[mm.micro_cluster] = mm.target_hit_rate; });
+    var hit = {}; (vf.micro_clusters || []).forEach(function (mm) { hit[mm.micro_cluster] = hitP0(mm); });
     Object.keys(idx.byName).forEach(function (k) { if (idx.byName[k].hit != null) hit[k] = idx.byName[k].hit; });
     return { tot: tot, nosell: nosell, novisit: novisit, hit: hit, dseIdx: idx };
   }
@@ -9902,7 +9915,9 @@
     o.uarTgt = (r.cls === 'R' ? U.target_rural : U.target_urban) * f; o.uar = (!opt.spi && r.sp_uar5_ns != null) ? r.sp_uar5_ns : r.sp_uar5;   // UAR >= 5 pcs = SP 3GB + SP Injection (SP0 excluded); "Tanpa Injection" uses the 3GB-only count
     o.uarAch = o.uarTgt > 0 ? Math.min(cap, o.uar / o.uarTgt) : 0;
     /* owner 18 Nov 2026: Effective Call = productive visits ÷ executed visits (PJP + ad-hoc); 'exec' view = visit productivity (executed ÷ planned) */
-    o.ecNum = opt.ec === 'exec' ? r.actual : r.prod; o.ecDen = (opt.ec === 'exec' || window.IJ_PER === 'oct') ? r.planned : r.actual;   /* October close (per=oct) keeps the old planned denominator */
+    /* owner 26 Nov 2026: 'Visit terlaksana ÷ rencana' = PJP executed ÷ PJP planned (ad-hoc is not in the PJP denominator); Effective Call keeps ad-hoc (productive ÷ executed incl. ad-hoc) */
+    var ahK = window.IJ_PER === 'oct' ? 0 : (r.adhoc || 0);
+    o.ecNum = opt.ec === 'exec' ? Math.max(0, r.actual - ahK) : r.prod; o.ecDen = opt.ec === 'exec' ? Math.max(0, r.planned - ahK) : (window.IJ_PER === 'oct' ? r.planned : r.actual);   /* October close (per=oct) keeps the old planned denominator */
     o.ec = o.ecDen > 0 ? o.ecNum / o.ecDen : null;
     o.ecAch = o.ec == null ? 0 : Math.min(cap, o.ec / E.target);
     o.comp = U.weight * o.uarAch + E.weight * o.ecAch;
@@ -9959,7 +9974,7 @@
     ];
     var cmpRows = [
       'UAR ≥ 5 pcs (SP 3GB' + (opt.spi ? ' + Injection' : '') + '; SP0 tidak dihitung): <b>' + fmtCount(o.uar) + '</b> outlet · target <b>' + (Math.round(o.uarTgt * 10) / 10) + '</b> (' + (r.cls === 'R' ? P.compliance.uar.target_rural + ' rural' : P.compliance.uar.target_urban + ' urban') + (f < 1 ? ' × ' + M.cut_day + '/' + M.month_days : '') + ') → skor ' + dkPctTag(o.uarAch, 1, 0.9),
-      'Effective call: <b>' + fmtCount(o.ecNum) + '</b> ' + (state.dkEc === 'exec' ? 'visit terlaksana' : 'visit produktif') + ' ÷ <b>' + fmtCount(o.ecDen) + '</b> ' + (state.dkEc === 'exec' ? 'rencana + adhoc' : 'visit terlaksana (PJP + adhoc)') + (r.vis ? ' = ' + (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : ' <span class="note">(tanpa data PJP)</span>') + ' · target 50% → skor ' + dkPctTag(o.ecAch, 1, 0.9),
+      'Effective call: <b>' + fmtCount(o.ecNum) + '</b> ' + (state.dkEc === 'exec' ? 'visit PJP terlaksana' : 'visit produktif') + ' ÷ <b>' + fmtCount(o.ecDen) + '</b> ' + (state.dkEc === 'exec' ? 'rencana PJP (tanpa adhoc)' : 'visit terlaksana (PJP + adhoc)') + (r.vis ? ' = ' + (o.ec == null ? '—' : (o.ec * 100).toFixed(1) + '%') : ' <span class="note">(tanpa data PJP)</span>') + ' · target 50% → skor ' + dkPctTag(o.ecAch, 1, 0.9),
       'Skor compliance = ' + (P.compliance.uar.weight * 100) + '% × ' + (o.uarAch * 100).toFixed(0) + '% + ' + (P.compliance.ec.weight * 100) + '% × ' + (o.ecAch * 100).toFixed(0) + '% = <b>' + (o.comp * 100).toFixed(1) + '%</b> → index ' + dkIdxTag(o.idx)
     ];
     var incRows = [
@@ -10834,7 +10849,7 @@
     return '<div class="map-toolbar" style="margin-top:6px;"><div class="map-toolbar-group"><span class="map-label">DSE:</span>' +
       '<select class="map-select" data-act="mb-dse" aria-label="Pilih DSE dalam cakupan" style="min-width:320px;"><option value="">— Semua DSE dalam cakupan (' + list.length + ') —</option>' +
       list.map(function (d) { return '<option value="' + esc(d.person_id) + '"' + (keep === d.person_id ? ' selected' : '') + '>' + esc(d.dse_name) + ' · ' + esc(d.micro_cluster || '—') + (d.in_master ? '' : ' (non-PJP)') + '</option>'; }).join('') + '</select>' +
-      (sel ? '<span class="chip" style="margin-left:8px;">DSE: ' + esc(sel.dse_name) + ' · ' + esc(sel.micro_cluster || '—') + ' · hit ' + (sel.target_hit_rate != null ? sel.target_hit_rate + '%' : '—') + '</span><button type="button" class="btn" data-act="mb-dse-clear" style="margin-left:6px;">✕ Lepas DSE</button>' : '') +
+      (sel ? '<span class="chip" style="margin-left:8px;">DSE: ' + esc(sel.dse_name) + ' · ' + esc(sel.micro_cluster || '—') + ' · hit PJP ' + (hitP0(sel) != null ? hitP0(sel) + '%' : '—') + '</span><button type="button" class="btn" data-act="mb-dse-clear" style="margin-left:6px;">✕ Lepas DSE</button>' : '') +
       '</div></div>';
   }
   function mbScopeLabel(vf) { var d = visitsDseRow(vf); return esc(scopeText()) + (d ? ' · DSE ' + esc(d.dse_name) : ''); }
