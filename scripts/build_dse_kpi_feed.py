@@ -258,7 +258,12 @@ def main():
         if k in vis:
             dup += 1
         v = vis.setdefault(k, {'planned': 0, 'actual': 0, 'prod': 0, 'adhoc': 0, 'person': d.get('person_id')})
-        v['planned'] += num(d.get('planned_visits')); v['actual'] += num(d.get('actual_visits')); v['prod'] += num(d.get('productive_visits')); v['adhoc'] += num(d.get('adhoc_visits'))
+        # owner 26 Nov 2026: visits and Effective Call are counted on UNIQUE outlets (entity-day: a Hybrid outlet visited under IM3 and 3ID is one visit), so the
+        # denominator (visited outlets) and the numerator (productive outlets) are on the same basis; stop counts stay as stops_*; fall back to stops for feeds without entity fields
+        ent = d.get('entity_planned') is not None
+        v['planned'] += num(d.get('entity_planned') if ent else d.get('planned_visits')); v['actual'] += num(d.get('entity_actual') if ent else d.get('actual_visits'))
+        v['prod'] += num(d.get('entity_productive') if ent else d.get('productive_visits')); v['adhoc'] += num(d.get('entity_adhoc') if ent else d.get('adhoc_visits'))
+        v['stops_planned'] = v.get('stops_planned', 0) + num(d.get('planned_visits')); v['stops_actual'] = v.get('stops_actual', 0) + num(d.get('actual_visits')); v['stops_prod'] = v.get('stops_prod', 0) + num(d.get('productive_visits'))
 
     # temporary logins with exactly one probable owner (owner decision 21 Oct 2026: the logins stay separate in PJP; the target row follows the owner)
     SEM_OWNER = {}
@@ -328,7 +333,7 @@ def main():
             'sp_tgt': t['sp'][2] if t else None, 'sp_tgt_im3': t['sp'][0] if t else None, 'sp_tgt_3id': t['sp'][1] if t else None, 'osa_tgt_im3': t['osa'][0] if t else None, 'osa_tgt_3id': t['osa'][1] if t else None,
             'sp_pcs': round(a['sp_pcs']), 'sp_amt': round(a['sp_amt']), 'sp_lpcs': round(a['sp_lpcs']), 'sp_sep': round(a['sp_sep_pcs']),
             'sp_uar5': a['sp_uar5'], 'sp_uar5_ns': a['sp_uar5_ns'], 'sp_out': a['sp_out'], 'sp3_pcs': round(a['sp3_pcs']), 'sp3_lpcs': round(a['sp3_lpcs']), 'sp3_sep': round(a['sp3_sep']), 'sp3_out': a['sp3_out'], 'sp0_pcs': round(a['sp0_pcs']), 'spx_pcs': round(a['spx_pcs']), 'spb': {b_: [round(x) for x in v_] for b_, v_ in a['spb'].items()}, 'spi_pcs': round(a['spi_pcs']), 'spi_amt': round(a['spi_amt']), 'spi_out': a['spi_out'], 'spi_lpcs': round(a['spi_lpcs']), 'spi_sep': round(a['spi_sep']),
-            'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'adhoc': v['adhoc'] if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
+            'planned': v['planned'] if v else 0, 'actual': v['actual'] if v else 0, 'prod': v['prod'] if v else 0, 'adhoc': v['adhoc'] if v else 0, 'stops_planned': v.get('stops_planned', 0) if v else 0, 'stops_actual': v.get('stops_actual', 0) if v else 0, 'stops_prod': v.get('stops_prod', 0) if v else 0, 'vis': bool(v), 'pid': v['person'] if v else None,
         })
     rows.sort(key=lambda r: (r['br'], r['mc'], r['n'].upper()))
 

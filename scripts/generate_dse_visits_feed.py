@@ -703,6 +703,7 @@ for (ek, sched), d in ent_days.items():
         cd["pl"] += 1
         cd["ac"] += d["ex"]
         cd["ah"] += (not d["pl"]) and d["ex"]
+        cd["prod"] += d["prod"]
     for lvl, key in (("day", sched), ("br", d["br"]), ("mc", d["mc"]), ("op", pid)):
         c = ent_stats[lvl][key]
         c["pl"] += 1
@@ -749,7 +750,7 @@ def daily_series(lvl, key):
     # cell = [planned, executed, planned_im3, exec_im3, planned_3id, exec_3id, productive, adhoc, adhoc_im3, adhoc_3id, adhoc_productive, entity planned, entity executed, entity adhoc]
     inner = daily_by[lvl].get(key, {})
     ent = ent_daily[lvl].get(key, {})
-    return [(list(inner[d]) if d in inner else [0] * 11) + ([ent[d]["pl"], ent[d]["ac"], ent[d]["ah"]] if d in ent else [0, 0, 0]) for d in DAYS]
+    return [(list(inner[d]) if d in inner else [0] * 11) + ([ent[d]["pl"], ent[d]["ac"], ent[d]["ah"], ent[d]["prod"]] if d in ent else [0, 0, 0, 0]) for d in DAYS]
 
 
 def hybrid(keys):

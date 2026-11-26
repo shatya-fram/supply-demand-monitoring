@@ -29,16 +29,19 @@ function audit(scope) {
   const D = displayed(), inS = (br, mc, hoa) => (!state.branch || br === state.branch) && (!state.kec || mc === state.kec) && (!state.hoa || hoa === state.hoa);
   // ---- PJP (visits feed): every non-promotor operator, scope by branch / MC / HoA
   const ops = V.dses.filter(d => !d.is_promotor && inS(d.branch, d.micro_cluster, d.hoa_leader)), li = (() => { const days = V.metadata.days, miss = V.metadata.missing_days || []; for (let i = days.length - 1; i >= 0; i--) { const [dd, mm, yy] = days[i].split('-'); const dt = new Date(Date.UTC(+yy, ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(mm), +dd)); if (dt.getUTCDay() !== 0 && miss.indexOf(days[i]) < 0) return i; } return days.length - 1; })();
-  const pl = ops.reduce((a, d) => a + d.planned_visits, 0), ac = ops.reduce((a, d) => a + d.actual_visits, 0), pr = ops.reduce((a, d) => a + d.productive_visits, 0);
-  const dpl = ops.reduce((a, d) => a + d.daily[li][0], 0), dac = ops.reduce((a, d) => a + d.daily[li][1], 0);
+  // owner 26 Nov 2026: the Overall Performance visit cards count UNIQUE outlets (entity-day) from November; the October close keeps stops
+  const ENT = process.env.PER !== 'oct' && ops.length && ops[0].entity_planned != null, ent = (d, a, b) => ENT ? (d[a] || 0) : (d[b] || 0);
+  const pl = ops.reduce((a, d) => a + ent(d, 'entity_planned', 'planned_visits'), 0), ac = ops.reduce((a, d) => a + ent(d, 'entity_actual', 'actual_visits'), 0), pr = ops.reduce((a, d) => a + ent(d, 'entity_productive', 'productive_visits'), 0);
+  const dcell = (d, ei, si) => ENT ? (d.daily[li][ei] || 0) : (d.daily[li][si] || 0);
+  const dpl = ops.reduce((a, d) => a + dcell(d, 11, 0), 0), dac = ops.reduce((a, d) => a + dcell(d, 12, 1), 0);
   // P / A / T (owner, 23 Okt 2026): the % PJP cards show P = total minus ad-hoc visits (stops without BEATPLANID); the Adhoc card shows A and the Total card T = P + A
-  const ah = ops.reduce((a, d) => a + (d.adhoc_visits || 0), 0), dah = ops.reduce((a, d) => a + (d.daily[li][7] || 0), 0);
+  const ah = ops.reduce((a, d) => a + ent(d, 'entity_adhoc', 'adhoc_visits'), 0), dah = ops.reduce((a, d) => a + dcell(d, 13, 7), 0);
   let s = D.pjp_mtd.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_mtd', 'terlaksana PJP (P)', num(s[1]), ac - ah); eq(scope, 'pjp_mtd', 'rencana PJP (P)', num(s[2]), pl - ah);
   s = D.pjp_mtd_t.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_mtd_t', 'total terlaksana (T)', num(s[1]), ac); eq(scope, 'pjp_mtd_t', 'rencana + adhoc (T)', num(s[2]), pl);
   eq(scope, 'pjp_mtd_a', 'visit adhoc (A)', num(D.pjp_mtd_a.value), ah);
   s = D.pjp_d1.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'pjp_d1', 'terlaksana D-1 (P)', num(s[1]), dac - dah); eq(scope, 'pjp_d1', 'rencana D-1 (P)', num(s[2]), dpl - dah);
   s = D.ec_mtd.delta.match(/([\d,]+) \/ ([\d,]+)/); eq(scope, 'ec_mtd', 'produktif', num(s[1]), pr);
-  const withD = ops.filter(d => d.in_master && d.daily[li][0] > 0), n100 = withD.filter(d => d.daily[li][1] >= d.daily[li][0]).length;
+  const withD = ops.filter(d => d.in_master && dcell(d, 11, 0) > 0), n100 = withD.filter(d => dcell(d, 12, 1) >= dcell(d, 11, 0)).length;
   s = D.dse100.delta.match(/(\d+) \/ (\d+) DSE/); eq(scope, 'dse100', 'DSE 100% D-1', num(s[1]), n100); eq(scope, 'dse100', 'DSE dengan rencana D-1', num(s[2]), withD.length);
   // DSE identity: operators in the master vs logins that are not
   const master = ops.filter(d => d.in_master).length, unm = ops.filter(d => !d.in_master).length; eq(scope, 'pjp_mtd', 'jumlah DSE terpetakan tampil', num((D.pjp_mtd.note.match(/(\d+) DSE terpetakan/) || [, 0])[1]), master); if (unm) eq(scope, 'pjp_mtd', 'login belum terpetakan tampil', num((D.pjp_mtd.note.match(/(\d+) login belum terpetakan/) || [, 0])[1]), unm);

@@ -11424,7 +11424,12 @@
       if (d.is_promotor || !ovIn(d.branch, d.micro_cluster, d.hoa_leader)) return;
       var r = get(d.dse_name, d.person_id), x = (d.daily || [])[li] || [0, 0, 0, 0, 0, 0, 0];
       r.code = r.code || ovCode(d); r.mc = r.mc || d.micro_cluster; r.hasV = true; r.inM = !!d.in_master;
-      r.pl += d.planned_visits; r.ac += d.actual_visits; r.pr += d.productive_visits; r.dpl += x[0]; r.dac += x[1]; r.dpr += x[6] || 0; r.ah += d.adhoc_visits || 0; r.dah += x[7] || 0;
+      /* owner 26 Nov 2026: visits and Effective Call on UNIQUE outlets (entity-day: a Hybrid outlet visited under IM3 and 3ID counts once; planned / executed / ad-hoc / productive
+         on the same basis, so EC = productive outlets ÷ visited outlets). Falls back to stops for feeds without entity fields (October close). */
+      var en = d.entity_planned != null && window.IJ_PER !== 'oct', hasEd = en && x.length > 14;
+      r.pl += en ? d.entity_planned : d.planned_visits; r.ac += en ? d.entity_actual : d.actual_visits; r.pr += en ? d.entity_productive : d.productive_visits;
+      r.dpl += en ? (x[11] || 0) : x[0]; r.dac += en ? (x[12] || 0) : x[1]; r.dpr += hasEd ? (x[14] || 0) : (x[6] || 0);
+      r.ah += en ? (d.entity_adhoc || 0) : (d.adhoc_visits || 0); r.dah += en ? (x[13] || 0) : (x[7] || 0);
     });
     if (K) (K.dses || []).forEach(function (d) { if (!ovIn(d.br, d.mc, d.hoa)) return; var r = get(d.n, d.pid); r.inM = true; r.mc = r.mc || d.mc; r.osa += d.osa_amt; r.osaT += d.osa_tgt; r.spT += d.sp_tgt; r.asg += d.assigned; r.spi += dkSpiOn() ? (d.spi_pcs || 0) : 0; r.sp3 += dkSp3(d); r.kL += (d.sp3_lpcs || 0) + (dkSpiOn() ? (d.spi_lpcs || 0) : 0); r.kF += (d.sp3_sep || 0) + (dkSpiOn() ? (d.spi_sep || 0) : 0); });   // kL / kF = September baseline (LMTD, full month) on the same basis as the October actual: SP 3GB (MOBII) + SP Injection (MOBO)
     if (F && LD) pjOutlets(F).forEach(function (o) {
