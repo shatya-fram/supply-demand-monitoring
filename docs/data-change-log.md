@@ -2,6 +2,9 @@
 
 One entry per data refresh: what arrived in `raw/`, what changed in the feeds, what to watch. Newest first. Method details live in `docs/assessments/`; run the refresh with `python3 scripts/daily_update.py`.
 
+## 28 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 27 Nov; GA tetap D24
+- MOBII, MOBO, SALMO dan visit PJP 27 Nov (cut D27), snapshot ENDBAL 27 Nov (211.201 baris, 28.928 outlet). Tidak ada file GA, Catalogue atau Targets baru; rantai GA, KRO, Stock, target program, KPI November, flag non-PJP dan period history dibangun ulang. Semua audit lulus (peringatan: de-dup SP naik ke 35,9%, UAR 107,1% untuk 1 DSE). Detail: `docs/assessments/daily_update_2026-11-28.md`.
+
 ## 27 Nov 2026 · Sell-In, Demand, PJP dan ENDBAL sampai 26 Nov; GA tetap D24
 - MOBII, MOBO, SALMO dan visit PJP 26 Nov (cut D26), snapshot ENDBAL 26 Nov (211.072 baris, 28.928 outlet). Tidak ada file GA, Catalogue atau Targets baru; rantai GA, KRO, Stock, target program, KPI November, flag non-PJP dan period history dibangun ulang. Semua audit lulus (peringatan: de-dup SP 27,0%, UAR 107,1% untuk 1 DSE). Detail: `docs/assessments/daily_update_2026-11-27.md`.
 
